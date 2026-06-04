@@ -4,8 +4,12 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
+    "dev:desktop": "PLATFORM=desktop vite",
+    "dev:mobile": "PLATFORM=mobile vite",
+    "dev": "PLATFORM=desktop vite",
+    "build:desktop": "tsc --noEmit && PLATFORM=desktop vite build",
+    "build:mobile": "tsc --noEmit && PLATFORM=mobile vite build",
+    "build": "tsc --noEmit && PLATFORM=desktop vite build",
     "preview": "vite preview",
     "tauri": "tauri"
   },
