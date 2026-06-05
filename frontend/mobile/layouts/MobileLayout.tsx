@@ -5,9 +5,9 @@ export function MobileLayout({ children }: { children: ReactNode }) {
     <div className="mobile-layout">
       <main>{children}</main>
       <nav className="bottom-nav">
-        <button>Home</button>
-        <button>Search</button>
-        <button>Profile</button>
+        <button type="button">Home</button>
+        <button type="button">Search</button>
+        <button type="button">Profile</button>
       </nav>
     </div>
   );

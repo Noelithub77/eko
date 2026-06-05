@@ -11,7 +11,10 @@
     "build:mobile": "tsc --noEmit && PLATFORM=mobile vite build",
     "build": "tsc --noEmit && PLATFORM=desktop vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "lint": "biome check",
+    "lint:fix": "biome check --write",
+    "format": "biome format --write"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
@@ -20,6 +23,7 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
     "@tailwindcss/vite": "^4.3.0",
     "@tauri-apps/cli": "^2",
     "@types/react": "^19.1.8",
