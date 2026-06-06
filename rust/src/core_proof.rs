@@ -1,11 +1,12 @@
 use serde::Serialize;
+use specta::Type;
 
 use crate::audio::AudioProofStatus;
 use crate::discovery::DiscoveryProofStatus;
 use crate::signaling::SignalingProofStatus;
 use crate::webrtc_core::WebRtcProofStatus;
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct CoreProofStatus {
     pub audio: AudioProofStatus,

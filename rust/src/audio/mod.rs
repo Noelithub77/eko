@@ -1,6 +1,7 @@
 use serde::Serialize;
+use specta::Type;
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AudioProofStatus {
     pub backend: String,
@@ -10,8 +11,8 @@ pub struct AudioProofStatus {
 }
 
 pub fn proof_status() -> AudioProofStatus {
-    let default_output_device = cpal::traits::HostTrait::default_output_device(&cpal::default_host())
-        .and_then(|device| {
+    let default_output_device =
+        cpal::traits::HostTrait::default_output_device(&cpal::default_host()).and_then(|device| {
             cpal::traits::DeviceTrait::description(&device)
                 .map(|description| description.name().to_string())
                 .ok()

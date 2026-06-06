@@ -1,13 +1,14 @@
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum JoinMethod {
     Qr,
     Discovery,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum DeviceConnectionState {
     Pending,
@@ -18,14 +19,14 @@ pub enum DeviceConnectionState {
     Denied,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum SharingState {
     Enabled,
     Disabled,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Device {
     pub device_id: String,
@@ -39,7 +40,7 @@ pub struct Device {
     pub ice_state: String,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct JoinRequest {
     pub device_id: String,

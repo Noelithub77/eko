@@ -17,7 +17,7 @@ android {
     compileSdk = 36
     namespace = "com.codialo.eko"
     defaultConfig {
-        manifestPlaceholders["usesCleartextTraffic"] = "false"
+        manifestPlaceholders["usesCleartextTraffic"] = "true"
         applicationId = "com.codialo.eko"
         minSdk = 26
         targetSdk = 36

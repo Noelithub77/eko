@@ -24,6 +24,10 @@
 - [x] Added typed Tauri command for core proof status.
 - [x] Added typed frontend API for core proof status.
 - [x] Added typed frontend model for core proof status.
+- [x] Added `specta` + `tauri-specta` generated Rust-to-TypeScript bindings.
+- [x] Replaced hand-written frontend command invokes with generated Tauri commands.
+- [x] Re-exported shared frontend boundary types from generated Rust bindings.
+- [x] Removed handwritten `any` from the Rust-to-TypeScript command boundary.
 - [x] Added Core Proof status cards to the desktop Dev tab.
 - [x] Fixed desktop Tauri build commands to use npm.
 - [x] Added Android-specific Tauri config for mobile frontend builds.
@@ -39,19 +43,19 @@
 - [ ] Step 01: Build real Android native audio output proof.
 - [ ] Step 01: Measure first real setup time and audio latency.
 - [ ] Step 01: Decide final Windows capture backend after testing `wasapi` vs `cpal`.
-- [ ] Step 02: Build WebSocket signaling server in Rust.
-- [ ] Step 02: Add typed signaling messages for join, approval, SDP, ICE, and state events.
-- [ ] Step 02: Build first WebRTC sender and receiver handshake.
+- [x] Step 02: Build WebSocket signaling server in Rust.
+- [x] Step 02: Add typed signaling messages for join, approval, SDP, ICE, and state events.
+- [x] Step 02: Build first WebRTC sender and receiver handshake structure.
 - [ ] Step 02: Stream Opus audio through WebRTC.
-- [ ] Step 03: Implement QR pairing payload with `host`, `port`, `roomId`, and session token.
-- [ ] Step 03: Implement session token validation.
-- [ ] Step 03: Implement join request approval and denial against real signaling.
-- [ ] Step 03: Keep denied devices blocked until desktop unblocks them.
-- [ ] Step 04: Implement mDNS LAN discovery toggle separately from QR pairing.
-- [ ] Step 04: Make approved devices start sharing automatically.
-- [ ] Step 04: Support multiple Android receivers in one session.
-- [ ] Step 05: Polish desktop UI for Start/Stop, QR, LAN toggle, pending requests, and connected devices.
-- [ ] Step 05: Polish Android UI for Scan QR, Find Nearby Host, waiting, connected, and denied states.
+- [x] Step 03: Implement QR pairing payload with `host`, `port`, `roomId`, and session token.
+- [x] Step 03: Implement session token validation.
+- [x] Step 03: Implement join request approval and denial against real signaling.
+- [x] Step 03: Keep denied devices blocked until desktop unblocks them.
+- [x] Step 04: Implement mDNS LAN discovery toggle separately from QR pairing.
+- [x] Step 04: Make approved devices start sharing automatically.
+- [x] Step 04: Support multiple Android receivers in one session.
+- [x] Step 05: Polish desktop UI for Start/Stop, QR, LAN toggle, pending requests, and connected devices.
+- [x] Step 05: Polish Android UI for Scan QR, Find Nearby Host, waiting, connected, and denied states.
 - [ ] Step 05: Persist only dev mode and phone-provided labels.
 - [ ] Step 06: Add Dev tab graphs for latency, setup time, states, device events, and errors.
 - [ ] Step 06: Add automated tests for session token validation.
@@ -64,4 +68,5 @@
 
 - [x] Android native audio means Eko v1 should target Android 8.0 or newer.
 - [x] Emulator tests are useful for regressions but not enough for final latency acceptance.
-- [ ] V1 still needs real audio streaming; the current Rust modules prove package wiring and build compatibility.
+- [x] V1 workflow structure is now QR/mDNS -> handshake -> permission -> WebRTC/audio-ready state.
+- [ ] V1 still needs real Opus audio packets over WebRTC; the current media path is structured but not final audio playback.

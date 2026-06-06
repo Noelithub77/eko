@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use super::Device;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum StreamStatus {
     Idle,
@@ -12,7 +13,7 @@ pub enum StreamStatus {
     Failed,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct QrPairingPayload {
     pub host: String,
@@ -21,7 +22,7 @@ pub struct QrPairingPayload {
     pub token: String,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct DevMetric {
     pub id: String,
@@ -31,7 +32,7 @@ pub struct DevMetric {
     pub created_at: String,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct DevEvent {
     pub id: String,
@@ -40,7 +41,7 @@ pub struct DevEvent {
     pub created_at: String,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct RoomSession {
     pub status: StreamStatus,
@@ -54,7 +55,7 @@ pub struct RoomSession {
     pub events: Vec<DevEvent>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct StartStreamResult {
     pub session: RoomSession,

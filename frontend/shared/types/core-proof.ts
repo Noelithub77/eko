@@ -1,18 +1,20 @@
-export type ProofAreaStatus = {
-  libraryReady?: boolean;
-  captureReady?: boolean;
-  backend?: string;
-  defaultOutputDevice?: string | null;
-  serviceType?: string;
-  transport?: string;
-  mediaTransport?: string;
-  codec?: string;
-  note: string;
-};
+import type {
+  AudioProofStatus,
+  DiscoveryProofStatus,
+  SignalingProofStatus,
+  WebRtcProofStatus,
+} from "../bindings/tauri";
 
-export type CoreProofStatus = {
-  audio: ProofAreaStatus;
-  discovery: ProofAreaStatus;
-  signaling: ProofAreaStatus;
-  webRtc: ProofAreaStatus;
-};
+export type {
+  AudioProofStatus,
+  CoreProofStatus,
+  DiscoveryProofStatus,
+  SignalingProofStatus,
+  WebRtcProofStatus,
+} from "../bindings/tauri";
+
+export type ProofAreaStatus =
+  | AudioProofStatus
+  | DiscoveryProofStatus
+  | SignalingProofStatus
+  | WebRtcProofStatus;

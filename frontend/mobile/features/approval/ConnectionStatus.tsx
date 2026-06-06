@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@shared/components/ui/card";
 
 type ConnectionStatusProps = {
-  status: "disconnected" | "waiting" | "connected" | "denied";
+  status: "disconnected" | "waiting" | "connecting" | "connected" | "denied";
 };
 
 export function ConnectionStatus({ status }: ConnectionStatusProps) {

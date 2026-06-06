@@ -33,6 +33,17 @@ function App() {
     refreshSession();
   }, [loadSettings, refreshSession]);
 
+  useEffect(() => {
+    if (session?.status !== "running") {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      refreshSession();
+    }, 800);
+
+    return () => window.clearInterval(timer);
+  }, [refreshSession, session?.status]);
+
   return (
     <DesktopLayout>
       <Tabs defaultValue="stream">

@@ -1,6 +1,108 @@
-use serde::Serialize;
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
-#[derive(Clone, Debug, Serialize)]
+use mdns_sd::{ResolvedService, ServiceDaemon, ServiceEvent, ServiceInfo};
+use serde::{Deserialize, Serialize};
+use specta::Type;
+
+use crate::domain::QrPairingPayload;
+
+pub const SERVICE_TYPE: &str = "_eko-audio._tcp.local.";
+
+pub struct DiscoveryAdvertiser {
+    daemon: ServiceDaemon,
+    fullname: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscoveredHost {
+    pub host: String,
+    pub port: u16,
+    pub room_id: String,
+    pub token: String,
+}
+
+impl DiscoveryAdvertiser {
+    pub fn start(payload: &QrPairingPayload) -> Result<Self, String> {
+        let daemon = ServiceDaemon::new().map_err(|error| error.to_string())?;
+        let instance_name = format!("eko-{}", payload.room_id);
+        let host_name = "eko.local.";
+        let properties = HashMap::from([
+            ("roomId".to_string(), payload.room_id.clone()),
+            ("token".to_string(), payload.token.clone()),
+            ("host".to_string(), payload.host.clone()),
+        ]);
+        let service = ServiceInfo::new(
+            SERVICE_TYPE,
+            &instance_name,
+            host_name,
+            payload.host.as_str(),
+            payload.port,
+            Some(properties),
+        )
+        .map_err(|error| error.to_string())?
+        .enable_addr_auto();
+        let fullname = service.get_fullname().to_string();
+
+        daemon
+            .register(service)
+            .map_err(|error| error.to_string())?;
+
+        Ok(Self { daemon, fullname })
+    }
+
+    pub fn stop(&self) {
+        let _ = self.daemon.unregister(&self.fullname);
+        let _ = self.daemon.shutdown();
+    }
+}
+
+pub fn browse_hosts(timeout_ms: u64) -> Result<Vec<DiscoveredHost>, String> {
+    let daemon = ServiceDaemon::new().map_err(|error| error.to_string())?;
+    let receiver = daemon
+        .browse(SERVICE_TYPE)
+        .map_err(|error| error.to_string())?;
+    let mut hosts = Vec::new();
+    let deadline = Instant::now() + Duration::from_millis(timeout_ms);
+
+    while Instant::now() < deadline {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        let event = receiver.recv_timeout(remaining.min(Duration::from_millis(200)));
+        if let Ok(ServiceEvent::ServiceResolved(info)) = event {
+            if let Some(host) = host_from_service(&info) {
+                hosts.push(host);
+            }
+        }
+    }
+
+    let _ = daemon.shutdown();
+    Ok(hosts)
+}
+
+impl Drop for DiscoveryAdvertiser {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
+
+fn host_from_service(info: &ResolvedService) -> Option<DiscoveredHost> {
+    let room_id = info.get_property_val_str("roomId")?.to_string();
+    let token = info.get_property_val_str("token")?.to_string();
+    let host = info
+        .get_property_val_str("host")
+        .map(ToString::to_string)
+        .or_else(|| info.get_addresses().iter().next().map(ToString::to_string))?;
+
+    Some(DiscoveredHost {
+        host,
+        port: info.get_port(),
+        room_id,
+        token,
+    })
+}
+
+#[derive(Clone, Debug, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct DiscoveryProofStatus {
     pub service_type: String,
@@ -10,8 +112,8 @@ pub struct DiscoveryProofStatus {
 
 pub fn proof_status() -> DiscoveryProofStatus {
     DiscoveryProofStatus {
-        service_type: "_eko-audio._tcp.local.".to_string(),
+        service_type: SERVICE_TYPE.to_string(),
         library_ready: true,
-        note: "mdns-sd is installed for LAN host advertisement and browsing.".to_string(),
+        note: "mdns-sd advertises active desktop rooms for LAN discovery.".to_string(),
     }
 }

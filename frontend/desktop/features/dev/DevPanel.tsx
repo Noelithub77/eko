@@ -99,18 +99,42 @@ export function DevPanel({ session, onAddTestDevice }: DevPanelProps) {
 }
 
 function ProofItem({ label, status }: { label: string; status: ProofAreaStatus }) {
-  const ready = status.libraryReady ?? status.captureReady ?? false;
-  const value =
-    status.backend ?? status.serviceType ?? status.transport ?? status.mediaTransport ?? status.codec ?? "Ready";
+  const ready = getProofReady(status);
+  const value = getProofValue(status);
 
   return (
     <div className="rounded-md border bg-background p-3">
       <div className="flex items-center gap-2 text-sm font-medium">
-        <CheckCircle2 className={ready ? "size-4 text-emerald-600" : "size-4 text-muted-foreground"} />
+        <CheckCircle2
+          className={ready ? "size-4 text-emerald-600" : "size-4 text-muted-foreground"}
+        />
         {label}
       </div>
       <div className="mt-2 text-sm">{value}</div>
       <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{status.note}</div>
     </div>
   );
+}
+
+function getProofReady(status: ProofAreaStatus): boolean {
+  if ("libraryReady" in status) {
+    return status.libraryReady;
+  }
+  return status.captureReady;
+}
+
+function getProofValue(status: ProofAreaStatus): string {
+  if ("backend" in status) {
+    return status.backend;
+  }
+  if ("serviceType" in status) {
+    return status.serviceType;
+  }
+  if ("transport" in status) {
+    return status.transport;
+  }
+  if ("mediaTransport" in status) {
+    return status.mediaTransport;
+  }
+  return "Ready";
 }

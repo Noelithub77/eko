@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@shared/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@shared/components/ui/card";
 import type { QrPairingPayload } from "@shared/types/stream";
+import { parseQrPayload } from "@shared/utils/signaling-client";
 
 type ScanQrScreenProps = {
   onScanned: (payload: QrPairingPayload) => void;
@@ -28,11 +29,12 @@ export function ScanQrScreen({ onScanned }: ScanQrScreenProps) {
           return;
         }
 
-        try {
-          onScanned(JSON.parse(result.getText()) as QrPairingPayload);
+        const payload = parseQrPayload(result.getText());
+        if (payload) {
+          onScanned(payload);
           setIsScanning(false);
           setMessage("QR scanned.");
-        } catch {
+        } else {
           setMessage("Invalid Eko QR.");
         }
       })

@@ -16,9 +16,24 @@ export function allowDevice(devices: Device[], deviceId: string): Device[] {
     device.deviceId === deviceId
       ? {
           ...device,
-          state: "connected",
+          state: "connecting",
           sharing: "enabled",
           connectedAt: new Date().toISOString(),
+          webRtcState: "connecting",
+          iceState: "checking",
+        }
+      : device,
+  );
+}
+
+export function markDeviceConnected(devices: Device[], deviceId: string): Device[] {
+  return devices.map((device) =>
+    device.deviceId === deviceId
+      ? {
+          ...device,
+          state: "connected",
+          sharing: "enabled",
+          connectedAt: device.connectedAt ?? new Date().toISOString(),
           webRtcState: "connected",
           iceState: "connected",
         }

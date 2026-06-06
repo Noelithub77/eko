@@ -1,8 +1,7 @@
-use std::net::TcpListener;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::domain::{
-    Device, DeviceConnectionState, DevEvent, DevMetric, JoinMethod, JoinRequest, QrPairingPayload,
+    DevEvent, DevMetric, Device, DeviceConnectionState, JoinMethod, JoinRequest, QrPairingPayload,
     RoomSession, SharingState, StartStreamResult, StreamStatus,
 };
 
@@ -24,12 +23,9 @@ impl SessionStore {
         self.session.clone()
     }
 
-    pub fn start_stream(&mut self) -> Result<StartStreamResult, String> {
-        let host = "127.0.0.1".to_string();
-        let port = pick_available_port()?;
-        let now = now_string();
-        let room_id = format!("room-{now}");
-        let token = format!("eko-{now}");
+    pub fn start_stream(&mut self, host: String, port: u16) -> Result<StartStreamResult, String> {
+        let room_id = format!("room-{}", uuid::Uuid::new_v4());
+        let token = uuid::Uuid::new_v4().to_string();
 
         self.session = RoomSession {
             status: StreamStatus::Running,
@@ -59,6 +55,30 @@ impl SessionStore {
         self.snapshot()
     }
 
+    pub fn active_pairing_payload(&self) -> Result<QrPairingPayload, String> {
+        Ok(QrPairingPayload {
+            host: self
+                .session
+                .host
+                .clone()
+                .ok_or_else(|| "Start stream before pairing.".to_string())?,
+            port: self
+                .session
+                .port
+                .ok_or_else(|| "Start stream before pairing.".to_string())?,
+            room_id: self
+                .session
+                .room_id
+                .clone()
+                .ok_or_else(|| "Start stream before pairing.".to_string())?,
+            token: self
+                .session
+                .token
+                .clone()
+                .ok_or_else(|| "Start stream before pairing.".to_string())?,
+        })
+    }
+
     pub fn set_lan_discovery(&mut self, enabled: bool) -> Result<RoomSession, String> {
         if !matches!(self.session.status, StreamStatus::Running) {
             return Err("Start stream before enabling LAN discovery.".to_string());
@@ -77,17 +97,22 @@ impl SessionStore {
         Ok(self.snapshot())
     }
 
+    pub fn device_state(&self, device_id: &str) -> Option<(DeviceConnectionState, SharingState)> {
+        self.session
+            .devices
+            .iter()
+            .find(|device| device.device_id == device_id)
+            .map(|device| (device.state.clone(), device.sharing.clone()))
+    }
+
     pub fn submit_join_request(&mut self, request: JoinRequest) -> Result<RoomSession, String> {
         if !self.is_valid_join(&request) {
             return Err("Join request does not match the active stream.".to_string());
         }
 
-        if self
-            .session
-            .devices
-            .iter()
-            .any(|device| device.device_id == request.device_id && device.state == DeviceConnectionState::Denied)
-        {
+        if self.session.devices.iter().any(|device| {
+            device.device_id == request.device_id && device.state == DeviceConnectionState::Denied
+        }) {
             return Err("Device is blocked until the desktop unblocks it.".to_string());
         }
 
@@ -108,15 +133,21 @@ impl SessionStore {
             join_method: request.method,
             sharing: SharingState::Disabled,
             connected_at: None,
-            web_rtc_state: "new".to_string(),
-            ice_state: "new".to_string(),
+            web_rtc_state: "waiting".to_string(),
+            ice_state: "waiting".to_string(),
         });
-        self.session.events.push(event("info", "Join request received"));
+        self.session
+            .events
+            .push(event("info", "Join request received"));
 
         Ok(self.snapshot())
     }
 
-    pub fn add_dev_join_request(&mut self, device_name: String, method: JoinMethod) -> Result<RoomSession, String> {
+    pub fn add_dev_join_request(
+        &mut self,
+        device_name: String,
+        method: JoinMethod,
+    ) -> Result<RoomSession, String> {
         let room_id = self
             .session
             .room_id
@@ -139,11 +170,11 @@ impl SessionStore {
 
     pub fn allow_device(&mut self, device_id: String) -> RoomSession {
         self.update_device(&device_id, |device| {
-            device.state = DeviceConnectionState::Connected;
+            device.state = DeviceConnectionState::Connecting;
             device.sharing = SharingState::Enabled;
             device.connected_at = Some(now_string());
-            device.web_rtc_state = "connected".to_string();
-            device.ice_state = "connected".to_string();
+            device.web_rtc_state = "connecting".to_string();
+            device.ice_state = "checking".to_string();
         });
         self.session.events.push(event("info", "Device allowed"));
         self.snapshot()
@@ -160,8 +191,22 @@ impl SessionStore {
         self.snapshot()
     }
 
+    pub fn mark_device_connected(&mut self, device_id: String) -> RoomSession {
+        self.update_device(&device_id, |device| {
+            device.state = DeviceConnectionState::Connected;
+            device.sharing = SharingState::Enabled;
+            device.connected_at = Some(now_string());
+            device.web_rtc_state = "connected".to_string();
+            device.ice_state = "connected".to_string();
+        });
+        self.session.events.push(event("info", "Device connected"));
+        self.snapshot()
+    }
+
     pub fn unblock_device(&mut self, device_id: String) -> RoomSession {
-        self.session.devices.retain(|device| device.device_id != device_id);
+        self.session
+            .devices
+            .retain(|device| device.device_id != device_id);
         self.session.events.push(event("info", "Device unblocked"));
         self.snapshot()
     }
@@ -173,7 +218,9 @@ impl SessionStore {
             device.web_rtc_state = "closed".to_string();
             device.ice_state = "closed".to_string();
         });
-        self.session.events.push(event("info", "Device disconnected"));
+        self.session
+            .events
+            .push(event("info", "Device disconnected"));
         self.snapshot()
     }
 
@@ -222,14 +269,6 @@ fn empty_session() -> RoomSession {
         metrics: Vec::new(),
         events: Vec::new(),
     }
-}
-
-fn pick_available_port() -> Result<u16, String> {
-    let listener = TcpListener::bind("127.0.0.1:0").map_err(|error| error.to_string())?;
-    listener
-        .local_addr()
-        .map(|address| address.port())
-        .map_err(|error| error.to_string())
 }
 
 fn now_string() -> String {
