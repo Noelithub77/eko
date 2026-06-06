@@ -1,7 +1,12 @@
 use std::sync::Mutex;
 
+mod audio;
+mod core_proof;
+mod discovery;
 mod domain;
 mod session;
+mod signaling;
+mod webrtc_core;
 
 use domain::{JoinMethod, JoinRequest, RoomSession, StartStreamResult};
 use session::SessionStore;
@@ -116,6 +121,11 @@ fn set_device_sharing(
         .set_device_sharing(device_id, enabled))
 }
 
+#[tauri::command]
+fn get_core_proof_status() -> core_proof::CoreProofStatus {
+    core_proof::proof_status()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -134,7 +144,8 @@ pub fn run() {
             deny_device,
             unblock_device,
             disconnect_device,
-            set_device_sharing
+            set_device_sharing,
+            get_core_proof_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

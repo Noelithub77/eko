@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { CoreProofStatus } from "../types/core-proof";
 import type { JoinRequest } from "../types/device";
 import type { RoomSession, StartStreamResult } from "../types/stream";
 
@@ -51,4 +52,8 @@ export function addDevJoinRequest(
   method: "qr" | "discovery",
 ): Promise<RoomSession> {
   return invoke<RoomSession>("add_dev_join_request", { deviceName, method });
+}
+
+export function getCoreProofStatus(): Promise<CoreProofStatus> {
+  return invoke<CoreProofStatus>("get_core_proof_status");
 }

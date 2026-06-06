@@ -15,6 +15,23 @@ Prove the risky audio path before polishing the whole app.
 - Create the first native sender and receiver proof.
 - Measure setup time and latency.
 
+## Current Package Choices
+
+- `webrtc`: native Rust WebRTC sender/receiver work.
+- `opus`: Opus codec bindings for the audio stream.
+- `cpal`: cross-platform audio device proof and fallback layer.
+- `wasapi`: Windows-first full-system audio capture direction.
+- `oboe`: Android low-latency native audio output.
+- `mdns-sd`: LAN discovery over mDNS.
+- `tokio` + `tokio-tungstenite`: async runtime and WebSocket signaling.
+
+## Current Proof Status
+
+- Rust core proof modules are wired into Tauri.
+- Desktop Dev tab can read core proof status through a typed Tauri command.
+- Android native build requires `minSdkVersion = 26` because Oboe links Android `aaudio`.
+- Android x86_64 debug APK builds successfully for emulator testing.
+
 ## Done When
 
 - Windows can produce a test audio stream.

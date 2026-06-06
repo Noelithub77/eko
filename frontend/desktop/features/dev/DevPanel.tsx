@@ -1,4 +1,5 @@
-import { Plus } from "lucide-react";
+import { CheckCircle2, Plus } from "lucide-react";
+import { useEffect, useState } from "react";
 import {
   CartesianGrid,
   Line,
@@ -10,7 +11,9 @@ import {
 } from "recharts";
 import { Button } from "@shared/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@shared/components/ui/card";
+import type { CoreProofStatus, ProofAreaStatus } from "@shared/types/core-proof";
 import type { RoomSession } from "@shared/types/stream";
+import { getCoreProofStatus } from "@shared/utils/api";
 
 type DevPanelProps = {
   session: RoomSession | null;
@@ -18,6 +21,7 @@ type DevPanelProps = {
 };
 
 export function DevPanel({ session, onAddTestDevice }: DevPanelProps) {
+  const [coreProofStatus, setCoreProofStatus] = useState<CoreProofStatus | null>(null);
   const chartData =
     session?.metrics.map((metric, index) => ({
       index,
@@ -26,8 +30,31 @@ export function DevPanel({ session, onAddTestDevice }: DevPanelProps) {
     })) ?? [];
   const events = session?.events ?? [];
 
+  useEffect(() => {
+    getCoreProofStatus()
+      .then(setCoreProofStatus)
+      .catch(() => setCoreProofStatus(null));
+  }, []);
+
   return (
     <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+      <Card className="rounded-lg shadow-sm lg:col-span-2">
+        <CardHeader>
+          <CardTitle>Core Proof</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-4">
+          {coreProofStatus ? (
+            <>
+              <ProofItem label="Audio" status={coreProofStatus.audio} />
+              <ProofItem label="Discovery" status={coreProofStatus.discovery} />
+              <ProofItem label="Signaling" status={coreProofStatus.signaling} />
+              <ProofItem label="WebRTC" status={coreProofStatus.webRtc} />
+            </>
+          ) : (
+            <span className="text-sm text-muted-foreground">Core status unavailable</span>
+          )}
+        </CardContent>
+      </Card>
       <Card className="rounded-lg shadow-sm">
         <CardHeader>
           <CardTitle>Latency</CardTitle>
@@ -67,6 +94,23 @@ export function DevPanel({ session, onAddTestDevice }: DevPanelProps) {
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function ProofItem({ label, status }: { label: string; status: ProofAreaStatus }) {
+  const ready = status.libraryReady ?? status.captureReady ?? false;
+  const value =
+    status.backend ?? status.serviceType ?? status.transport ?? status.mediaTransport ?? status.codec ?? "Ready";
+
+  return (
+    <div className="rounded-md border bg-background p-3">
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <CheckCircle2 className={ready ? "size-4 text-emerald-600" : "size-4 text-muted-foreground"} />
+        {label}
+      </div>
+      <div className="mt-2 text-sm">{value}</div>
+      <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{status.note}</div>
     </div>
   );
 }
