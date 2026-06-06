@@ -6,7 +6,7 @@ use futures_util::{SinkExt, StreamExt};
 use serde::Serialize;
 use specta::Type;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::oneshot;
+use tokio::sync::{mpsc, oneshot};
 use tokio::time;
 use tokio_tungstenite::tungstenite::Message;
 
@@ -14,6 +14,7 @@ use crate::domain::{
     DeviceConnectionState, JoinRequest, SharingState, SignalClientMessage, SignalServerMessage,
 };
 use crate::session::SessionStore;
+use crate::webrtc_core::media_hub::{MediaSignal, SharedMediaHub};
 
 pub type SharedSession = Arc<Mutex<SessionStore>>;
 
@@ -25,7 +26,7 @@ pub struct SignalingServer {
 }
 
 impl SignalingServer {
-    pub fn start(session: SharedSession) -> Result<Self, String> {
+    pub fn start(session: SharedSession, media: SharedMediaHub) -> Result<Self, String> {
         let listener = StdTcpListener::bind("0.0.0.0:0").map_err(|error| error.to_string())?;
         listener
             .set_nonblocking(true)
@@ -36,7 +37,8 @@ impl SignalingServer {
             .port();
         let listener = TcpListener::from_std(listener).map_err(|error| error.to_string())?;
         let (shutdown, shutdown_receiver) = oneshot::channel();
-        let task = tauri::async_runtime::spawn(run_server(listener, session, shutdown_receiver));
+        let task =
+            tauri::async_runtime::spawn(run_server(listener, session, media, shutdown_receiver));
 
         Ok(Self {
             port,
@@ -82,13 +84,18 @@ pub fn proof_status() -> SignalingProofStatus {
 async fn run_server(
     listener: TcpListener,
     session: SharedSession,
+    media: SharedMediaHub,
     mut shutdown: oneshot::Receiver<()>,
 ) {
     loop {
         tokio::select! {
             accept_result = listener.accept() => {
                 if let Ok((stream, _address)) = accept_result {
-                    tauri::async_runtime::spawn(handle_client(stream, Arc::clone(&session)));
+                    tauri::async_runtime::spawn(handle_client(
+                        stream,
+                        Arc::clone(&session),
+                        Arc::clone(&media),
+                    ));
                 }
             }
             _ = &mut shutdown => {
@@ -98,12 +105,13 @@ async fn run_server(
     }
 }
 
-async fn handle_client(stream: TcpStream, session: SharedSession) {
+async fn handle_client(stream: TcpStream, session: SharedSession, media: SharedMediaHub) {
     let Ok(mut socket) = tokio_tungstenite::accept_async(stream).await else {
         return;
     };
     let mut device_id: Option<String> = None;
     let mut last_state: Option<DeviceConnectionState> = None;
+    let mut media_signals: Option<mpsc::UnboundedReceiver<MediaSignal>> = None;
     let mut approval_check = time::interval(Duration::from_millis(400));
 
     loop {
@@ -112,7 +120,7 @@ async fn handle_client(stream: TcpStream, session: SharedSession) {
                 let Ok(message) = message_result else {
                     break;
                 };
-                if !handle_client_message(message, &mut socket, &session, &mut device_id).await {
+                if !handle_client_message(message, &mut socket, &session, &media, &mut device_id).await {
                     break;
                 }
             }
@@ -120,7 +128,18 @@ async fn handle_client(stream: TcpStream, session: SharedSession) {
                 let Some(active_device_id) = device_id.clone() else {
                     continue;
                 };
-                if send_permission_update(&active_device_id, &session, &mut socket, &mut last_state).await.is_err() {
+                match send_permission_update(
+                    &active_device_id,
+                    &session,
+                    &media,
+                    &mut socket,
+                    &mut last_state,
+                ).await {
+                    Ok(Some(signals)) => media_signals = Some(signals),
+                    Ok(None) => {}
+                    Err(_) => break,
+                }
+                if forward_media_signals(&mut socket, &mut media_signals).await.is_err() {
                     break;
                 }
             }
@@ -132,6 +151,7 @@ async fn handle_client_message(
     message: Message,
     socket: &mut tokio_tungstenite::WebSocketStream<TcpStream>,
     session: &SharedSession,
+    media: &SharedMediaHub,
     device_id: &mut Option<String>,
 ) -> bool {
     let Ok(text) = message.into_text() else {
@@ -149,12 +169,20 @@ async fn handle_client_message(
             let response = receiver_ready_response(session, device_id);
             send_json(socket, &response).await.is_ok()
         }
-        Ok(SignalClientMessage::Offer { .. })
-        | Ok(SignalClientMessage::Answer { .. })
-        | Ok(SignalClientMessage::IceCandidate { .. }) => send_json(
+        Ok(SignalClientMessage::Answer { description }) => match media.accept_answer(description).await {
+            Ok(()) => send_signal_ack(socket).await.is_ok(),
+            Err(message) => send_json(socket, &SignalServerMessage::Error { message }).await.is_ok(),
+        },
+        Ok(SignalClientMessage::IceCandidate { candidate }) => {
+            match media.add_ice_candidate(candidate).await {
+                Ok(()) => send_signal_ack(socket).await.is_ok(),
+                Err(message) => send_json(socket, &SignalServerMessage::Error { message }).await.is_ok(),
+            }
+        }
+        Ok(SignalClientMessage::Offer { .. }) => send_json(
             socket,
-            &SignalServerMessage::SignalAck {
-                message: "Signal received".to_string(),
+            &SignalServerMessage::Error {
+                message: "Receivers should answer the host offer.".to_string(),
             },
         )
         .await
@@ -205,16 +233,17 @@ fn receiver_ready_response(session: &SharedSession, device_id: String) -> Signal
 async fn send_permission_update(
     device_id: &str,
     session: &SharedSession,
+    media: &SharedMediaHub,
     socket: &mut tokio_tungstenite::WebSocketStream<TcpStream>,
     last_state: &mut Option<DeviceConnectionState>,
-) -> Result<(), String> {
+) -> Result<Option<mpsc::UnboundedReceiver<MediaSignal>>, String> {
     let update = {
         let store = session.lock().map_err(|error| error.to_string())?;
         let Some((state, sharing)) = store.device_state(device_id) else {
-            return Ok(());
+            return Ok(None);
         };
         if last_state.as_ref() == Some(&state) {
-            return Ok(());
+            return Ok(None);
         }
         *last_state = Some(state.clone());
         SignalServerMessage::PermissionChanged {
@@ -233,10 +262,18 @@ async fn send_permission_update(
             ..
         }
     ) {
+        let offer = media.create_sender_offer(device_id.to_string()).await?;
         send_json(
             socket,
             &SignalServerMessage::WebRtcReady {
                 device_id: device_id.to_string(),
+            },
+        )
+        .await?;
+        send_json(
+            socket,
+            &SignalServerMessage::HostOffer {
+                description: offer.description,
             },
         )
         .await?;
@@ -247,9 +284,41 @@ async fn send_permission_update(
             },
         )
         .await?;
+        return Ok(Some(offer.signals));
+    }
+
+    Ok(None)
+}
+
+async fn forward_media_signals(
+    socket: &mut tokio_tungstenite::WebSocketStream<TcpStream>,
+    signals: &mut Option<mpsc::UnboundedReceiver<MediaSignal>>,
+) -> Result<(), String> {
+    let Some(signals) = signals else {
+        return Ok(());
+    };
+
+    while let Ok(signal) = signals.try_recv() {
+        match signal {
+            MediaSignal::IceCandidate(candidate) => {
+                send_json(socket, &SignalServerMessage::HostIceCandidate { candidate }).await?;
+            }
+        }
     }
 
     Ok(())
+}
+
+async fn send_signal_ack(
+    socket: &mut tokio_tungstenite::WebSocketStream<TcpStream>,
+) -> Result<(), String> {
+    send_json(
+        socket,
+        &SignalServerMessage::SignalAck {
+            message: "Signal received".to_string(),
+        },
+    )
+    .await
 }
 
 async fn send_json(

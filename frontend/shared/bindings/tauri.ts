@@ -147,6 +147,8 @@ export type SignalServerMessage =
       session: RoomSession;
     }
   | { kind: "webRtcReady"; deviceId: string }
+  | { kind: "hostOffer"; description: SessionDescriptionMessage }
+  | { kind: "hostIceCandidate"; candidate: IceCandidateMessage }
   | { kind: "audioReady"; deviceId: string }
   | { kind: "hostState"; session: RoomSession }
   | { kind: "signalAck"; message: string }

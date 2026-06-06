@@ -36,17 +36,23 @@
 - [x] Verified Rust desktop target with `cargo check`.
 - [x] Verified Android x86_64 Rust build.
 - [x] Built Android x86_64 debug APK for emulator testing.
+- [x] Added Windows WASAPI loopback capture for default system output.
+- [x] Added Rust Opus encoder for 48 kHz stereo 20 ms audio packets.
+- [x] Added Rust WebRTC sender hub with Opus audio track, offer creation, answer handling, and ICE handling.
+- [x] Added typed WebSocket messages for host WebRTC offer and host ICE candidates.
+- [x] Added Android WebRTC receiver path in the Tauri WebView UI.
+- [x] Wired Start Stream and Stop Stream to start and stop the Rust media hub.
 
 ## Pending
 
-- [ ] Step 01: Build real Windows system-audio capture proof.
+- [x] Step 01: Build real Windows system-audio capture proof.
 - [ ] Step 01: Build real Android native audio output proof.
 - [ ] Step 01: Measure first real setup time and audio latency.
 - [ ] Step 01: Decide final Windows capture backend after testing `wasapi` vs `cpal`.
 - [x] Step 02: Build WebSocket signaling server in Rust.
 - [x] Step 02: Add typed signaling messages for join, approval, SDP, ICE, and state events.
 - [x] Step 02: Build first WebRTC sender and receiver handshake structure.
-- [ ] Step 02: Stream Opus audio through WebRTC.
+- [x] Step 02: Stream Opus audio through WebRTC from the Rust desktop sender.
 - [x] Step 03: Implement QR pairing payload with `host`, `port`, `roomId`, and session token.
 - [x] Step 03: Implement session token validation.
 - [x] Step 03: Implement join request approval and denial against real signaling.
@@ -56,7 +62,7 @@
 - [x] Step 04: Support multiple Android receivers in one session.
 - [x] Step 05: Polish desktop UI for Start/Stop, QR, LAN toggle, pending requests, and connected devices.
 - [x] Step 05: Polish Android UI for Scan QR, Find Nearby Host, waiting, connected, and denied states.
-- [ ] Step 05: Persist only dev mode and phone-provided labels.
+- [x] Step 05: Persist only dev mode and phone-provided labels.
 - [ ] Step 06: Add Dev tab graphs for latency, setup time, states, device events, and errors.
 - [ ] Step 06: Add automated tests for session token validation.
 - [ ] Step 06: Add tests for approval, denial, unblock, and stop stream cleanup.
@@ -69,4 +75,6 @@
 - [x] Android native audio means Eko v1 should target Android 8.0 or newer.
 - [x] Emulator tests are useful for regressions but not enough for final latency acceptance.
 - [x] V1 workflow structure is now QR/mDNS -> handshake -> permission -> WebRTC/audio-ready state.
-- [ ] V1 still needs real Opus audio packets over WebRTC; the current media path is structured but not final audio playback.
+- [x] V1 now sends real Opus packets from Rust over WebRTC after desktop approval.
+- [ ] Android currently receives with browser WebRTC inside the Tauri WebView; native Rust/Oboe receiver playback is still pending.
+- [ ] `cargo check` passes, but `cargo test export_typescript_bindings` is blocked by a Windows debug linker issue in `audiopus_sys` (`__imp__CrtDbgReportW`).

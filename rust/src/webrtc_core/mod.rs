@@ -1,6 +1,8 @@
 use serde::Serialize;
 use specta::Type;
 
+pub mod media_hub;
+
 #[derive(Clone, Debug, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct WebRtcProofStatus {

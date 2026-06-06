@@ -64,6 +64,12 @@ pub enum SignalServerMessage {
     WebRtcReady {
         device_id: String,
     },
+    HostOffer {
+        description: SessionDescriptionMessage,
+    },
+    HostIceCandidate {
+        candidate: IceCandidateMessage,
+    },
     AudioReady {
         device_id: String,
     },

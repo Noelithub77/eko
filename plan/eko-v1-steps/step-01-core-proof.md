@@ -31,10 +31,15 @@ Prove the risky audio path before polishing the whole app.
 - Desktop Dev tab can read core proof status through a typed Tauri command.
 - Android native build requires `minSdkVersion = 26` because Oboe links Android `aaudio`.
 - Android x86_64 debug APK builds successfully for emulator testing.
+- Windows default-output loopback capture is implemented with `wasapi`.
+- Rust Opus encoding is implemented at 48 kHz stereo with 20 ms packets.
+- Rust WebRTC sender track is implemented with `TrackLocalStaticSample`.
+- Android currently receives through WebRTC in the Tauri WebView UI, not through native Oboe playback.
 
 ## Done When
 
-- Windows can produce a test audio stream.
-- Android native receiver can play it.
-- Dev metrics show setup timing and latency.
-- The result is good enough to continue toward the under-100 ms target.
+- [x] Windows can produce a system-audio stream.
+- [x] Rust can encode and send Opus packets through WebRTC.
+- [ ] Android native receiver can play through Oboe.
+- [ ] Dev metrics show setup timing and latency.
+- [ ] The result is good enough to continue toward the under-100 ms target.

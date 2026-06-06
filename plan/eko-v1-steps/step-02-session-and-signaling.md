@@ -27,4 +27,8 @@ Make joining safe and typed.
 - [x] Allow moves the phone to `connecting` and enables sharing.
 - [x] Receiver-ready moves the phone to `connected`.
 - [x] Denied devices stay blocked until desktop unblock removes them.
-- [ ] Real SDP, ICE, and Opus packet exchange still needs the full media implementation.
+- [x] Desktop creates a WebRTC offer only after approval.
+- [x] Android sends a WebRTC answer back through the typed signaling socket.
+- [x] Host and receiver ICE candidates move through typed signaling messages.
+- [x] Rust desktop sender streams Opus audio into the WebRTC track.
+- [ ] Native Android Rust/Oboe receiver is still pending.

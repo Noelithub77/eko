@@ -17,9 +17,11 @@ use session::SessionStore;
 use signaling::{SharedSession, SignalingServer};
 use specta_typescript::Typescript;
 use tauri_specta::{collect_commands, Builder, ErrorHandlingMode};
+use webrtc_core::media_hub::{MediaHub, SharedMediaHub};
 
 struct AppState {
     session: SharedSession,
+    media: Mutex<Option<SharedMediaHub>>,
     signaling: Mutex<Option<SignalingServer>>,
     discovery: Mutex<Option<DiscoveryAdvertiser>>,
 }
@@ -28,6 +30,7 @@ impl Default for AppState {
     fn default() -> Self {
         Self {
             session: Arc::new(Mutex::new(SessionStore::default())),
+            media: Mutex::new(None),
             signaling: Mutex::new(None),
             discovery: Mutex::new(None),
         }
@@ -45,8 +48,10 @@ fn greet(name: &str) -> String {
 fn start_stream(state: tauri::State<'_, AppState>) -> Result<StartStreamResult, String> {
     stop_discovery(&state)?;
     stop_signaling(&state)?;
+    stop_media(&state)?;
 
-    let server = SignalingServer::start(Arc::clone(&state.session))?;
+    let media = MediaHub::start()?;
+    let server = SignalingServer::start(Arc::clone(&state.session), Arc::clone(&media))?;
     let port = server.port();
     let host = local_ip_address::local_ip()
         .map(|ip_address| ip_address.to_string())
@@ -58,6 +63,7 @@ fn start_stream(state: tauri::State<'_, AppState>) -> Result<StartStreamResult, 
         .start_stream(host, port)?;
 
     *state.signaling.lock().map_err(|error| error.to_string())? = Some(server);
+    *state.media.lock().map_err(|error| error.to_string())? = Some(media);
 
     Ok(result)
 }
@@ -67,6 +73,7 @@ fn start_stream(state: tauri::State<'_, AppState>) -> Result<StartStreamResult, 
 fn stop_stream(state: tauri::State<'_, AppState>) -> Result<RoomSession, String> {
     stop_discovery(&state)?;
     stop_signaling(&state)?;
+    stop_media(&state)?;
     Ok(state
         .session
         .lock()
@@ -231,6 +238,14 @@ fn stop_signaling(state: &tauri::State<'_, AppState>) -> Result<(), String> {
         .take()
     {
         server.stop();
+    }
+
+    Ok(())
+}
+
+fn stop_media(state: &tauri::State<'_, AppState>) -> Result<(), String> {
+    if let Some(media) = state.media.lock().map_err(|error| error.to_string())?.take() {
+        tauri::async_runtime::block_on(media.stop());
     }
 
     Ok(())

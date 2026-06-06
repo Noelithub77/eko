@@ -1,6 +1,11 @@
 use serde::Serialize;
 use specta::Type;
 
+pub mod frame;
+pub mod opus_codec;
+pub mod silence;
+pub mod windows_capture;
+
 #[derive(Clone, Debug, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AudioProofStatus {
