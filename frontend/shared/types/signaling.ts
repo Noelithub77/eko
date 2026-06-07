@@ -4,4 +4,5 @@ export type {
   SessionDescriptionMessage,
   SignalClientMessage,
   SignalServerMessage,
+  NativeReceiverEvent,
 } from "../bindings/tauri";

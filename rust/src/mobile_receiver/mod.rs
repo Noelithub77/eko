@@ -129,9 +129,11 @@ mod android {
             .await
             .map_err(|error| error.to_string())?;
 
+        let ice_sender = sender.clone();
+        let ice_device_id = device_id.clone();
         peer.on_ice_candidate(Box::new(move |candidate| {
-            let sender = sender.clone();
-            let device_id = device_id.clone();
+            let sender = ice_sender.clone();
+            let device_id = ice_device_id.clone();
             Box::pin(async move {
                 let Some(candidate) = candidate else {
                     return;
@@ -147,9 +149,14 @@ mod android {
             })
         }));
 
+        let ready_sender = sender.clone();
+        let ready_device_id = device_id.clone();
         peer.on_track(Box::new(move |track, _, _| {
             let app = app.clone();
+            let ready_sender = ready_sender.clone();
+            let device_id = ready_device_id.clone();
             Box::pin(async move {
+                let _ = ready_sender.send(SignalClientMessage::ReceiverReady { device_id });
                 emit(
                     &app,
                     NativeReceiverEvent::Connected {

@@ -31,4 +31,4 @@ Make joining safe and typed.
 - [x] Android sends a WebRTC answer back through the typed signaling socket.
 - [x] Host and receiver ICE candidates move through typed signaling messages.
 - [x] Rust desktop sender streams Opus audio into the WebRTC track.
-- [ ] Native Android Rust/Oboe receiver is still pending.
+- [x] Native Android Rust/Oboe receiver answers the host offer, exchanges typed ICE messages, and sends typed receiver-ready.

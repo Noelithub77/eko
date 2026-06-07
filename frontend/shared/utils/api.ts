@@ -4,6 +4,7 @@ import type {
   DiscoveredHost,
   JoinMethod,
   JoinRequest,
+  QrPairingPayload,
   RoomSession,
   StartStreamResult,
 } from "../bindings/tauri";
@@ -62,4 +63,15 @@ export function getCoreProofStatus(): Promise<CoreProofStatus> {
 
 export function findNearbyHosts(): Promise<DiscoveredHost[]> {
   return commands.findNearbyHosts();
+}
+
+export function startNativeReceiver(
+  payload: QrPairingPayload,
+  request: JoinRequest,
+): Promise<void> {
+  return commands.startNativeReceiver(payload, request);
+}
+
+export function stopNativeReceiver(): Promise<void> {
+  return commands.stopNativeReceiver();
 }

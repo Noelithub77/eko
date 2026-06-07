@@ -1,11 +1,11 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { MobileLayout } from "./layouts/MobileLayout";
 import { Button } from "@shared/components/ui/button";
-import { findNearbyHosts } from "@shared/utils/api";
+import { findNearbyHosts, startNativeReceiver, stopNativeReceiver } from "@shared/utils/api";
 import type { JoinRequest } from "@shared/types/device";
-import type { DiscoveredHost, SignalServerMessage } from "@shared/types/signaling";
+import type { DiscoveredHost, NativeReceiverEvent } from "@shared/types/signaling";
 import type { QrPairingPayload } from "@shared/types/stream";
-import { connectToHost, type SignalClient } from "@shared/utils/signaling-client";
+import { listen } from "@tauri-apps/api/event";
 import { ConnectionStatus } from "./features/approval/ConnectionStatus";
 import { NearbyHostList } from "./features/discovery/NearbyHostList";
 import { ScanQrScreen } from "./features/pairing/ScanQrScreen";
@@ -18,46 +18,44 @@ function App() {
   const [message, setMessage] = useState("Scan or find a host.");
   const [nearbyHosts, setNearbyHosts] = useState<DiscoveredHost[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const clientRef = useRef<SignalClient | null>(null);
 
   const deviceId = useMemo(() => getDeviceId(), []);
 
-  const handleHostMessage = useCallback(
-    (signalClient: SignalClient, signal: SignalServerMessage) => {
-      if (signal.kind === "approvalWaiting") {
+  useEffect(() => {
+    const unlisten = listen<NativeReceiverEvent>("native-receiver-event", (event) => {
+      if (event.payload.kind === "waiting") {
         setStatus("waiting");
-        setMessage("Waiting for desktop approval.");
+        setMessage(event.payload.message);
         return;
       }
-      if (signal.kind === "joinRejected") {
+      if (event.payload.kind === "connecting") {
+        setStatus("connecting");
+        setMessage(event.payload.message);
+        return;
+      }
+      if (event.payload.kind === "connected") {
+        setStatus("connected");
+        setMessage(event.payload.message);
+        return;
+      }
+      if (event.payload.kind === "denied") {
         setStatus("denied");
-        setMessage(signal.reason);
+        setMessage(event.payload.message);
         return;
       }
-      if (signal.kind === "permissionChanged") {
-        if (signal.state === "denied") {
-          setStatus("denied");
-          setMessage("Desktop denied this device.");
-        } else if (signal.state === "connecting") {
-          setStatus("connecting");
-          setMessage("Connecting audio.");
-          signalClient.sendReceiverReady(signal.deviceId);
-        } else if (signal.state === "connected") {
-          setStatus("connected");
-          setMessage("Connected.");
-        }
-        return;
+      if (event.payload.kind === "error" || event.payload.kind === "closed") {
+        setStatus("disconnected");
+        setMessage(event.payload.message);
       }
-      if (signal.kind === "error") {
-        setMessage(signal.message);
-      }
-    },
-    [],
-  );
+    });
+
+    return () => {
+      void unlisten.then((stopListening) => stopListening());
+    };
+  }, []);
 
   const requestApproval = useCallback(
-    (payload: QrPairingPayload, method: "qr" | "discovery") => {
-      clientRef.current?.close();
+    async (payload: QrPairingPayload, method: "qr" | "discovery") => {
       const request: JoinRequest = {
         deviceId,
         deviceName: navigator.userAgent.includes("Android") ? "Android phone" : "Mobile device",
@@ -69,21 +67,14 @@ function App() {
       setStatus("waiting");
       setMessage("Asking desktop.");
 
-      const client = connectToHost(payload, request, {
-        onMessage: (signal) => handleHostMessage(client, signal),
-        onError: (errorMessage) => {
-          setStatus("disconnected");
-          setMessage(errorMessage);
-        },
-        onClosed: () => {
-          if (status !== "connected") {
-            setStatus("disconnected");
-          }
-        },
-      });
-      clientRef.current = client;
+      try {
+        await startNativeReceiver(payload, request);
+      } catch {
+        setStatus("disconnected");
+        setMessage("Native receiver failed.");
+      }
     },
-    [deviceId, handleHostMessage, status],
+    [deviceId],
   );
 
   const findHosts = useCallback(async () => {
@@ -116,8 +107,7 @@ function App() {
       <ConnectionStatus status={status} />
       <Button
         onClick={() => {
-          clientRef.current?.close();
-          clientRef.current = null;
+          void stopNativeReceiver();
           setStatus("disconnected");
           setMessage("Scan or find a host.");
         }}

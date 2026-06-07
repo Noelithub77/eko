@@ -17,5 +17,5 @@ Make Android joining simple.
 - A phone can request access by QR.
 - A phone can request access by LAN discovery.
 - The phone clearly shows waiting, connected, or denied.
-- The phone answers the host WebRTC offer and plays the received audio stream through the current WebView receiver path.
-- Native Oboe playback remains the next receiver upgrade.
+- The phone starts the native Rust receiver from the UI.
+- The native receiver answers the host WebRTC offer and plays decoded Opus through Oboe.

@@ -4,7 +4,7 @@ mod android {
     use std::sync::{Arc, Mutex};
 
     use oboe::{
-        AudioOutputCallback, AudioOutputStream, AudioStreamBuilder, DataCallbackResult,
+        AudioOutputCallback, AudioOutputStreamSafe, AudioStream, AudioStreamBuilder, DataCallbackResult,
         PerformanceMode, SharingMode, Stereo,
     };
 
@@ -64,16 +64,18 @@ mod android {
 
         fn on_audio_ready(
             &mut self,
-            _stream: &mut dyn AudioOutputStream,
-            frames: &mut [f32],
+            _stream: &mut dyn AudioOutputStreamSafe,
+            frames: &mut [(f32, f32)],
         ) -> DataCallbackResult {
             if let Ok(mut samples) = self.samples.lock() {
-                for sample in frames {
-                    *sample = samples.pop_front().unwrap_or(0.0);
+                for (left, right) in frames {
+                    *left = samples.pop_front().unwrap_or(0.0);
+                    *right = samples.pop_front().unwrap_or(0.0);
                 }
             } else {
-                for sample in frames {
-                    *sample = 0.0;
+                for (left, right) in frames {
+                    *left = 0.0;
+                    *right = 0.0;
                 }
             }
 

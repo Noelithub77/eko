@@ -4,15 +4,18 @@ mod audio;
 mod core_proof;
 mod discovery;
 mod domain;
+mod mobile_receiver;
 mod session;
 mod signaling;
 mod webrtc_core;
 
 use discovery::{DiscoveredHost, DiscoveryAdvertiser};
 use domain::{
-    IceCandidateMessage, JoinMethod, JoinRequest, RoomSession, SessionDescriptionMessage,
-    SignalClientMessage, SignalServerMessage, StartStreamResult,
+    IceCandidateMessage, JoinMethod, JoinRequest, NativeReceiverEvent, QrPairingPayload,
+    RoomSession, SessionDescriptionMessage, SignalClientMessage, SignalServerMessage,
+    StartStreamResult,
 };
+use mobile_receiver::NativeReceiverManager;
 use session::SessionStore;
 use signaling::{SharedSession, SignalingServer};
 use specta_typescript::Typescript;
@@ -22,6 +25,7 @@ use webrtc_core::media_hub::{MediaHub, SharedMediaHub};
 struct AppState {
     session: SharedSession,
     media: Mutex<Option<SharedMediaHub>>,
+    receiver: NativeReceiverManager,
     signaling: Mutex<Option<SignalingServer>>,
     discovery: Mutex<Option<DiscoveryAdvertiser>>,
 }
@@ -31,6 +35,7 @@ impl Default for AppState {
         Self {
             session: Arc::new(Mutex::new(SessionStore::default())),
             media: Mutex::new(None),
+            receiver: NativeReceiverManager::default(),
             signaling: Mutex::new(None),
             discovery: Mutex::new(None),
         }
@@ -230,6 +235,24 @@ fn find_nearby_hosts() -> Result<Vec<DiscoveredHost>, String> {
     discovery::browse_hosts(1_500)
 }
 
+#[tauri::command]
+#[specta::specta]
+fn start_native_receiver(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    payload: QrPairingPayload,
+    request: JoinRequest,
+) -> Result<(), String> {
+    state.receiver.start(app, payload, request)
+}
+
+#[tauri::command]
+#[specta::specta]
+fn stop_native_receiver(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    state.receiver.stop();
+    Ok(())
+}
+
 fn stop_signaling(state: &tauri::State<'_, AppState>) -> Result<(), String> {
     if let Some(mut server) = state
         .signaling
@@ -291,6 +314,7 @@ fn command_builder() -> Builder<tauri::Wry> {
         .typ::<SessionDescriptionMessage>()
         .typ::<SignalClientMessage>()
         .typ::<SignalServerMessage>()
+        .typ::<NativeReceiverEvent>()
         .commands(collect_commands![
             greet,
             start_stream,
@@ -305,7 +329,9 @@ fn command_builder() -> Builder<tauri::Wry> {
             disconnect_device,
             set_device_sharing,
             get_core_proof_status,
-            find_nearby_hosts
+            find_nearby_hosts,
+            start_native_receiver,
+            stop_native_receiver
         ])
 }
 

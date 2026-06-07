@@ -23,6 +23,9 @@ export const commands = {
     __TAURI_INVOKE<RoomSession>("set_device_sharing", { deviceId, enabled }),
   getCoreProofStatus: () => __TAURI_INVOKE<CoreProofStatus>("get_core_proof_status"),
   findNearbyHosts: () => __TAURI_INVOKE<DiscoveredHost[]>("find_nearby_hosts"),
+  startNativeReceiver: (payload: QrPairingPayload, request: JoinRequest) =>
+    __TAURI_INVOKE<void>("start_native_receiver", { payload, request }),
+  stopNativeReceiver: () => __TAURI_INVOKE<void>("stop_native_receiver"),
 };
 
 /* Types */
@@ -102,6 +105,14 @@ export type JoinRequest = {
   method: JoinMethod;
   token: string;
 };
+
+export type NativeReceiverEvent =
+  | { kind: "waiting"; message: string }
+  | { kind: "connecting"; message: string }
+  | { kind: "connected"; message: string }
+  | { kind: "denied"; message: string }
+  | { kind: "error"; message: string }
+  | { kind: "closed"; message: string };
 
 export type QrPairingPayload = {
   host: string;

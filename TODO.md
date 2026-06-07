@@ -40,13 +40,14 @@
 - [x] Added Rust Opus encoder for 48 kHz stereo 20 ms audio packets.
 - [x] Added Rust WebRTC sender hub with Opus audio track, offer creation, answer handling, and ICE handling.
 - [x] Added typed WebSocket messages for host WebRTC offer and host ICE candidates.
-- [x] Added Android WebRTC receiver path in the Tauri WebView UI.
+- [x] Added Android native Rust WebRTC receiver with Opus decode and Oboe playback.
 - [x] Wired Start Stream and Stop Stream to start and stop the Rust media hub.
+- [x] Wired Android UI to Rust receiver commands and typed receiver events.
 
 ## Pending
 
 - [x] Step 01: Build real Windows system-audio capture proof.
-- [ ] Step 01: Build real Android native audio output proof.
+- [x] Step 01: Build real Android native audio output proof.
 - [ ] Step 01: Measure first real setup time and audio latency.
 - [ ] Step 01: Decide final Windows capture backend after testing `wasapi` vs `cpal`.
 - [x] Step 02: Build WebSocket signaling server in Rust.
@@ -76,5 +77,5 @@
 - [x] Emulator tests are useful for regressions but not enough for final latency acceptance.
 - [x] V1 workflow structure is now QR/mDNS -> handshake -> permission -> WebRTC/audio-ready state.
 - [x] V1 now sends real Opus packets from Rust over WebRTC after desktop approval.
-- [ ] Android currently receives with browser WebRTC inside the Tauri WebView; native Rust/Oboe receiver playback is still pending.
+- [x] Android now receives with native Rust WebRTC and native Oboe audio output.
 - [ ] `cargo check` passes, but `cargo test export_typescript_bindings` is blocked by a Windows debug linker issue in `audiopus_sys` (`__imp__CrtDbgReportW`).
