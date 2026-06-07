@@ -78,4 +78,5 @@
 - [x] V1 workflow structure is now QR/mDNS -> handshake -> permission -> WebRTC/audio-ready state.
 - [x] V1 now sends real Opus packets from Rust over WebRTC after desktop approval.
 - [x] Android now receives with native Rust WebRTC and native Oboe audio output.
-- [ ] `cargo check` passes, but `cargo test export_typescript_bindings` is blocked by a Windows debug linker issue in `audiopus_sys` (`__imp__CrtDbgReportW`).
+- [x] Fixed the Windows `link.exe` 1120 failure by building `audiopus_sys` without the debug C runtime in dev builds.
+- [ ] `cargo test export_typescript_bindings` now links, but the test binary exits with `STATUS_ENTRYPOINT_NOT_FOUND`; generated bindings are currently maintained manually until that runtime issue is fixed.

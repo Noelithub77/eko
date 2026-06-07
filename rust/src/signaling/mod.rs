@@ -35,10 +35,13 @@ impl SignalingServer {
             .local_addr()
             .map_err(|error| error.to_string())?
             .port();
-        let listener = TcpListener::from_std(listener).map_err(|error| error.to_string())?;
         let (shutdown, shutdown_receiver) = oneshot::channel();
-        let task =
-            tauri::async_runtime::spawn(run_server(listener, session, media, shutdown_receiver));
+        let task = tauri::async_runtime::spawn(async move {
+            let Ok(listener) = TcpListener::from_std(listener) else {
+                return;
+            };
+            run_server(listener, session, media, shutdown_receiver).await;
+        });
 
         Ok(Self {
             port,

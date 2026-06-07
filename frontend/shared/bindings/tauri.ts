@@ -4,183 +4,145 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 
 /** Commands */
 export const commands = {
-  greet: (name: string) => __TAURI_INVOKE<string>("greet", { name }),
-  startStream: () => __TAURI_INVOKE<StartStreamResult>("start_stream"),
-  stopStream: () => __TAURI_INVOKE<RoomSession>("stop_stream"),
-  getRoomSession: () => __TAURI_INVOKE<RoomSession>("get_room_session"),
-  setLanDiscovery: (enabled: boolean) =>
-    __TAURI_INVOKE<RoomSession>("set_lan_discovery", { enabled }),
-  submitJoinRequest: (request: JoinRequest) =>
-    __TAURI_INVOKE<RoomSession>("submit_join_request", { request }),
-  addDevJoinRequest: (deviceName: string, method: JoinMethod) =>
-    __TAURI_INVOKE<RoomSession>("add_dev_join_request", { deviceName, method }),
-  allowDevice: (deviceId: string) => __TAURI_INVOKE<RoomSession>("allow_device", { deviceId }),
-  denyDevice: (deviceId: string) => __TAURI_INVOKE<RoomSession>("deny_device", { deviceId }),
-  unblockDevice: (deviceId: string) => __TAURI_INVOKE<RoomSession>("unblock_device", { deviceId }),
-  disconnectDevice: (deviceId: string) =>
-    __TAURI_INVOKE<RoomSession>("disconnect_device", { deviceId }),
-  setDeviceSharing: (deviceId: string, enabled: boolean) =>
-    __TAURI_INVOKE<RoomSession>("set_device_sharing", { deviceId, enabled }),
-  getCoreProofStatus: () => __TAURI_INVOKE<CoreProofStatus>("get_core_proof_status"),
-  findNearbyHosts: () => __TAURI_INVOKE<DiscoveredHost[]>("find_nearby_hosts"),
-  startNativeReceiver: (payload: QrPairingPayload, request: JoinRequest) =>
-    __TAURI_INVOKE<void>("start_native_receiver", { payload, request }),
-  stopNativeReceiver: () => __TAURI_INVOKE<void>("stop_native_receiver"),
+	greet: (name: string) => __TAURI_INVOKE<string>("greet", { name }),
+	startStream: () => __TAURI_INVOKE<StartStreamResult>("start_stream"),
+	stopStream: () => __TAURI_INVOKE<RoomSession>("stop_stream"),
+	getRoomSession: () => __TAURI_INVOKE<RoomSession>("get_room_session"),
+	setLanDiscovery: (enabled: boolean) => __TAURI_INVOKE<RoomSession>("set_lan_discovery", { enabled }),
+	submitJoinRequest: (request: JoinRequest) => __TAURI_INVOKE<RoomSession>("submit_join_request", { request }),
+	addDevJoinRequest: (deviceName: string, method: JoinMethod) => __TAURI_INVOKE<RoomSession>("add_dev_join_request", { deviceName, method }),
+	allowDevice: (deviceId: string) => __TAURI_INVOKE<RoomSession>("allow_device", { deviceId }),
+	denyDevice: (deviceId: string) => __TAURI_INVOKE<RoomSession>("deny_device", { deviceId }),
+	unblockDevice: (deviceId: string) => __TAURI_INVOKE<RoomSession>("unblock_device", { deviceId }),
+	disconnectDevice: (deviceId: string) => __TAURI_INVOKE<RoomSession>("disconnect_device", { deviceId }),
+	setDeviceSharing: (deviceId: string, enabled: boolean) => __TAURI_INVOKE<RoomSession>("set_device_sharing", { deviceId, enabled }),
+	getCoreProofStatus: () => __TAURI_INVOKE<CoreProofStatus>("get_core_proof_status"),
+	findNearbyHosts: () => __TAURI_INVOKE<DiscoveredHost[]>("find_nearby_hosts"),
+	startNativeReceiver: (payload: QrPairingPayload, request: JoinRequest) => __TAURI_INVOKE<null>("start_native_receiver", { payload, request }),
+	stopNativeReceiver: () => __TAURI_INVOKE<null>("stop_native_receiver"),
 };
 
 /* Types */
 export type AudioProofStatus = {
-  backend: string;
-  defaultOutputDevice: string | null;
-  captureReady: boolean;
-  note: string;
+	backend: string,
+	defaultOutputDevice: string | null,
+	captureReady: boolean,
+	note: string,
 };
 
 export type CoreProofStatus = {
-  audio: AudioProofStatus;
-  discovery: DiscoveryProofStatus;
-  signaling: SignalingProofStatus;
-  webRtc: WebRtcProofStatus;
+	audio: AudioProofStatus,
+	discovery: DiscoveryProofStatus,
+	signaling: SignalingProofStatus,
+	webRtc: WebRtcProofStatus,
 };
 
 export type DevEvent = {
-  id: string;
-  level: string;
-  message: string;
-  createdAt: string;
+	id: string,
+	level: string,
+	message: string,
+	createdAt: string,
 };
 
 export type DevMetric = {
-  id: string;
-  label: string;
-  value: number;
-  unit: string;
-  createdAt: string;
+	id: string,
+	label: string,
+	value: number,
+	unit: string,
+	createdAt: string,
 };
 
 export type Device = {
-  deviceId: string;
-  deviceName: string;
-  label: string | null;
-  state: DeviceConnectionState;
-  joinMethod: JoinMethod;
-  sharing: SharingState;
-  connectedAt: string | null;
-  webRtcState: string;
-  iceState: string;
+	deviceId: string,
+	deviceName: string,
+	label: string | null,
+	state: DeviceConnectionState,
+	joinMethod: JoinMethod,
+	sharing: SharingState,
+	connectedAt: string | null,
+	webRtcState: string,
+	iceState: string,
 };
 
-export type DeviceConnectionState =
-  | "pending"
-  | "connecting"
-  | "connected"
-  | "disconnected"
-  | "failed"
-  | "denied";
+export type DeviceConnectionState = "pending" | "connecting" | "connected" | "disconnected" | "failed" | "denied";
 
 export type DiscoveredHost = {
-  host: string;
-  port: number;
-  roomId: string;
-  token: string;
+	host: string,
+	port: number,
+	roomId: string,
+	token: string,
 };
 
 export type DiscoveryProofStatus = {
-  serviceType: string;
-  libraryReady: boolean;
-  note: string;
+	serviceType: string,
+	libraryReady: boolean,
+	note: string,
 };
 
 export type IceCandidateMessage = {
-  deviceId: string;
-  candidate: string;
+	deviceId: string,
+	candidate: string,
 };
 
 export type JoinMethod = "qr" | "discovery";
 
 export type JoinRequest = {
-  deviceId: string;
-  deviceName: string;
-  roomId: string;
-  method: JoinMethod;
-  token: string;
+	deviceId: string,
+	deviceName: string,
+	roomId: string,
+	method: JoinMethod,
+	token: string,
 };
 
-export type NativeReceiverEvent =
-  | { kind: "waiting"; message: string }
-  | { kind: "connecting"; message: string }
-  | { kind: "connected"; message: string }
-  | { kind: "denied"; message: string }
-  | { kind: "error"; message: string }
-  | { kind: "closed"; message: string };
+export type NativeReceiverEvent = { kind: "waiting"; message: string } | { kind: "connecting"; message: string } | { kind: "connected"; message: string } | { kind: "denied"; message: string } | { kind: "error"; message: string } | { kind: "closed"; message: string };
 
 export type QrPairingPayload = {
-  host: string;
-  port: number;
-  roomId: string;
-  token: string;
+	host: string,
+	port: number,
+	roomId: string,
+	token: string,
 };
 
 export type RoomSession = {
-  status: StreamStatus;
-  roomId: string | null;
-  token: string | null;
-  host: string | null;
-  port: number | null;
-  lanDiscoveryEnabled: boolean;
-  devices: Device[];
-  metrics: DevMetric[];
-  events: DevEvent[];
+	status: StreamStatus,
+	roomId: string | null,
+	token: string | null,
+	host: string | null,
+	port: number | null,
+	lanDiscoveryEnabled: boolean,
+	devices: Device[],
+	metrics: DevMetric[],
+	events: DevEvent[],
 };
 
 export type SessionDescriptionMessage = {
-  deviceId: string;
-  sdp: string;
+	deviceId: string,
+	sdp: string,
 };
 
 export type SharingState = "enabled" | "disabled";
 
-export type SignalClientMessage =
-  | { kind: "joinRequest"; request: JoinRequest }
-  | { kind: "receiverReady"; deviceId: string }
-  | { kind: "offer"; description: SessionDescriptionMessage }
-  | { kind: "answer"; description: SessionDescriptionMessage }
-  | { kind: "iceCandidate"; candidate: IceCandidateMessage };
+export type SignalClientMessage = { kind: "joinRequest"; request: JoinRequest } | { kind: "receiverReady"; deviceId: string } | { kind: "offer"; description: SessionDescriptionMessage } | { kind: "answer"; description: SessionDescriptionMessage } | { kind: "iceCandidate"; candidate: IceCandidateMessage };
 
-export type SignalServerMessage =
-  | { kind: "approvalWaiting"; deviceId: string; session: RoomSession }
-  | { kind: "joinRejected"; reason: string }
-  | {
-      kind: "permissionChanged";
-      deviceId: string;
-      state: DeviceConnectionState;
-      sharing: SharingState;
-      session: RoomSession;
-    }
-  | { kind: "webRtcReady"; deviceId: string }
-  | { kind: "hostOffer"; description: SessionDescriptionMessage }
-  | { kind: "hostIceCandidate"; candidate: IceCandidateMessage }
-  | { kind: "audioReady"; deviceId: string }
-  | { kind: "hostState"; session: RoomSession }
-  | { kind: "signalAck"; message: string }
-  | { kind: "error"; message: string };
+export type SignalServerMessage = { kind: "approvalWaiting"; deviceId: string; session: RoomSession } | { kind: "joinRejected"; reason: string } | { kind: "permissionChanged"; deviceId: string; state: DeviceConnectionState; sharing: SharingState; session: RoomSession } | { kind: "webRtcReady"; deviceId: string } | { kind: "hostOffer"; description: SessionDescriptionMessage } | { kind: "hostIceCandidate"; candidate: IceCandidateMessage } | { kind: "audioReady"; deviceId: string } | { kind: "hostState"; session: RoomSession } | { kind: "signalAck"; message: string } | { kind: "error"; message: string };
 
 export type SignalingProofStatus = {
-  transport: string;
-  libraryReady: boolean;
-  note: string;
+	transport: string,
+	libraryReady: boolean,
+	note: string,
 };
 
 export type StartStreamResult = {
-  session: RoomSession;
-  qrPayload: QrPairingPayload;
+	session: RoomSession,
+	qrPayload: QrPairingPayload,
 };
 
 export type StreamStatus = "idle" | "starting" | "running" | "stopping" | "failed";
 
 export type WebRtcProofStatus = {
-  mediaTransport: string;
-  codec: string;
-  libraryReady: boolean;
-  note: string;
+	mediaTransport: string,
+	codec: string,
+	libraryReady: boolean,
+	note: string,
 };
+

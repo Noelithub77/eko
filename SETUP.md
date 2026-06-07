@@ -17,7 +17,7 @@ npm install
 
 ## Start Desktop Dev App
 
-Runs the desktop UI through Vite.
+Runs the desktop UI through Vite. This is useful for quick UI preview only; native audio, signaling, and Tauri commands need the Tauri app.
 
 ```powershell
 npm run dev:desktop
@@ -47,6 +47,22 @@ Output:
 
 ```text
 dist/desktop/
+```
+
+## Build Desktop App
+
+Builds the Windows desktop app and installer bundles.
+
+```powershell
+npm run tauri -- build --debug
+```
+
+Outputs:
+
+```text
+rust/target/debug/eko.exe
+rust/target/debug/bundle/msi/eko_0.1.0_x64_en-US.msi
+rust/target/debug/bundle/nsis/eko_0.1.0_x64-setup.exe
 ```
 
 ## Build Mobile UI
