@@ -10,7 +10,9 @@ use tokio::sync::mpsc;
 use super::frame::{AudioFrame, FRAME_MS, SAMPLES_PER_PACKET};
 
 #[cfg(not(windows))]
-pub fn start_silence_source(sender: mpsc::Sender<AudioFrame>) -> thread::JoinHandle<()> {
+pub fn start_silence_source(
+    sender: mpsc::Sender<AudioFrame>,
+) -> Result<thread::JoinHandle<()>, String> {
     thread::Builder::new()
         .name("eko-silence-audio".to_string())
         .spawn(move || loop {
@@ -22,5 +24,5 @@ pub fn start_silence_source(sender: mpsc::Sender<AudioFrame>) -> thread::JoinHan
             }
             thread::sleep(Duration::from_millis(FRAME_MS));
         })
-        .expect("failed to spawn silence source")
+        .map_err(|error| error.to_string())
 }

@@ -172,14 +172,20 @@ async fn handle_client_message(
             let response = receiver_ready_response(session, device_id);
             send_json(socket, &response).await.is_ok()
         }
-        Ok(SignalClientMessage::Answer { description }) => match media.accept_answer(description).await {
-            Ok(()) => send_signal_ack(socket).await.is_ok(),
-            Err(message) => send_json(socket, &SignalServerMessage::Error { message }).await.is_ok(),
-        },
+        Ok(SignalClientMessage::Answer { description }) => {
+            match media.accept_answer(description).await {
+                Ok(()) => send_signal_ack(socket).await.is_ok(),
+                Err(message) => send_json(socket, &SignalServerMessage::Error { message })
+                    .await
+                    .is_ok(),
+            }
+        }
         Ok(SignalClientMessage::IceCandidate { candidate }) => {
             match media.add_ice_candidate(candidate).await {
                 Ok(()) => send_signal_ack(socket).await.is_ok(),
-                Err(message) => send_json(socket, &SignalServerMessage::Error { message }).await.is_ok(),
+                Err(message) => send_json(socket, &SignalServerMessage::Error { message })
+                    .await
+                    .is_ok(),
             }
         }
         Ok(SignalClientMessage::Offer { .. }) => send_json(

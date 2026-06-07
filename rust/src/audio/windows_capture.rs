@@ -4,25 +4,25 @@ mod windows {
     use std::thread;
 
     use tokio::sync::mpsc;
-    use wasapi::{
-        initialize_mta, DeviceEnumerator, Direction, SampleType, StreamMode, WaveFormat,
-    };
+    use wasapi::{initialize_mta, DeviceEnumerator, Direction, SampleType, StreamMode, WaveFormat};
 
     use crate::audio::frame::{
-        AudioFrame, CHANNELS, FRAMES_PER_PACKET, SAMPLE_RATE, SAMPLES_PER_PACKET,
+        AudioFrame, CHANNELS, FRAMES_PER_PACKET, SAMPLES_PER_PACKET, SAMPLE_RATE,
     };
 
     type CaptureResult<T> = Result<T, String>;
 
-    pub fn start_system_audio_source(sender: mpsc::Sender<AudioFrame>) -> thread::JoinHandle<()> {
+    pub fn start_system_audio_source(
+        sender: mpsc::Sender<AudioFrame>,
+    ) -> Result<thread::JoinHandle<()>, String> {
         thread::Builder::new()
             .name("eko-wasapi-loopback".to_string())
             .spawn(move || {
                 if let Err(error) = capture_loop(sender) {
-                    eprintln!("Eko audio capture stopped: {error}");
+                    log::error!("Windows audio capture stopped: {error}");
                 }
             })
-            .expect("failed to spawn Windows audio capture")
+            .map_err(|error| error.to_string())
     }
 
     fn capture_loop(sender: mpsc::Sender<AudioFrame>) -> CaptureResult<()> {

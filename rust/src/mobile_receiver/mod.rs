@@ -103,8 +103,8 @@ mod android {
             let Message::Text(text) = message else {
                 continue;
             };
-            let server_message =
-                serde_json::from_str::<SignalServerMessage>(&text).map_err(|error| error.to_string())?;
+            let server_message = serde_json::from_str::<SignalServerMessage>(&text)
+                .map_err(|error| error.to_string())?;
             handle_server_message(&app, &peer, &sender, &device_id, server_message).await?;
         }
 
@@ -175,7 +175,12 @@ mod android {
                 let mut decoder = match Decoder::new(48_000, Channels::Stereo) {
                     Ok(decoder) => decoder,
                     Err(error) => {
-                        emit(&app, NativeReceiverEvent::Error { message: error.to_string() });
+                        emit(
+                            &app,
+                            NativeReceiverEvent::Error {
+                                message: error.to_string(),
+                            },
+                        );
                         return;
                     }
                 };
@@ -249,7 +254,8 @@ mod android {
         device_id: &str,
         description: SessionDescriptionMessage,
     ) -> Result<(), String> {
-        let offer = RTCSessionDescription::offer(description.sdp).map_err(|error| error.to_string())?;
+        let offer =
+            RTCSessionDescription::offer(description.sdp).map_err(|error| error.to_string())?;
         peer.set_remote_description(offer)
             .await
             .map_err(|error| error.to_string())?;
@@ -274,8 +280,8 @@ mod android {
         peer: &Arc<RTCPeerConnection>,
         candidate: IceCandidateMessage,
     ) -> Result<(), String> {
-        let candidate =
-            serde_json::from_str::<RTCIceCandidateInit>(&candidate.candidate).map_err(|error| error.to_string())?;
+        let candidate = serde_json::from_str::<RTCIceCandidateInit>(&candidate.candidate)
+            .map_err(|error| error.to_string())?;
         peer.add_ice_candidate(candidate)
             .await
             .map_err(|error| error.to_string())

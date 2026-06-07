@@ -3,6 +3,7 @@ import { DesktopLayout } from "./layouts/DesktopLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@shared/components/ui/tabs";
 import { useSettingsStore } from "@shared/stores/settings-store";
 import { useStreamStore } from "@shared/stores/stream-store";
+import { initAppLogging } from "@shared/utils/logger";
 import { DevPanel } from "./features/dev/DevPanel";
 import { DeviceList } from "./features/devices/DeviceList";
 import { QrPairingCard } from "./features/pairing/QrPairingCard";
@@ -29,6 +30,7 @@ function App() {
   const setDevMode = useSettingsStore((state) => state.setDevMode);
 
   useEffect(() => {
+    void initAppLogging();
     loadSettings();
     refreshSession();
   }, [loadSettings, refreshSession]);

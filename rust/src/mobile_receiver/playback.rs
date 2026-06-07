@@ -4,8 +4,8 @@ mod android {
     use std::sync::{Arc, Mutex};
 
     use oboe::{
-        AudioOutputCallback, AudioOutputStreamSafe, AudioStream, AudioStreamBuilder, DataCallbackResult,
-        PerformanceMode, SharingMode, Stereo,
+        AudioOutputCallback, AudioOutputStreamSafe, AudioStream, AudioStreamBuilder,
+        DataCallbackResult, PerformanceMode, SharingMode, Stereo,
     };
 
     #[derive(Clone)]

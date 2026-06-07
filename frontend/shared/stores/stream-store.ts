@@ -12,6 +12,7 @@ import {
   unblockDevice,
 } from "../utils/api";
 import type { QrPairingPayload, RoomSession } from "../types/stream";
+import { formatError, logError } from "../utils/logger";
 
 type StreamState = {
   session: RoomSession | null;
@@ -41,8 +42,9 @@ export const useStreamStore = create<StreamState>()((set) => ({
     try {
       set({ session: await getRoomSession(), errorMessage: null });
     } catch (error) {
+      void logError("Load stream state failed", error);
       set({
-        errorMessage: error instanceof Error ? error.message : "Could not load stream state.",
+        errorMessage: formatError(error),
       });
     }
   },
@@ -51,38 +53,82 @@ export const useStreamStore = create<StreamState>()((set) => ({
       const result = await startStream();
       set({ session: result.session, qrPayload: result.qrPayload, errorMessage: null });
     } catch (error) {
-      set({ errorMessage: error instanceof Error ? error.message : "Could not start stream." });
+      void logError("Start stream failed", error);
+      set({ errorMessage: formatError(error) });
     }
   },
   stop: async () => {
-    const session = await runSessionAction(stopStream);
-    set({ session, qrPayload: null, errorMessage: null });
+    try {
+      const session = await runSessionAction(stopStream);
+      set({ session, qrPayload: null, errorMessage: null });
+    } catch (error) {
+      void logError("Stop stream failed", error);
+      set({ errorMessage: formatError(error) });
+    }
   },
   toggleLanDiscovery: async (enabled) => {
-    set({ session: await runSessionAction(() => setLanDiscovery(enabled)), errorMessage: null });
+    try {
+      set({ session: await runSessionAction(() => setLanDiscovery(enabled)), errorMessage: null });
+    } catch (error) {
+      void logError("LAN discovery toggle failed", error);
+      set({ errorMessage: formatError(error) });
+    }
   },
   allow: async (deviceId) => {
-    set({ session: await runSessionAction(() => allowDevice(deviceId)), errorMessage: null });
+    try {
+      set({ session: await runSessionAction(() => allowDevice(deviceId)), errorMessage: null });
+    } catch (error) {
+      void logError("Allow device failed", error);
+      set({ errorMessage: formatError(error) });
+    }
   },
   deny: async (deviceId) => {
-    set({ session: await runSessionAction(() => denyDevice(deviceId)), errorMessage: null });
+    try {
+      set({ session: await runSessionAction(() => denyDevice(deviceId)), errorMessage: null });
+    } catch (error) {
+      void logError("Deny device failed", error);
+      set({ errorMessage: formatError(error) });
+    }
   },
   unblock: async (deviceId) => {
-    set({ session: await runSessionAction(() => unblockDevice(deviceId)), errorMessage: null });
+    try {
+      set({ session: await runSessionAction(() => unblockDevice(deviceId)), errorMessage: null });
+    } catch (error) {
+      void logError("Unblock device failed", error);
+      set({ errorMessage: formatError(error) });
+    }
   },
   disconnect: async (deviceId) => {
-    set({ session: await runSessionAction(() => disconnectDevice(deviceId)), errorMessage: null });
+    try {
+      set({
+        session: await runSessionAction(() => disconnectDevice(deviceId)),
+        errorMessage: null,
+      });
+    } catch (error) {
+      void logError("Disconnect device failed", error);
+      set({ errorMessage: formatError(error) });
+    }
   },
   toggleSharing: async (deviceId, enabled) => {
-    set({
-      session: await runSessionAction(() => setDeviceSharing(deviceId, enabled)),
-      errorMessage: null,
-    });
+    try {
+      set({
+        session: await runSessionAction(() => setDeviceSharing(deviceId, enabled)),
+        errorMessage: null,
+      });
+    } catch (error) {
+      void logError("Device sharing toggle failed", error);
+      set({ errorMessage: formatError(error) });
+    }
   },
   addTestDevice: async (deviceName, method) => {
-    set({
-      session: await runSessionAction(() => addDevJoinRequest(deviceName, method)),
-      errorMessage: null,
-    });
+    try {
+      set({
+        session: await runSessionAction(() => addDevJoinRequest(deviceName, method)),
+        errorMessage: null,
+      });
+    } catch (error) {
+      void logError("Add test device failed", error);
+      set({ errorMessage: formatError(error) });
+    }
   },
 }));

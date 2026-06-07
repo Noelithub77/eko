@@ -64,7 +64,13 @@ impl MediaHub {
     }
 
     pub async fn stop(&self) {
-        if let Some(task) = self.audio_task.lock().map(|mut task| task.take()).ok().flatten() {
+        if let Some(task) = self
+            .audio_task
+            .lock()
+            .map(|mut task| task.take())
+            .ok()
+            .flatten()
+        {
             task.abort();
         }
         let mut peers = self.peers.lock().await;
@@ -125,7 +131,10 @@ impl MediaHub {
         })
     }
 
-    pub async fn accept_answer(&self, description: SessionDescriptionMessage) -> Result<(), String> {
+    pub async fn accept_answer(
+        &self,
+        description: SessionDescriptionMessage,
+    ) -> Result<(), String> {
         let peer = self
             .peers
             .lock()
@@ -133,8 +142,8 @@ impl MediaHub {
             .get(&description.device_id)
             .cloned()
             .ok_or_else(|| "No WebRTC peer for this device.".to_string())?;
-        let answer = RTCSessionDescription::answer(description.sdp)
-            .map_err(|error| error.to_string())?;
+        let answer =
+            RTCSessionDescription::answer(description.sdp).map_err(|error| error.to_string())?;
         peer.set_remote_description(answer)
             .await
             .map_err(|error| error.to_string())
@@ -163,13 +172,13 @@ impl MediaHub {
 
     fn start_audio_loop(hub: &SharedMediaHub) -> Result<(), String> {
         let (sender, mut receiver) = mpsc::channel::<AudioFrame>(8);
-        let _capture_thread = start_system_audio_source(sender);
+        let _capture_thread = start_system_audio_source(sender)?;
         let track = Arc::clone(&hub.track);
         let task = tauri::async_runtime::spawn(async move {
             let mut encoder = match OpusAudioEncoder::new() {
                 Ok(encoder) => encoder,
                 Err(error) => {
-                    eprintln!("Eko Opus encoder failed: {error}");
+                    log::error!("Opus encoder failed: {error}");
                     return;
                 }
             };

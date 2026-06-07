@@ -19,6 +19,7 @@ use mobile_receiver::NativeReceiverManager;
 use session::SessionStore;
 use signaling::{SharedSession, SignalingServer};
 use specta_typescript::Typescript;
+use tauri_plugin_log::{Target, TargetKind};
 use tauri_specta::{collect_commands, Builder, ErrorHandlingMode};
 use webrtc_core::media_hub::{MediaHub, SharedMediaHub};
 
@@ -267,7 +268,12 @@ fn stop_signaling(state: &tauri::State<'_, AppState>) -> Result<(), String> {
 }
 
 fn stop_media(state: &tauri::State<'_, AppState>) -> Result<(), String> {
-    if let Some(media) = state.media.lock().map_err(|error| error.to_string())?.take() {
+    if let Some(media) = state
+        .media
+        .lock()
+        .map_err(|error| error.to_string())?
+        .take()
+    {
         tauri::async_runtime::block_on(media.stop());
     }
 
@@ -289,12 +295,25 @@ fn stop_discovery(state: &tauri::State<'_, AppState>) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    install_panic_logger();
     let builder = command_builder();
 
     #[cfg(debug_assertions)]
     export_bindings(&builder);
 
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_log::Builder::default()
+                .targets([
+                    Target::new(TargetKind::Stdout),
+                    Target::new(TargetKind::Stderr),
+                    Target::new(TargetKind::LogDir {
+                        file_name: Some("eko.log".to_string()),
+                    }),
+                    Target::new(TargetKind::Webview),
+                ])
+                .build(),
+        )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .manage(AppState::default())
@@ -304,7 +323,33 @@ pub fn run() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .unwrap_or_else(|error| {
+            log::error!("Tauri runtime failed: {error}");
+            eprintln!("Tauri runtime failed: {error}");
+        });
+}
+
+fn install_panic_logger() {
+    std::panic::set_hook(Box::new(|panic_info| {
+        let location = panic_info
+            .location()
+            .map(|location| format!("{}:{}", location.file(), location.line()))
+            .unwrap_or_else(|| "unknown location".to_string());
+        let message = panic_info
+            .payload()
+            .downcast_ref::<&str>()
+            .map(|message| (*message).to_string())
+            .or_else(|| {
+                panic_info
+                    .payload()
+                    .downcast_ref::<String>()
+                    .map(ToString::to_string)
+            })
+            .unwrap_or_else(|| "unknown panic".to_string());
+
+        log::error!("Unexpected panic at {location}: {message}");
+        eprintln!("Unexpected panic at {location}: {message}");
+    }));
 }
 
 fn command_builder() -> Builder<tauri::Wry> {

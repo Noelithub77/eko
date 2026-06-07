@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { MobileLayout } from "./layouts/MobileLayout";
 import { Button } from "@shared/components/ui/button";
 import { findNearbyHosts, startNativeReceiver, stopNativeReceiver } from "@shared/utils/api";
+import { initAppLogging, logError } from "@shared/utils/logger";
 import type { JoinRequest } from "@shared/types/device";
 import type { DiscoveredHost, NativeReceiverEvent } from "@shared/types/signaling";
 import type { QrPairingPayload } from "@shared/types/stream";
@@ -20,6 +21,10 @@ function App() {
   const [isSearching, setIsSearching] = useState(false);
 
   const deviceId = useMemo(() => getDeviceId(), []);
+
+  useEffect(() => {
+    void initAppLogging();
+  }, []);
 
   useEffect(() => {
     const unlisten = listen<NativeReceiverEvent>("native-receiver-event", (event) => {
@@ -69,7 +74,8 @@ function App() {
 
       try {
         await startNativeReceiver(payload, request);
-      } catch {
+      } catch (error) {
+        void logError("Native receiver start failed", error);
         setStatus("disconnected");
         setMessage("Native receiver failed.");
       }
@@ -84,7 +90,8 @@ function App() {
       const hosts = await findNearbyHosts();
       setNearbyHosts(hosts);
       setMessage(hosts.length > 0 ? "Select a host." : "No host found.");
-    } catch {
+    } catch (error) {
+      void logError("Find nearby hosts failed", error);
       setMessage("LAN discovery failed.");
     } finally {
       setIsSearching(false);
