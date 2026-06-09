@@ -47,17 +47,17 @@ export function ScanQrScreen({ onScanned }: ScanQrScreenProps) {
   }, [isScanning, onScanned]);
 
   return (
-    <Card className="rounded-lg shadow-sm">
-      <CardHeader>
+    <Card className="gap-4 rounded-2xl py-5 shadow-none">
+      <CardHeader className="px-5">
         <CardTitle>Scan QR</CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-3">
+      <CardContent className="grid gap-3 px-5">
         <video
-          className="aspect-square w-full rounded-lg bg-muted object-cover"
+          className="aspect-square w-full rounded-xl bg-muted object-cover"
           muted
           ref={videoRef}
         />
-        <Button onClick={() => setIsScanning((current) => !current)}>
+        <Button className="h-11" onClick={() => setIsScanning((current) => !current)}>
           <Camera />
           {isScanning ? "Stop" : "Scan"}
         </Button>

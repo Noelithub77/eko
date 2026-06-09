@@ -17,6 +17,62 @@ The desktop app captures computer audio and streams it to approved Android devic
 - Keep comments short and useful.
 - Do not revert or overwrite changes from other agents.
 - Ask the user before making product or architecture decisions.
+- Do not use `unwrap`, `expect`, or `panic!` in runtime app paths. Convert failures into typed `Result` errors and show a clear UI/log message.
+- Keep error logs useful but small. Log the failing action and the real error; do not spam repeated frame/audio/debug logs.
+
+## Error Handling Rules
+
+Native crashes are expensive to debug, especially on Android. Treat every app startup path as fallible.
+
+- Tauri commands must return `Result<_, String>` or a proper typed error.
+- Rust startup code must not do dev-only work that can fail on Android, such as writing generated TypeScript files.
+- File generation, binding export, and codegen should run from tests/scripts or desktop-only dev paths, not mobile app startup.
+- If a lock, file write, audio device, network socket, WebRTC step, or plugin init can fail, handle it and return the error.
+- For Android crashes, inspect `adb logcat -b crash` and tombstones before changing code.
+- If the app can keep running after an error, keep it running and show the simplest useful state.
+- If the app cannot keep running, log one clear error and stop that feature instead of aborting the whole process.
+
+## Fast Check Rules
+
+Full Tauri and Android builds are slow. Do not run them as the default verification step.
+
+Default checks after normal code edits:
+
+```powershell
+npm run test:types
+npm run lint
+npm run test:core
+cd rust
+cargo check
+```
+
+Use targeted checks instead of full builds:
+
+- Frontend-only change: `npm run test:types` and `npm run lint`.
+- Session/signaling TypeScript test change: `npm run test:core`.
+- Rust desktop core change: `cd rust; cargo check`.
+- Android Rust compile concern: prefer the narrowest Tauri Android command needed; avoid repeated full APK builds.
+- UI preview check: use `npm run dev:web:desktop` or `npm run dev:web:mobile`.
+
+Only run full slow commands when the changed layer needs them or the user asks:
+
+- `npm run tauri -- build`
+- `npm run tauri -- android build --debug --apk ...`
+- `npm run dev:android`
+- VS Code `Ctrl+Shift+B` full desktop + Android task
+
+When a slow build is needed, say why before running it.
+
+## Build Cache Rules
+
+Prefer caching over repeated clean builds.
+
+- Keep Cargo target directories intact. Do not delete `rust/target` unless the user asks or the cache is clearly corrupt.
+- Keep Gradle caches intact. Do not delete `rust/gen/android/.gradle` or global Gradle caches unless needed.
+- If `sccache` is installed, use it for Rust builds with `RUSTC_WRAPPER=sccache`.
+- If `sccache` is not installed, ask before installing it.
+- Do not add global build-cache config without asking the user first.
+- For local dev, remember that Cargo incremental builds already help. Use `sccache` when repeated cross-target builds are the bottleneck.
 
 ## Required Planning Flow
 

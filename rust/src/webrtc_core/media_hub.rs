@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use bytes::Bytes;
 use tokio::sync::{mpsc, Mutex};
-use webrtc::api::media_engine::MIME_TYPE_OPUS;
+use webrtc::api::media_engine::{MediaEngine, MIME_TYPE_OPUS};
 use webrtc::api::APIBuilder;
 use webrtc::ice_transport::ice_candidate::RTCIceCandidateInit;
 use webrtc::media::Sample;
@@ -83,7 +83,7 @@ impl MediaHub {
     pub async fn create_sender_offer(&self, device_id: String) -> Result<MediaPeerOffer, String> {
         self.close_peer(&device_id).await;
 
-        let api = APIBuilder::new().build();
+        let api = webrtc_api_with_default_codecs()?;
         let peer = Arc::new(
             api.new_peer_connection(RTCConfiguration::default())
                 .await
@@ -201,4 +201,14 @@ impl MediaHub {
 
         Ok(())
     }
+}
+
+fn webrtc_api_with_default_codecs() -> Result<webrtc::api::API, String> {
+    let mut media_engine = MediaEngine::default();
+    media_engine
+        .register_default_codecs()
+        .map_err(|error| error.to_string())?;
+    Ok(APIBuilder::new()
+        .with_media_engine(media_engine)
+        .build())
 }

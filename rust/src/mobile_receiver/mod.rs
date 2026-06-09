@@ -48,6 +48,7 @@ mod android {
     use tauri::{AppHandle, Emitter};
     use tokio::sync::mpsc;
     use tokio_tungstenite::tungstenite::Message;
+    use webrtc::api::media_engine::MediaEngine;
     use webrtc::api::APIBuilder;
     use webrtc::ice_transport::ice_candidate::RTCIceCandidateInit;
     use webrtc::peer_connection::configuration::RTCConfiguration;
@@ -74,10 +75,17 @@ mod android {
         payload: QrPairingPayload,
         request: JoinRequest,
     ) -> Result<(), String> {
-        let url = format!("ws://{}:{}", payload.host, payload.port);
+        let url = format!("ws://{}:{}/eko", payload.host, payload.port);
         let (socket, _) = tokio_tungstenite::connect_async(url)
             .await
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| {
+                log::warn!(
+                    "Receiver could not connect to desktop signaling at {}:{}: {error}",
+                    payload.host,
+                    payload.port
+                );
+                "Could not reach desktop. Start a new stream and make sure both devices are on the same Wi-Fi.".to_string()
+            })?;
         let (mut writer, mut reader) = socket.split();
         let (sender, mut outgoing) = mpsc::unbounded_channel::<SignalClientMessage>();
         let device_id = request.device_id.clone();
@@ -99,7 +107,10 @@ mod android {
         });
 
         while let Some(message) = reader.next().await {
-            let message = message.map_err(|error| error.to_string())?;
+            let message = message.map_err(|error| {
+                log::warn!("Receiver signaling socket closed with error: {error}");
+                "Desktop connection closed. Start a new stream and scan the latest QR.".to_string()
+            })?;
             let Message::Text(text) = message else {
                 continue;
             };
@@ -123,7 +134,13 @@ mod android {
         device_id: String,
         sender: mpsc::UnboundedSender<SignalClientMessage>,
     ) -> Result<RTCPeerConnection, String> {
+        let mut media_engine = MediaEngine::default();
+        media_engine
+            .register_default_codecs()
+            .map_err(|error| error.to_string())?;
+
         let peer = APIBuilder::new()
+            .with_media_engine(media_engine)
             .build()
             .new_peer_connection(RTCConfiguration::default())
             .await

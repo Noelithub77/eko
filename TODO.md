@@ -79,4 +79,19 @@
 - [x] V1 now sends real Opus packets from Rust over WebRTC after desktop approval.
 - [x] Android now receives with native Rust WebRTC and native Oboe audio output.
 - [x] Fixed the Windows `link.exe` 1120 failure by building `audiopus_sys` without the debug C runtime in dev builds.
+- [x] Found Android startup crash: debug builds exported Specta TypeScript bindings during mobile startup, which can panic on Android before the UI stays open.
+- [x] Fixed Android startup export path by skipping binding export on mobile runtime.
 - [ ] `cargo test export_typescript_bindings` now links, but the test binary exits with `STATUS_ENTRYPOINT_NOT_FOUND`; generated bindings are currently maintained manually until that runtime issue is fixed.
+
+## Slow Rebuild Path
+
+- [ ] Stage 01: Android Tauri shell opens and stays open with no receiver, signaling, discovery, or audio started on load.
+- [ ] Stage 02: Android can call one simple typed Rust command and show the result.
+- [ ] Stage 03: Android can start and stop the native receiver manager without connecting to desktop.
+- [ ] Stage 04: QR payload parsing works on Android with clear UI errors.
+- [ ] Stage 05: Android joins desktop signaling and reaches waiting-for-approval state.
+- [ ] Stage 06: Desktop approval changes Android state to connected without audio playback.
+- [ ] Stage 07: WebRTC connects with a silent/test audio track.
+- [ ] Stage 08: Real Opus decode and Oboe playback are enabled.
+- [ ] Stage 09: Real Windows system audio capture is enabled.
+- [ ] Stage 10: Latency and multi-device tests are added after the basic path is stable.

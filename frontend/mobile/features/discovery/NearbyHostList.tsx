@@ -12,17 +12,17 @@ type NearbyHostListProps = {
 
 export function NearbyHostList({ hosts, isSearching, onFind, onSelect }: NearbyHostListProps) {
   return (
-    <Card className="rounded-lg shadow-sm">
-      <CardHeader>
+    <Card className="gap-4 rounded-2xl py-5 shadow-none">
+      <CardHeader className="px-5">
         <CardTitle>Nearby Host</CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-3">
-        <Button disabled={isSearching} onClick={onFind} variant="outline">
+      <CardContent className="grid gap-3 px-5">
+        <Button className="h-11" disabled={isSearching} onClick={onFind} variant="outline">
           <Radar />
           {isSearching ? "Finding" : "Find"}
         </Button>
         {hosts.length === 0 ? (
-          <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
             No host found
           </div>
         ) : (

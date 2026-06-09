@@ -1,11 +1,15 @@
 [target.aarch64-linux-android]
 linker = "aarch64-linux-android26-clang.cmd"
+rustflags = ["-C", "link-arg=-lc++_static", "-C", "link-arg=-lc++abi"]
 
 [target.armv7-linux-androideabi]
 linker = "armv7a-linux-androideabi26-clang.cmd"
+rustflags = ["-C", "link-arg=-lc++_static", "-C", "link-arg=-lc++abi"]
 
 [target.i686-linux-android]
 linker = "i686-linux-android26-clang.cmd"
+rustflags = ["-C", "link-arg=-lc++_static", "-C", "link-arg=-lc++abi"]
 
 [target.x86_64-linux-android]
 linker = "x86_64-linux-android26-clang.cmd"
+rustflags = ["-C", "link-arg=-lc++_static", "-C", "link-arg=-lc++abi"]

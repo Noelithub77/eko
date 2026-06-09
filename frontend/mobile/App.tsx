@@ -100,9 +100,9 @@ function App() {
 
   return (
     <MobileLayout>
-      <div>
-        <h1 className="text-xl font-semibold">Eko</h1>
-        <p className="text-sm text-muted-foreground">{message}</p>
+      <div className="grid gap-1">
+        <h1 className="text-2xl font-semibold leading-tight">Eko</h1>
+        <p className="text-sm leading-5 text-muted-foreground">{message}</p>
       </div>
       <ScanQrScreen onScanned={(payload) => requestApproval(payload, "qr")} />
       <NearbyHostList

@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.codialo.eko",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "npm run dev:web:desktop",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist/desktop"

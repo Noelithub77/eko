@@ -6,12 +6,12 @@ type ConnectionStatusProps = {
 
 export function ConnectionStatus({ status }: ConnectionStatusProps) {
   return (
-    <Card className="rounded-lg shadow-sm">
-      <CardHeader>
+    <Card className="gap-4 rounded-2xl py-5 shadow-none">
+      <CardHeader className="px-5">
         <CardTitle>Status</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="rounded-md bg-muted px-3 py-2 text-sm font-medium">{status}</div>
+      <CardContent className="px-5">
+        <div className="rounded-xl bg-muted px-3 py-2 text-sm font-medium">{status}</div>
       </CardContent>
     </Card>
   );

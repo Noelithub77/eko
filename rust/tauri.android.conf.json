@@ -1,6 +1,6 @@
 {
   "build": {
-    "beforeDevCommand": "npm run dev:mobile",
+    "beforeDevCommand": "npm run dev:web:mobile",
     "beforeBuildCommand": "npm run build:mobile",
     "frontendDist": "../dist/mobile"
   },

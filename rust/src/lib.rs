@@ -5,6 +5,7 @@ mod core_proof;
 mod discovery;
 mod domain;
 mod mobile_receiver;
+mod network_host;
 mod session;
 mod signaling;
 mod webrtc_core;
@@ -59,9 +60,7 @@ fn start_stream(state: tauri::State<'_, AppState>) -> Result<StartStreamResult, 
     let media = MediaHub::start()?;
     let server = SignalingServer::start(Arc::clone(&state.session), Arc::clone(&media))?;
     let port = server.port();
-    let host = local_ip_address::local_ip()
-        .map(|ip_address| ip_address.to_string())
-        .unwrap_or_else(|_| "127.0.0.1".to_string());
+    let host = network_host::pairing_host()?;
     let result = state
         .session
         .lock()
@@ -298,12 +297,13 @@ pub fn run() {
     install_panic_logger();
     let builder = command_builder();
 
-    #[cfg(debug_assertions)]
+    #[cfg(all(debug_assertions, not(mobile)))]
     export_bindings(&builder);
 
     tauri::Builder::default()
         .plugin(
             tauri_plugin_log::Builder::default()
+                .level(log::LevelFilter::Info)
                 .targets([
                     Target::new(TargetKind::Stdout),
                     Target::new(TargetKind::Stderr),

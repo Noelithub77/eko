@@ -8,6 +8,7 @@ use specta::Type;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time;
+use tokio_tungstenite::tungstenite::handshake::server::{Request, Response};
 use tokio_tungstenite::tungstenite::Message;
 
 use crate::domain::{
@@ -93,7 +94,8 @@ async fn run_server(
     loop {
         tokio::select! {
             accept_result = listener.accept() => {
-                if let Ok((stream, _address)) = accept_result {
+                if let Ok((stream, address)) = accept_result {
+                    log::info!("Signaling client connected from {address}");
                     tauri::async_runtime::spawn(handle_client(
                         stream,
                         Arc::clone(&session),
@@ -109,7 +111,17 @@ async fn run_server(
 }
 
 async fn handle_client(stream: TcpStream, session: SharedSession, media: SharedMediaHub) {
-    let Ok(mut socket) = tokio_tungstenite::accept_async(stream).await else {
+    let peer_address = stream.peer_addr().ok();
+    let accepted = tokio_tungstenite::accept_hdr_async(stream, |request: &Request, response: Response| {
+        log::info!("Signaling websocket upgrade path: {}", request.uri().path());
+        Ok(response)
+    })
+    .await;
+
+    let Ok(mut socket) = accepted else {
+        if let Err(error) = accepted {
+            log::warn!("Signaling websocket handshake failed: {error}");
+        }
         return;
     };
     let mut device_id: Option<String> = None;
@@ -121,6 +133,9 @@ async fn handle_client(stream: TcpStream, session: SharedSession, media: SharedM
         tokio::select! {
             Some(message_result) = socket.next() => {
                 let Ok(message) = message_result else {
+                    if let Err(error) = message_result {
+                        log::warn!("Signaling client socket closed with error: {error}");
+                    }
                     break;
                 };
                 if !handle_client_message(message, &mut socket, &session, &media, &mut device_id).await {
@@ -140,13 +155,21 @@ async fn handle_client(stream: TcpStream, session: SharedSession, media: SharedM
                 ).await {
                     Ok(Some(signals)) => media_signals = Some(signals),
                     Ok(None) => {}
-                    Err(_) => break,
+                    Err(error) => {
+                        log::warn!("Signaling permission update failed: {error}");
+                        break;
+                    }
                 }
-                if forward_media_signals(&mut socket, &mut media_signals).await.is_err() {
+                if let Err(error) = forward_media_signals(&mut socket, &mut media_signals).await {
+                    log::warn!("Signaling media signal forwarding failed: {error}");
                     break;
                 }
             }
         }
+    }
+
+    if let Some(peer_address) = peer_address {
+        log::info!("Signaling client disconnected from {peer_address}");
     }
 }
 

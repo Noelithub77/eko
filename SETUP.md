@@ -15,26 +15,42 @@
 npm install
 ```
 
-## Start Desktop Dev App
+## Start Desktop Web Preview
 
-Runs the desktop UI through Vite. This is useful for quick UI preview only; native audio, signaling, and Tauri commands need the Tauri app.
+Runs only the desktop UI through Vite. Native audio, signaling, and Tauri commands need the Tauri app.
+
+```powershell
+npm run dev:web:desktop
+```
+
+## Start Desktop Tauri Dev App
 
 ```powershell
 npm run dev:desktop
 ```
 
-In another terminal, start the Tauri desktop app:
+## Start Android Tauri Dev App
+
+Runs the Android app on a connected emulator or device. If no device is connected, it starts the first available emulator, passes the live device id to Tauri, and opens Eko on the emulator after install.
 
 ```powershell
-npm run tauri -- dev
+npm run dev:android
 ```
 
-## Start Mobile Dev UI
+VS Code `Ctrl+Shift+B` runs the default build task `dev: all tauri`, which starts desktop Tauri dev and Android Tauri dev together. If no Android device is connected, the Android task starts the first available emulator before running Tauri Android dev.
 
-Runs the Android/mobile UI through Vite.
+Raw Tauri Android dev, without automatic device selection:
 
 ```powershell
-npm run dev:mobile
+npm run dev:android:direct
+```
+
+## Start Mobile Web Preview
+
+Runs only the Android/mobile UI through Vite.
+
+```powershell
+npm run dev:web:mobile
 ```
 
 ## Build Desktop UI

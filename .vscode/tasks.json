@@ -1,0 +1,63 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "dev: all tauri",
+      "dependsOn": ["dev: desktop tauri", "dev: android tauri"],
+      "dependsOrder": "parallel",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "dev: desktop tauri",
+      "type": "shell",
+      "command": "npm run dev:desktop",
+      "isBackground": true,
+      "presentation": {
+        "group": "eko-dev",
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "dev: android tauri",
+      "type": "shell",
+      "command": "npm run dev:android:auto",
+      "isBackground": true,
+      "presentation": {
+        "group": "eko-dev",
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "dev: desktop web",
+      "type": "shell",
+      "command": "npm run dev:web:desktop",
+      "isBackground": true,
+      "presentation": {
+        "group": "eko-web",
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "dev: mobile web",
+      "type": "shell",
+      "command": "npm run dev:web:mobile",
+      "isBackground": true,
+      "presentation": {
+        "group": "eko-web",
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    }
+  ]
+}
