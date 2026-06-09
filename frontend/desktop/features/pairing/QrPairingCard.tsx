@@ -10,16 +10,21 @@ export function QrPairingCard({ payload }: QrPairingCardProps) {
   const qrValue = payload ? JSON.stringify(payload) : "";
 
   return (
-    <Card className="rounded-lg shadow-sm">
+    <Card className="min-h-full rounded-2xl shadow-sm">
       <CardHeader>
-        <CardTitle>QR Pairing</CardTitle>
+        <CardTitle className="text-xl">QR Pairing</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="flex min-h-52 items-center justify-center rounded-lg border bg-background p-4">
+      <CardContent className="h-full">
+        <div className="flex min-h-[420px] h-full items-center justify-center rounded-2xl border bg-background p-8">
           {payload ? (
-            <QRCodeSVG value={qrValue} size={180} level="M" includeMargin />
+            <QRCodeSVG
+              className="h-[min(48vh,360px)] w-[min(48vh,360px)]"
+              value={qrValue}
+              level="M"
+              includeMargin
+            />
           ) : (
-            <span className="text-sm text-muted-foreground">Start stream</span>
+            <span className="text-base text-muted-foreground">Start stream</span>
           )}
         </div>
       </CardContent>

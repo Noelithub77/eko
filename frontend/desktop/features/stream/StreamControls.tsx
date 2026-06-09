@@ -16,11 +16,12 @@ export function StreamControls({ session, onStart, onStop, onLanChange }: Stream
   const lanEnabled = session?.lanDiscoveryEnabled ?? false;
 
   return (
-    <Card className="rounded-lg shadow-sm">
+    <Card className="rounded-2xl shadow-sm">
       <CardHeader>
-        <CardTitle>Stream</CardTitle>
+        <CardTitle className="text-xl">Stream</CardTitle>
         <CardAction>
           <Button
+            className="h-11 px-5"
             onClick={isRunning ? onStop : onStart}
             variant={isRunning ? "outline" : "default"}
           >
@@ -30,14 +31,14 @@ export function StreamControls({ session, onStart, onStop, onLanChange }: Stream
         </CardAction>
       </CardHeader>
       <CardContent className="grid gap-4">
-        <div className="flex items-center justify-between rounded-md border bg-background p-3">
+        <div className="flex items-center justify-between rounded-2xl border bg-background p-4">
           <div className="flex items-center gap-2">
-            <Radar className="size-4 text-muted-foreground" />
-            <span className="font-medium">LAN discovery</span>
+            <Radar className="size-5 text-muted-foreground" />
+            <span className="text-base font-medium">LAN discovery</span>
           </div>
           <Switch checked={lanEnabled} disabled={!isRunning} onCheckedChange={onLanChange} />
         </div>
-        <div className="grid grid-cols-3 gap-2 text-sm">
+        <div className="grid grid-cols-3 gap-3 text-sm">
           <StatusItem label="Status" value={session?.status ?? "idle"} />
           <StatusItem label="Host" value={session?.host ?? "-"} />
           <StatusItem label="Port" value={session?.port?.toString() ?? "-"} />
@@ -49,9 +50,9 @@ export function StreamControls({ session, onStart, onStop, onLanChange }: Stream
 
 function StatusItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md bg-muted px-3 py-2">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="truncate font-medium">{value}</div>
+    <div className="rounded-2xl bg-muted px-4 py-4">
+      <div className="text-sm text-muted-foreground">{label}</div>
+      <div className="mt-1 truncate text-lg font-semibold">{value}</div>
     </div>
   );
 }

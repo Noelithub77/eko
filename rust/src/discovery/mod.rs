@@ -63,7 +63,7 @@ pub fn browse_hosts(timeout_ms: u64) -> Result<Vec<DiscoveredHost>, String> {
     let receiver = daemon
         .browse(SERVICE_TYPE)
         .map_err(|error| error.to_string())?;
-    let mut hosts = Vec::new();
+    let mut hosts = HashMap::new();
     let deadline = Instant::now() + Duration::from_millis(timeout_ms);
 
     while Instant::now() < deadline {
@@ -71,13 +71,13 @@ pub fn browse_hosts(timeout_ms: u64) -> Result<Vec<DiscoveredHost>, String> {
         let event = receiver.recv_timeout(remaining.min(Duration::from_millis(200)));
         if let Ok(ServiceEvent::ServiceResolved(info)) = event {
             if let Some(host) = host_from_service(&info) {
-                hosts.push(host);
+                hosts.insert(discovered_host_key(&host), host);
             }
         }
     }
 
     let _ = daemon.shutdown();
-    Ok(hosts)
+    Ok(hosts.into_values().collect())
 }
 
 impl Drop for DiscoveryAdvertiser {
@@ -100,6 +100,10 @@ fn host_from_service(info: &ResolvedService) -> Option<DiscoveredHost> {
         room_id,
         token,
     })
+}
+
+fn discovered_host_key(host: &DiscoveredHost) -> String {
+    format!("{}-{}-{}", host.room_id, host.host, host.port)
 }
 
 #[derive(Clone, Debug, Serialize, Type)]

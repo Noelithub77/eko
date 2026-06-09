@@ -21,13 +21,13 @@ export function DeviceList({
   onSharingChange,
 }: DeviceListProps) {
   return (
-    <Card className="rounded-lg shadow-sm">
+    <Card className="min-h-full rounded-2xl shadow-sm">
       <CardHeader>
-        <CardTitle>Devices</CardTitle>
+        <CardTitle className="text-xl">Devices</CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-3">
+      <CardContent className="grid content-start gap-4">
         {devices.length === 0 ? (
-          <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+          <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-dashed p-8 text-center text-base text-muted-foreground">
             No devices
           </div>
         ) : (
@@ -59,10 +59,10 @@ function DeviceRow({
   const title = device.label ?? device.deviceName;
 
   return (
-    <div className="grid gap-3 rounded-md border bg-background p-3 md:grid-cols-[1fr_auto] md:items-center">
+    <div className="grid gap-4 rounded-2xl border bg-background p-4 md:grid-cols-[1fr_auto] md:items-center">
       <div>
-        <div className="font-medium">{title}</div>
-        <div className="text-sm text-muted-foreground">
+        <div className="text-lg font-semibold">{title}</div>
+        <div className="mt-1 text-sm text-muted-foreground">
           {device.state} · {device.joinMethod} · ICE {device.iceState}
         </div>
       </div>

@@ -12,13 +12,20 @@ import { NearbyHostList } from "./features/discovery/NearbyHostList";
 import { ScanQrScreen } from "./features/pairing/ScanQrScreen";
 import "./App.css";
 
+type ConnectionState = "disconnected" | "waiting" | "connecting" | "connected" | "denied";
+
+type ConnectedHost = {
+  name: string;
+  address: string;
+};
+
 function App() {
-  const [status, setStatus] = useState<
-    "disconnected" | "waiting" | "connecting" | "connected" | "denied"
-  >("disconnected");
+  const [status, setStatus] = useState<ConnectionState>("disconnected");
   const [message, setMessage] = useState("Scan or find a host.");
   const [nearbyHosts, setNearbyHosts] = useState<DiscoveredHost[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [connectedHost, setConnectedHost] = useState<ConnectedHost | null>(null);
+  const [latencyMs] = useState<number | null>(null);
 
   const deviceId = useMemo(() => getDeviceId(), []);
 
@@ -61,6 +68,8 @@ function App() {
 
   const requestApproval = useCallback(
     async (payload: QrPairingPayload, method: "qr" | "discovery") => {
+      setConnectedHost(hostFromPayload(payload));
+
       const request: JoinRequest = {
         deviceId,
         deviceName: navigator.userAgent.includes("Android") ? "Android phone" : "Mobile device",
@@ -77,6 +86,7 @@ function App() {
       } catch (error) {
         void logError("Native receiver start failed", error);
         setStatus("disconnected");
+        setConnectedHost(null);
         setMessage("Native receiver failed.");
       }
     },
@@ -88,7 +98,7 @@ function App() {
     setMessage("Finding nearby hosts.");
     try {
       const hosts = await findNearbyHosts();
-      setNearbyHosts(hosts);
+      setNearbyHosts(uniqueHosts(hosts));
       setMessage(hosts.length > 0 ? "Select a host." : "No host found.");
     } catch (error) {
       void logError("Find nearby hosts failed", error);
@@ -104,24 +114,44 @@ function App() {
         <h1 className="text-2xl font-semibold leading-tight">Eko</h1>
         <p className="text-sm leading-5 text-muted-foreground">{message}</p>
       </div>
-      <ScanQrScreen onScanned={(payload) => requestApproval(payload, "qr")} />
-      <NearbyHostList
-        hosts={nearbyHosts}
-        isSearching={isSearching}
-        onFind={findHosts}
-        onSelect={(host) => requestApproval(host, "discovery")}
+      <ScanQrScreen
+        compact={status !== "disconnected"}
+        onScanned={(payload) => requestApproval(payload, "qr")}
       />
-      <ConnectionStatus status={status} />
-      <Button
-        onClick={() => {
-          void stopNativeReceiver();
-          setStatus("disconnected");
-          setMessage("Scan or find a host.");
-        }}
-        variant="outline"
-      >
-        Reset
-      </Button>
+      {status === "connected" && connectedHost ? (
+        <ConnectionStatus
+          connectedHost={connectedHost}
+          latencyMs={latencyMs}
+          onDisconnect={() => {
+            void stopNativeReceiver();
+            setConnectedHost(null);
+            setStatus("disconnected");
+            setMessage("Scan or find a host.");
+          }}
+          status={status}
+        />
+      ) : (
+        <>
+          <NearbyHostList
+            hosts={nearbyHosts}
+            isSearching={isSearching}
+            onFind={findHosts}
+            onSelect={(host) => requestApproval(host, "discovery")}
+          />
+          <ConnectionStatus status={status} />
+          <Button
+            onClick={() => {
+              void stopNativeReceiver();
+              setConnectedHost(null);
+              setStatus("disconnected");
+              setMessage("Scan or find a host.");
+            }}
+            variant="outline"
+          >
+            Reset
+          </Button>
+        </>
+      )}
     </MobileLayout>
   );
 }
@@ -137,4 +167,21 @@ function getDeviceId(): string {
   const created = crypto.randomUUID();
   localStorage.setItem(key, created);
   return created;
+}
+
+function hostFromPayload(payload: QrPairingPayload): ConnectedHost {
+  return {
+    name: "Eko Desktop",
+    address: `${payload.host}:${payload.port}`,
+  };
+}
+
+function uniqueHosts(hosts: DiscoveredHost[]): DiscoveredHost[] {
+  const hostMap = new Map<string, DiscoveredHost>();
+
+  for (const host of hosts) {
+    hostMap.set(`${host.roomId}-${host.host}-${host.port}`, host);
+  }
+
+  return [...hostMap.values()];
 }

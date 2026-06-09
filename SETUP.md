@@ -29,17 +29,17 @@ npm run dev:web:desktop
 npm run dev:desktop
 ```
 
-## Start Android Tauri Dev App
+## Open Android Studio For Android
 
-Runs the Android app on a connected emulator or device. If no device is connected, it starts the first available emulator, passes the live device id to Tauri, and opens Eko on the emulator after install.
+Opens the generated Android project in Android Studio. Pick the device and build variant in Android Studio, then click Run there.
 
 ```powershell
 npm run dev:android
 ```
 
-VS Code `Ctrl+Shift+B` runs the default build task `dev: all tauri`, which starts desktop Tauri dev and Android Tauri dev together. If no Android device is connected, the Android task starts the first available emulator before running Tauri Android dev.
+VS Code `Ctrl+Shift+B` runs the default build task `dev: desktop + android studio`, which starts desktop Tauri dev and opens Android Studio for `rust/gen/android`.
 
-Raw Tauri Android dev, without automatic device selection:
+Raw Tauri Android CLI dev, without Android Studio:
 
 ```powershell
 npm run dev:android:direct

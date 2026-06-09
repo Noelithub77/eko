@@ -48,14 +48,17 @@ function App() {
 
   return (
     <DesktopLayout>
-      <Tabs defaultValue="stream">
+      <Tabs className="min-h-[calc(100vh-170px)]" defaultValue="stream">
         <TabsList>
           <TabsTrigger value="stream">Stream</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
           {devMode ? <TabsTrigger value="dev">Dev</TabsTrigger> : null}
         </TabsList>
-        <TabsContent className="mt-4 grid gap-4 lg:grid-cols-[0.9fr_1.1fr]" value="stream">
-          <div className="grid content-start gap-4">
+        <TabsContent
+          className="mt-6 grid min-h-[calc(100vh-230px)] gap-6 xl:grid-cols-[minmax(520px,0.95fr)_minmax(620px,1.25fr)]"
+          value="stream"
+        >
+          <div className="grid min-h-full grid-rows-[auto_1fr] gap-6">
             <StreamControls
               onLanChange={toggleLanDiscovery}
               onStart={start}

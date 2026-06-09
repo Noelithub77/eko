@@ -2,8 +2,8 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "dev: all tauri",
-      "dependsOn": ["dev: desktop tauri", "dev: android tauri"],
+      "label": "dev: desktop + android studio",
+      "dependsOn": ["dev: desktop tauri", "open: android studio"],
       "dependsOrder": "parallel",
       "group": {
         "kind": "build",
@@ -24,10 +24,9 @@
       "problemMatcher": []
     },
     {
-      "label": "dev: android tauri",
+      "label": "open: android studio",
       "type": "shell",
-      "command": "npm run dev:android:auto",
-      "isBackground": true,
+      "command": "npm run dev:android",
       "presentation": {
         "group": "eko-dev",
         "panel": "dedicated",

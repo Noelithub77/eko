@@ -58,8 +58,8 @@ Only run full slow commands when the changed layer needs them or the user asks:
 
 - `npm run tauri -- build`
 - `npm run tauri -- android build --debug --apk ...`
-- `npm run dev:android`
-- VS Code `Ctrl+Shift+B` full desktop + Android task
+- `npm run dev:android:direct`
+- VS Code `Ctrl+Shift+B` desktop dev + Android Studio task
 
 When a slow build is needed, say why before running it.
 
