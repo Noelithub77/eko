@@ -208,7 +208,5 @@ fn webrtc_api_with_default_codecs() -> Result<webrtc::api::API, String> {
     media_engine
         .register_default_codecs()
         .map_err(|error| error.to_string())?;
-    Ok(APIBuilder::new()
-        .with_media_engine(media_engine)
-        .build())
+    Ok(APIBuilder::new().with_media_engine(media_engine).build())
 }

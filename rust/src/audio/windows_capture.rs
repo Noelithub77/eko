@@ -2,6 +2,7 @@
 mod windows {
     use std::collections::VecDeque;
     use std::thread;
+    use std::time::Duration;
 
     use tokio::sync::mpsc;
     use wasapi::{initialize_mta, DeviceEnumerator, Direction, SampleType, StreamMode, WaveFormat};
@@ -9,8 +10,11 @@ mod windows {
     use crate::audio::frame::{
         AudioFrame, CHANNELS, FRAMES_PER_PACKET, SAMPLES_PER_PACKET, SAMPLE_RATE,
     };
+    use crate::audio::silence::run_silence_loop;
 
     type CaptureResult<T> = Result<T, String>;
+    const MAX_CAPTURE_RETRIES: usize = 3;
+    const RETRY_DELAY_MS: u64 = 500;
 
     pub fn start_system_audio_source(
         sender: mpsc::Sender<AudioFrame>,
@@ -18,9 +22,21 @@ mod windows {
         thread::Builder::new()
             .name("eko-wasapi-loopback".to_string())
             .spawn(move || {
-                if let Err(error) = capture_loop(sender) {
-                    log::error!("Windows audio capture stopped: {error}");
+                for attempt in 1..=MAX_CAPTURE_RETRIES {
+                    match capture_loop(sender.clone()) {
+                        Ok(()) => return,
+                        Err(error) => {
+                            log::warn!(
+                                "Windows audio capture stopped, retry {attempt}/{MAX_CAPTURE_RETRIES}: {error}"
+                            );
+                            thread::sleep(Duration::from_millis(RETRY_DELAY_MS));
+                        }
+                    }
                 }
+                log::error!(
+                    "Windows audio capture unavailable after {MAX_CAPTURE_RETRIES} retries; streaming silence."
+                );
+                run_silence_loop(sender);
             })
             .map_err(|error| error.to_string())
     }

@@ -112,11 +112,12 @@ async fn run_server(
 
 async fn handle_client(stream: TcpStream, session: SharedSession, media: SharedMediaHub) {
     let peer_address = stream.peer_addr().ok();
-    let accepted = tokio_tungstenite::accept_hdr_async(stream, |request: &Request, response: Response| {
-        log::info!("Signaling websocket upgrade path: {}", request.uri().path());
-        Ok(response)
-    })
-    .await;
+    let accepted =
+        tokio_tungstenite::accept_hdr_async(stream, |request: &Request, response: Response| {
+            log::info!("Signaling websocket upgrade path: {}", request.uri().path());
+            Ok(response)
+        })
+        .await;
 
     let Ok(mut socket) = accepted else {
         if let Err(error) = accepted {

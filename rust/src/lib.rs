@@ -380,7 +380,7 @@ fn command_builder() -> Builder<tauri::Wry> {
         ])
 }
 
-#[cfg(debug_assertions)]
+#[cfg(any(test, all(debug_assertions, not(mobile))))]
 fn export_bindings(builder: &Builder<tauri::Wry>) {
     builder
         .export(

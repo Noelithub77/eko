@@ -1,4 +1,8 @@
 export function syncDeviceTheme(): () => void {
+  if (!window.matchMedia) {
+    return () => undefined;
+  }
+
   const query = window.matchMedia("(prefers-color-scheme: dark)");
 
   const syncTheme = () => {
@@ -7,7 +11,12 @@ export function syncDeviceTheme(): () => void {
   };
 
   syncTheme();
-  query.addEventListener("change", syncTheme);
 
-  return () => query.removeEventListener("change", syncTheme);
+  if (query.addEventListener) {
+    query.addEventListener("change", syncTheme);
+    return () => query.removeEventListener("change", syncTheme);
+  }
+
+  query.addListener(syncTheme);
+  return () => query.removeListener(syncTheme);
 }
