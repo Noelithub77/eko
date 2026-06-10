@@ -18,7 +18,7 @@ use domain::{
 };
 use mobile_receiver::NativeReceiverManager;
 use session::SessionStore;
-use signaling::{SharedSession, SignalingServer};
+use signaling::{emit_room_session, SharedSession, SignalingServer};
 #[cfg(any(test, all(debug_assertions, not(mobile))))]
 use specta_typescript::Typescript;
 use tauri_plugin_log::{Target, TargetKind};
@@ -53,13 +53,17 @@ fn greet(name: &str) -> String {
 
 #[tauri::command]
 #[specta::specta]
-fn start_stream(state: tauri::State<'_, AppState>) -> Result<StartStreamResult, String> {
+fn start_stream(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<StartStreamResult, String> {
     stop_discovery(&state)?;
     stop_signaling(&state)?;
     stop_media(&state)?;
 
     let media = MediaHub::start()?;
-    let server = SignalingServer::start(Arc::clone(&state.session), Arc::clone(&media))?;
+    let server =
+        SignalingServer::start(Arc::clone(&state.session), Arc::clone(&media), app.clone())?;
     let port = server.port();
     let host = network_host::pairing_host()?;
     let result = state
@@ -71,20 +75,26 @@ fn start_stream(state: tauri::State<'_, AppState>) -> Result<StartStreamResult, 
     *state.signaling.lock().map_err(|error| error.to_string())? = Some(server);
     *state.media.lock().map_err(|error| error.to_string())? = Some(media);
 
+    emit_room_session(&app, result.session.clone());
     Ok(result)
 }
 
 #[tauri::command]
 #[specta::specta]
-fn stop_stream(state: tauri::State<'_, AppState>) -> Result<RoomSession, String> {
+fn stop_stream(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<RoomSession, String> {
     stop_discovery(&state)?;
     stop_signaling(&state)?;
     stop_media(&state)?;
-    Ok(state
+    let session = state
         .session
         .lock()
         .map_err(|error| error.to_string())?
-        .stop_stream())
+        .stop_stream();
+    emit_room_session(&app, session.clone());
+    Ok(session)
 }
 
 #[tauri::command]
@@ -100,6 +110,7 @@ fn get_room_session(state: tauri::State<'_, AppState>) -> Result<RoomSession, St
 #[tauri::command]
 #[specta::specta]
 fn set_lan_discovery(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     enabled: bool,
 ) -> Result<RoomSession, String> {
@@ -128,100 +139,122 @@ fn set_lan_discovery(
             Some(DiscoveryAdvertiser::start(&payload)?);
     }
 
+    emit_room_session(&app, session.clone());
     Ok(session)
 }
 
 #[tauri::command]
 #[specta::specta]
 fn submit_join_request(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     request: JoinRequest,
 ) -> Result<RoomSession, String> {
-    state
+    let session = state
         .session
         .lock()
         .map_err(|error| error.to_string())?
-        .submit_join_request(request)
+        .submit_join_request(request)?;
+    emit_room_session(&app, session.clone());
+    Ok(session)
 }
 
 #[tauri::command]
 #[specta::specta]
 fn add_dev_join_request(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     device_name: String,
     method: JoinMethod,
 ) -> Result<RoomSession, String> {
-    state
+    let session = state
         .session
         .lock()
         .map_err(|error| error.to_string())?
-        .add_dev_join_request(device_name, method)
+        .add_dev_join_request(device_name, method)?;
+    emit_room_session(&app, session.clone());
+    Ok(session)
 }
 
 #[tauri::command]
 #[specta::specta]
 fn allow_device(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     device_id: String,
 ) -> Result<RoomSession, String> {
-    Ok(state
+    let session = state
         .session
         .lock()
         .map_err(|error| error.to_string())?
-        .allow_device(device_id))
+        .allow_device(device_id);
+    emit_room_session(&app, session.clone());
+    Ok(session)
 }
 
 #[tauri::command]
 #[specta::specta]
 fn deny_device(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     device_id: String,
 ) -> Result<RoomSession, String> {
-    Ok(state
+    let session = state
         .session
         .lock()
         .map_err(|error| error.to_string())?
-        .deny_device(device_id))
+        .deny_device(device_id);
+    emit_room_session(&app, session.clone());
+    Ok(session)
 }
 
 #[tauri::command]
 #[specta::specta]
 fn unblock_device(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     device_id: String,
 ) -> Result<RoomSession, String> {
-    Ok(state
+    let session = state
         .session
         .lock()
         .map_err(|error| error.to_string())?
-        .unblock_device(device_id))
+        .unblock_device(device_id);
+    emit_room_session(&app, session.clone());
+    Ok(session)
 }
 
 #[tauri::command]
 #[specta::specta]
 fn disconnect_device(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     device_id: String,
 ) -> Result<RoomSession, String> {
-    Ok(state
+    let session = state
         .session
         .lock()
         .map_err(|error| error.to_string())?
-        .disconnect_device(device_id))
+        .disconnect_device(device_id);
+    emit_room_session(&app, session.clone());
+    Ok(session)
 }
 
 #[tauri::command]
 #[specta::specta]
 fn set_device_sharing(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     device_id: String,
     enabled: bool,
 ) -> Result<RoomSession, String> {
-    Ok(state
+    let session = state
         .session
         .lock()
         .map_err(|error| error.to_string())?
-        .set_device_sharing(device_id, enabled))
+        .set_device_sharing(device_id, enabled);
+    emit_room_session(&app, session.clone());
+    Ok(session)
 }
 
 #[tauri::command]

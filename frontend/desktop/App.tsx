@@ -15,6 +15,7 @@ function App() {
   const session = useStreamStore((state) => state.session);
   const qrPayload = useStreamStore((state) => state.qrPayload);
   const errorMessage = useStreamStore((state) => state.errorMessage);
+  const listenToSessionEvents = useStreamStore((state) => state.listenToSessionEvents);
   const refreshSession = useStreamStore((state) => state.refreshSession);
   const start = useStreamStore((state) => state.start);
   const stop = useStreamStore((state) => state.stop);
@@ -36,15 +37,22 @@ function App() {
   }, [loadSettings, refreshSession]);
 
   useEffect(() => {
-    if (session?.status !== "running") {
-      return;
-    }
-    const timer = window.setInterval(() => {
-      refreshSession();
-    }, 800);
+    let stopListening: (() => void) | null = null;
+    let mounted = true;
 
-    return () => window.clearInterval(timer);
-  }, [refreshSession, session?.status]);
+    void listenToSessionEvents().then((unlisten) => {
+      if (mounted) {
+        stopListening = unlisten;
+        return;
+      }
+      unlisten();
+    });
+
+    return () => {
+      mounted = false;
+      stopListening?.();
+    };
+  }, [listenToSessionEvents]);
 
   return (
     <DesktopLayout>
