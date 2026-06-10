@@ -57,17 +57,17 @@ function App() {
 
   return (
     <DesktopLayout>
-      <Tabs className="min-h-[calc(100vh-170px)]" defaultValue="stream">
+      <Tabs className="flex h-full flex-col" defaultValue="stream">
         <TabsList>
           <TabsTrigger value="stream">Stream</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
           {devMode ? <TabsTrigger value="dev">Dev</TabsTrigger> : null}
         </TabsList>
         <TabsContent
-          className="mt-6 grid min-h-[calc(100vh-230px)] gap-6 xl:grid-cols-[minmax(520px,0.95fr)_minmax(620px,1.25fr)]"
+          className="mt-6 grid min-h-0 flex-1 gap-6 overflow-hidden xl:grid-cols-[minmax(520px,0.95fr)_minmax(620px,1.25fr)]"
           value="stream"
         >
-          <div className="grid min-h-full grid-rows-[auto_1fr] gap-6">
+          <div className="grid min-h-0 grid-rows-[auto_1fr] gap-6 overflow-hidden">
             <StreamControls onRestart={restart} session={session} />
             <QrPairingCard payload={qrPayload} />
           </div>

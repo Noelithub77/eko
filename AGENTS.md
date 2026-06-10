@@ -134,6 +134,17 @@ Never allow:
 - Automatic LAN joins
 - Streaming before desktop approval
 
+## Native Desktop UI Rules
+
+The desktop app must feel like a proper native application, not a web page in a window.
+
+- Never allow page-level scrollbars. Lock `html`, `body`, and `#root` to `overflow: hidden`.
+- Use `h-screen` with `flex flex-col` layout to fill the viewport exactly.
+- Use internal `overflow-y: auto` on specific content panels rather than the window.
+- Do not use `min-h-screen`, `min-h-[calc(100vh-...)]`, or other patterns that let content exceed the viewport.
+- Avoid web-like patterns (card carousels, infinite scroll, long vertical pages).
+- Prefer fixed-size panels and internal scrolling for overflow content.
+
 ## Desktop Responsibilities
 
 The desktop app is the authority.

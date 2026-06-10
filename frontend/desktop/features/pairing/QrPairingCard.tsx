@@ -1,7 +1,7 @@
-import { QRCodeSVG } from "qrcode.react";
 import { Card, CardContent, CardHeader, CardTitle } from "@shared/components/ui/card";
 import type { QrPairingPayload } from "@shared/types/stream";
 import { createPairingLink } from "@shared/utils/pairing-link";
+import { StyledPairingQr } from "./StyledPairingQr";
 
 type QrPairingCardProps = {
   payload: QrPairingPayload | null;
@@ -15,15 +15,10 @@ export function QrPairingCard({ payload }: QrPairingCardProps) {
       <CardHeader>
         <CardTitle className="text-xl">QR Pairing</CardTitle>
       </CardHeader>
-      <CardContent className="h-full">
-        <div className="flex min-h-[420px] h-full items-center justify-center rounded-2xl border bg-background p-8">
+      <CardContent className="flex h-full min-h-0 items-center justify-center px-4 pb-4">
+        <div className="flex min-h-0 w-full items-center justify-center">
           {payload ? (
-            <QRCodeSVG
-              className="h-[min(48vh,360px)] w-[min(48vh,360px)]"
-              value={qrValue}
-              level="M"
-              includeMargin
-            />
+            <StyledPairingQr value={qrValue} />
           ) : (
             <span className="text-base text-muted-foreground">Preparing QR code</span>
           )}
