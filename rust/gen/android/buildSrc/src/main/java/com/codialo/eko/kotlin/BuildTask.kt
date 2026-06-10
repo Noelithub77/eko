@@ -16,32 +16,32 @@ open class BuildTask : DefaultTask() {
 
     @TaskAction
     fun assemble() {
-        val executable = """npm""";
         try {
-            runTauriCli(executable)
-        } catch (e: Exception) {
-            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                // Try different Windows-specific extensions
-                val fallbacks = listOf(
-                    "$executable.exe",
-                    "$executable.cmd",
-                    "$executable.bat",
-                )
-                
-                var lastException: Exception = e
-                for (fallback in fallbacks) {
-                    try {
-                        runTauriCli(fallback)
-                        return
-                    } catch (fallbackException: Exception) {
-                        lastException = fallbackException
-                    }
-                }
-                throw lastException
-            } else {
-                throw e;
-            }
+            runTauriCli(resolveNpmExecutable())
+        } catch (error: Exception) {
+            throw GradleException(
+                "Tauri Android Studio build helper failed. Start `npm run dev:android`, wait until it prints `Info Opening Android Studio`, keep that terminal running, then press Run in Android Studio.",
+                error,
+            )
         }
+    }
+
+    private fun resolveNpmExecutable(): String {
+        val configuredNpm = System.getenv("EKO_NPM_PATH")
+        if (!configuredNpm.isNullOrBlank() && File(configuredNpm).isFile) {
+            return configuredNpm
+        }
+
+        if (!Os.isFamily(Os.FAMILY_WINDOWS)) {
+            return "npm"
+        }
+
+        val candidates = listOf(
+            "C:\\Program Files\\nodejs\\npm.cmd",
+            "C:\\Program Files (x86)\\nodejs\\npm.cmd",
+        )
+
+        return candidates.firstOrNull { File(it).isFile } ?: "npm.cmd"
     }
 
     fun runTauriCli(executable: String) {

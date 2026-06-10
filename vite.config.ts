@@ -11,6 +11,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
 
   root: path.resolve(__dirname, `frontend/${platform}`),
+  cacheDir: path.resolve(__dirname, `node_modules/.vite-${platform}`),
 
   resolve: {
     alias: {

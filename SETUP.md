@@ -35,6 +35,8 @@ Desktop dev uses a separate Cargo target folder:
 rust/target/desktop-dev/
 ```
 
+The desktop dev script also clears stale desktop Vite/Tauri processes and port owners for `1420` and `1421` before starting.
+
 ## Start Android Tauri Dev In Android Studio
 
 Starts normal Tauri Android dev mode and opens Android Studio. Pick the device and build variant in Android Studio, then click Run there.
@@ -42,6 +44,14 @@ Starts normal Tauri Android dev mode and opens Android Studio. Pick the device a
 ```powershell
 npm run dev:android
 ```
+
+Wait until the terminal prints:
+
+```text
+Info Opening Android Studio
+```
+
+Then keep that terminal running and press Run in Android Studio. Android Studio's generated Gradle task connects back to the running Tauri dev helper; if the helper is not running yet, the Android Studio build fails.
 
 This runs:
 
@@ -57,6 +67,15 @@ rust/target/android-dev/
 ```
 
 VS Code `Ctrl+Shift+B` runs the default build task `dev: desktop tauri + android tauri open`, which starts desktop Tauri dev and Tauri Android dev together. Desktop uses Vite port `1420`; Android mobile dev uses Vite port `1422` and lets Tauri provide `TAURI_DEV_HOST` for phone access. Android Studio is opened by Tauri after the mobile dev server and Android build setup are ready.
+
+If a USB-debugging Android device is connected, the script uses ADB reverse:
+
+```powershell
+adb reverse tcp:1422 tcp:1422
+adb reverse tcp:1423 tcp:1423
+```
+
+In that mode the Android app loads `http://127.0.0.1:1422/`, which is forwarded to the PC. If no ADB device is connected, the script falls back to the PC LAN IP, such as `http://192.168.x.x:1422/`.
 
 Raw Tauri Android CLI dev, without Android Studio:
 
