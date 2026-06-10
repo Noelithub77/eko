@@ -46,11 +46,11 @@ export function DeviceList({
   );
 
   return (
-    <Card className="min-h-full rounded-2xl shadow-sm">
-      <CardHeader>
+    <Card className="flex h-full flex-col rounded-2xl shadow-sm">
+      <CardHeader className="shrink-0">
         <CardTitle className="text-xl">Devices</CardTitle>
       </CardHeader>
-      <CardContent className="grid content-start gap-6">
+      <CardContent className="grid min-h-0 flex-1 content-start gap-6 overflow-y-auto">
         {devices.length === 0 ? (
           <EmptyDevices />
         ) : (

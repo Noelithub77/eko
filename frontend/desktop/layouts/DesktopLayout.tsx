@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 export function DesktopLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-muted/30 text-foreground">
+    <div className="flex h-screen flex-col bg-muted/30 text-foreground">
       <header className="border-b bg-background">
         <div className="mx-auto flex w-full max-w-[1760px] items-center justify-between px-8 py-6">
           <div>
@@ -11,7 +11,7 @@ export function DesktopLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-[1760px] px-8 py-8">{children}</main>
+      <main className="mx-auto w-full max-w-[1760px] flex-1 overflow-hidden px-8 py-8">{children}</main>
     </div>
   );
 }
