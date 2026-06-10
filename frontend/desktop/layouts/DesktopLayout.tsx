@@ -7,7 +7,7 @@ export function DesktopLayout({ children }: { children: ReactNode }) {
         <div className="mx-auto flex w-full max-w-[1760px] items-center justify-between px-8 py-6">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Eko</h1>
-            <p className="text-base text-muted-foreground">Local audio relay</p>
+            <p className="text-base text-muted-foreground">Echo your device audio with lots of devices</p>
           </div>
         </div>
       </header>

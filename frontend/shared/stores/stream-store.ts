@@ -8,9 +8,7 @@ import {
   disconnectDevice,
   getRoomSession,
   setDeviceSharing,
-  setLanDiscovery,
   startStream,
-  stopStream,
   unblockDevice,
 } from "../utils/api";
 import type { QrPairingPayload, RoomSession } from "../types/stream";
@@ -25,8 +23,7 @@ type StreamState = {
   listenToSessionEvents: () => Promise<UnlistenFn>;
   refreshSession: () => Promise<void>;
   start: () => Promise<void>;
-  stop: () => Promise<void>;
-  toggleLanDiscovery: (enabled: boolean) => Promise<void>;
+  restart: () => Promise<void>;
   allow: (deviceId: string) => Promise<void>;
   deny: (deviceId: string) => Promise<void>;
   unblock: (deviceId: string) => Promise<void>;
@@ -71,20 +68,12 @@ export const useStreamStore = create<StreamState>()((set) => ({
       set({ errorMessage: formatError(error) });
     }
   },
-  stop: async () => {
+  restart: async () => {
     try {
-      const session = await runSessionAction(stopStream);
-      set({ session, qrPayload: null, errorMessage: null });
+      const result = await startStream();
+      set({ session: result.session, qrPayload: result.qrPayload, errorMessage: null });
     } catch (error) {
-      void logError("Stop stream failed", error);
-      set({ errorMessage: formatError(error) });
-    }
-  },
-  toggleLanDiscovery: async (enabled) => {
-    try {
-      set({ session: await runSessionAction(() => setLanDiscovery(enabled)), errorMessage: null });
-    } catch (error) {
-      void logError("LAN discovery toggle failed", error);
+      void logError("Restart stream failed", error);
       set({ errorMessage: formatError(error) });
     }
   },

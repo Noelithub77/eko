@@ -68,14 +68,21 @@ fn start_stream(
         SignalingServer::start(Arc::clone(&state.session), Arc::clone(&media), app.clone())?;
     let port = server.port();
     let host = network_host::pairing_host()?;
-    let result = state
+    let mut result = state
         .session
         .lock()
         .map_err(|error| error.to_string())?
         .start_stream(host, port)?;
+    let advertiser = DiscoveryAdvertiser::start(&result.qr_payload)?;
+    result.session = state
+        .session
+        .lock()
+        .map_err(|error| error.to_string())?
+        .set_lan_discovery(true)?;
 
     *state.signaling.lock().map_err(|error| error.to_string())? = Some(server);
     *state.media.lock().map_err(|error| error.to_string())? = Some(media);
+    *state.discovery.lock().map_err(|error| error.to_string())? = Some(advertiser);
 
     emit_room_session(&app, result.session.clone());
     Ok(result)

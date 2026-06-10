@@ -40,6 +40,17 @@ export function DevPanel({ session, onAddTestDevice }: DevPanelProps) {
     <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
       <Card className="rounded-lg shadow-sm lg:col-span-2">
         <CardHeader>
+          <CardTitle>Stream Server</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-4">
+          <ServerItem label="Status" value={session?.status ?? "idle"} />
+          <ServerItem label="Host" value={session?.host ?? "-"} />
+          <ServerItem label="Port" value={session?.port?.toString() ?? "-"} />
+          <ServerItem label="LAN discovery" value={session?.lanDiscoveryEnabled ? "on" : "off"} />
+        </CardContent>
+      </Card>
+      <Card className="rounded-lg shadow-sm lg:col-span-2">
+        <CardHeader>
           <CardTitle>Core Proof</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-4">
@@ -94,6 +105,15 @@ export function DevPanel({ session, onAddTestDevice }: DevPanelProps) {
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function ServerItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border bg-background p-3">
+      <div className="text-xs uppercase text-muted-foreground">{label}</div>
+      <div className="mt-1 truncate text-sm font-medium">{value}</div>
     </div>
   );
 }

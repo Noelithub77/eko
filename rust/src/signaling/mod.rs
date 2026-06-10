@@ -220,8 +220,14 @@ async fn handle_client_message(
 
     match parsed {
         Ok(SignalClientMessage::JoinRequest { request }) => {
-            *device_id = Some(request.device_id.clone());
             let response = join_response(session, app, request);
+            if let SignalServerMessage::ApprovalWaiting {
+                device_id: joined_device_id,
+                ..
+            } = &response
+            {
+                *device_id = Some(joined_device_id.clone());
+            }
             send_json(socket, &response).await.is_ok()
         }
         Ok(SignalClientMessage::ReceiverReady { device_id }) => {

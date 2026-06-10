@@ -35,3 +35,9 @@ foreach ($processId in $portProcesses) {
   Write-Host "Stopping Android dev port owner $processId"
   Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
 }
+
+$adbCommand = Get-Command adb -ErrorAction SilentlyContinue
+if ($adbCommand) {
+  & cmd.exe /d /c "`"$($adbCommand.Source)`" reverse --remove tcp:1422 >nul 2>nul"
+  & cmd.exe /d /c "`"$($adbCommand.Source)`" reverse --remove tcp:1423 >nul 2>nul"
+}
