@@ -57,7 +57,7 @@ This runs:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop-android-dev.ps1
-npm run tauri -- android dev --open --host <your LAN IP>
+npm run tauri -- android dev --open --host <127.0.0.1 when USB is connected, otherwise your LAN IP>
 ```
 
 Android dev uses a separate Cargo target folder so it does not wait on the desktop Rust build lock:
@@ -76,6 +76,8 @@ adb reverse tcp:1423 tcp:1423
 ```
 
 In that mode the Android app loads `http://127.0.0.1:1422/`, which is forwarded to the PC. If no ADB device is connected, the script falls back to the PC LAN IP, such as `http://192.168.x.x:1422/`.
+
+The Android dev script also removes the previously installed dev APK on connected USB devices before starting. This prevents the phone from keeping an old APK with a stale dev URL such as `http://192.168.x.x:1422/`. When Tauri prints `Info Opening Android Studio`, the script checks `rust/gen/android/app/src/main/assets/tauri.conf.json` and fails if the generated `devUrl` does not match the selected host.
 
 Raw Tauri Android CLI dev, without Android Studio:
 

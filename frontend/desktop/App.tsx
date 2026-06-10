@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { DesktopLayout } from "./layouts/DesktopLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@shared/components/ui/tabs";
 import { useSettingsStore } from "@shared/stores/settings-store";
@@ -16,10 +16,7 @@ function App() {
   const qrPayload = useStreamStore((state) => state.qrPayload);
   const errorMessage = useStreamStore((state) => state.errorMessage);
   const listenToSessionEvents = useStreamStore((state) => state.listenToSessionEvents);
-  const refreshSession = useStreamStore((state) => state.refreshSession);
-  const start = useStreamStore((state) => state.start);
-  const stop = useStreamStore((state) => state.stop);
-  const toggleLanDiscovery = useStreamStore((state) => state.toggleLanDiscovery);
+  const restart = useStreamStore((state) => state.restart);
   const allow = useStreamStore((state) => state.allow);
   const deny = useStreamStore((state) => state.deny);
   const unblock = useStreamStore((state) => state.unblock);
@@ -29,12 +26,16 @@ function App() {
   const devMode = useSettingsStore((state) => state.devMode);
   const loadSettings = useSettingsStore((state) => state.loadSettings);
   const setDevMode = useSettingsStore((state) => state.setDevMode);
+  const startedOnOpen = useRef(false);
 
   useEffect(() => {
     void initAppLogging();
     loadSettings();
-    refreshSession();
-  }, [loadSettings, refreshSession]);
+    if (!startedOnOpen.current) {
+      startedOnOpen.current = true;
+      void restart();
+    }
+  }, [loadSettings, restart]);
 
   useEffect(() => {
     let stopListening: (() => void) | null = null;
@@ -67,12 +68,7 @@ function App() {
           value="stream"
         >
           <div className="grid min-h-full grid-rows-[auto_1fr] gap-6">
-            <StreamControls
-              onLanChange={toggleLanDiscovery}
-              onStart={start}
-              onStop={stop}
-              session={session}
-            />
+            <StreamControls onRestart={restart} session={session} />
             <QrPairingCard payload={qrPayload} />
           </div>
           <DeviceList

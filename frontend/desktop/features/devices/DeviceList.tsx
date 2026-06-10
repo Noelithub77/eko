@@ -1,6 +1,22 @@
-import { Check, Power, ShieldX, Volume2, VolumeX, X } from "lucide-react";
+import { useState } from "react";
+import {
+  Check,
+  ChevronDown,
+  Clock,
+  Power,
+  ShieldX,
+  Smartphone,
+  Volume2,
+  VolumeX,
+  X,
+} from "lucide-react";
 import { Button } from "@shared/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@shared/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@shared/components/ui/collapsible";
 import type { Device } from "@shared/types/device";
 
 type DeviceListProps = {
@@ -20,31 +36,109 @@ export function DeviceList({
   onDisconnect,
   onSharingChange,
 }: DeviceListProps) {
+  const [previousOpen, setPreviousOpen] = useState(false);
+  const connectedDevices = devices.filter((device) => device.state === "connected");
+  const approvalDevices = devices.filter(
+    (device) => device.state === "pending" || device.state === "connecting",
+  );
+  const previousDevices = devices.filter((device) =>
+    ["denied", "disconnected", "failed"].includes(device.state),
+  );
+
   return (
     <Card className="min-h-full rounded-2xl shadow-sm">
       <CardHeader>
         <CardTitle className="text-xl">Devices</CardTitle>
       </CardHeader>
-      <CardContent className="grid content-start gap-4">
+      <CardContent className="grid content-start gap-6">
         {devices.length === 0 ? (
-          <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-dashed p-8 text-center text-base text-muted-foreground">
-            No devices
-          </div>
+          <EmptyDevices />
         ) : (
-          devices.map((device) => (
-            <DeviceRow
-              device={device}
-              key={device.deviceId}
-              onAllow={onAllow}
-              onDeny={onDeny}
-              onDisconnect={onDisconnect}
-              onSharingChange={onSharingChange}
-              onUnblock={onUnblock}
-            />
-          ))
+          <>
+            <DeviceSection
+              devices={connectedDevices}
+              emptyText="No phone is connected right now."
+              title="Connected now"
+            >
+              {connectedDevices.map((device) => (
+                <DeviceRow
+                  device={device}
+                  key={device.deviceId}
+                  onAllow={onAllow}
+                  onDeny={onDeny}
+                  onDisconnect={onDisconnect}
+                  onSharingChange={onSharingChange}
+                  onUnblock={onUnblock}
+                />
+              ))}
+            </DeviceSection>
+
+            {approvalDevices.length > 0 ? (
+              <DeviceSection devices={approvalDevices} title="Waiting for approval">
+                {approvalDevices.map((device) => (
+                  <DeviceRow
+                    device={device}
+                    key={device.deviceId}
+                    onAllow={onAllow}
+                    onDeny={onDeny}
+                    onDisconnect={onDisconnect}
+                    onSharingChange={onSharingChange}
+                    onUnblock={onUnblock}
+                  />
+                ))}
+              </DeviceSection>
+            ) : null}
+
+            {previousDevices.length > 0 ? (
+              <Collapsible onOpenChange={setPreviousOpen} open={previousOpen}>
+                <CollapsibleTrigger asChild>
+                  <Button className="w-full justify-between px-0" variant="ghost">
+                    <span>Previous devices ({previousDevices.length})</span>
+                    <ChevronDown
+                      className={
+                        previousOpen ? "rotate-180 transition-transform" : "transition-transform"
+                      }
+                    />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-3 grid gap-3">
+                  {previousDevices.map((device) => (
+                    <DeviceRow
+                      device={device}
+                      key={device.deviceId}
+                      onAllow={onAllow}
+                      onDeny={onDeny}
+                      onDisconnect={onDisconnect}
+                      onSharingChange={onSharingChange}
+                      onUnblock={onUnblock}
+                    />
+                  ))}
+                </CollapsibleContent>
+              </Collapsible>
+            ) : null}
+          </>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+type DeviceSectionProps = {
+  children: React.ReactNode;
+  devices: Device[];
+  emptyText?: string;
+  title: string;
+};
+
+function DeviceSection({ children, devices, emptyText, title }: DeviceSectionProps) {
+  return (
+    <section className="grid gap-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-muted-foreground">{title}</h3>
+        <span className="text-xs text-muted-foreground">{devices.length}</span>
+      </div>
+      {devices.length > 0 ? children : <EmptySection text={emptyText ?? "No devices here."} />}
+    </section>
   );
 }
 
@@ -60,10 +154,17 @@ function DeviceRow({
 
   return (
     <div className="grid gap-4 rounded-2xl border bg-background p-4 md:grid-cols-[1fr_auto] md:items-center">
-      <div>
-        <div className="text-lg font-semibold">{title}</div>
-        <div className="mt-1 text-sm text-muted-foreground">
-          {device.state} · {device.joinMethod} · ICE {device.iceState}
+      <div className="flex min-w-0 gap-3">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+          <Smartphone className="size-5" />
+        </div>
+        <div className="min-w-0">
+          <div className="truncate text-lg font-semibold">{title}</div>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <span>{deviceStatusText(device)}</span>
+            <span className="text-muted-foreground/60">•</span>
+            <span>{joinMethodText(device)}</span>
+          </div>
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -101,7 +202,61 @@ function DeviceRow({
             </Button>
           </>
         ) : null}
+        {device.state === "connecting" ? (
+          <Button disabled size="sm" variant="outline">
+            <Clock />
+            Connecting
+          </Button>
+        ) : null}
       </div>
     </div>
   );
+}
+
+function EmptyDevices() {
+  return (
+    <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-dashed p-8 text-center">
+      <div>
+        <Smartphone className="mx-auto mb-3 size-8 text-muted-foreground" />
+        <p className="text-base font-medium">No phones yet</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Scan the QR code from your phone to connect.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function EmptySection({ text }: { text: string }) {
+  return (
+    <div className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">{text}</div>
+  );
+}
+
+function deviceStatusText(device: Device): string {
+  if (device.state === "connected") {
+    return device.sharing === "enabled" ? "Connected and sharing audio" : "Connected but muted";
+  }
+
+  if (device.state === "pending") {
+    return "Waiting for your approval";
+  }
+
+  if (device.state === "connecting") {
+    return "Connecting";
+  }
+
+  if (device.state === "denied") {
+    return "Blocked";
+  }
+
+  if (device.state === "failed") {
+    return "Connection failed";
+  }
+
+  return "Disconnected";
+}
+
+function joinMethodText(device: Device): string {
+  return device.joinMethod === "qr" ? "QR code" : "Nearby device";
 }

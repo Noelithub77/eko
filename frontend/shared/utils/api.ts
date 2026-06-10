@@ -45,6 +45,7 @@ export function startStream(): Promise<StartStreamResult> {
       token,
       host: qrPayload.host,
       port: qrPayload.port,
+      lanDiscoveryEnabled: true,
       events: [event("info", "Browser preview stream started")],
     };
     browserMock.qrPayload = qrPayload;

@@ -116,12 +116,30 @@ impl SessionStore {
             return Err("Device is blocked until the desktop unblocks it.".to_string());
         }
 
-        if self
+        if let Some(device) = self
             .session
             .devices
             .iter()
-            .any(|device| device.device_id == request.device_id)
+            .find(|device| device.device_id == request.device_id)
         {
+            if matches!(
+                device.state,
+                DeviceConnectionState::Disconnected | DeviceConnectionState::Failed
+            ) {
+                self.update_device(&request.device_id, |device| {
+                    device.device_name = request.device_name;
+                    device.join_method = request.method;
+                    device.state = DeviceConnectionState::Pending;
+                    device.sharing = SharingState::Disabled;
+                    device.web_rtc_state = "waiting".to_string();
+                    device.ice_state = "waiting".to_string();
+                });
+                self.session
+                    .events
+                    .push(event("info", "Join request received"));
+                return Ok(self.snapshot());
+            }
+
             return Ok(self.snapshot());
         }
 

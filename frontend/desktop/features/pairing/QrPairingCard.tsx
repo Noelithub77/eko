@@ -25,7 +25,7 @@ export function QrPairingCard({ payload }: QrPairingCardProps) {
               includeMargin
             />
           ) : (
-            <span className="text-base text-muted-foreground">Start stream</span>
+            <span className="text-base text-muted-foreground">Preparing QR code</span>
           )}
         </div>
       </CardContent>
