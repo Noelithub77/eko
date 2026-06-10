@@ -54,7 +54,7 @@ fn web_file_path(path: &str) -> Result<Option<PathBuf>, String> {
     let relative = if path == "/" || path == "/client" || path == "/client/" {
         PathBuf::from("index.html")
     } else if let Some(asset_path) = path.strip_prefix("/assets/") {
-        safe_relative_path(asset_path)?
+        safe_relative_path(Path::new("assets").join(asset_path))?
     } else if let Some(client_asset_path) = path.strip_prefix("/client/assets/") {
         safe_relative_path(Path::new("assets").join(client_asset_path))?
     } else {
