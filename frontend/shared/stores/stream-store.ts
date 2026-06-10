@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { listen } from "@tauri-apps/api/event";
+import type { UnlistenFn } from "@tauri-apps/api/event";
 import {
   addDevJoinRequest,
   allowDevice,
@@ -14,10 +16,13 @@ import {
 import type { QrPairingPayload, RoomSession } from "../types/stream";
 import { formatError, logError } from "../utils/logger";
 
+const ROOM_SESSION_EVENT = "room-session-updated";
+
 type StreamState = {
   session: RoomSession | null;
   qrPayload: QrPairingPayload | null;
   errorMessage: string | null;
+  listenToSessionEvents: () => Promise<UnlistenFn>;
   refreshSession: () => Promise<void>;
   start: () => Promise<void>;
   stop: () => Promise<void>;
@@ -38,6 +43,15 @@ export const useStreamStore = create<StreamState>()((set) => ({
   session: null,
   qrPayload: null,
   errorMessage: null,
+  listenToSessionEvents: async () => {
+    if (!isTauriRuntime()) {
+      return () => undefined;
+    }
+
+    return await listen<RoomSession>(ROOM_SESSION_EVENT, (event) => {
+      set({ session: event.payload, errorMessage: null });
+    });
+  },
   refreshSession: async () => {
     try {
       set({ session: await getRoomSession(), errorMessage: null });
@@ -132,3 +146,7 @@ export const useStreamStore = create<StreamState>()((set) => ({
     }
   },
 }));
+
+function isTauriRuntime(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}

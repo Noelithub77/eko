@@ -18,6 +18,7 @@ use crate::session::SessionStore;
 use crate::webrtc_core::media_hub::{MediaSignal, SharedMediaHub};
 
 pub type SharedSession = Arc<Mutex<SessionStore>>;
+pub const ROOM_SESSION_EVENT: &str = "room-session-updated";
 
 #[derive(Debug)]
 pub struct SignalingServer {
@@ -27,7 +28,11 @@ pub struct SignalingServer {
 }
 
 impl SignalingServer {
-    pub fn start(session: SharedSession, media: SharedMediaHub) -> Result<Self, String> {
+    pub fn start(
+        session: SharedSession,
+        media: SharedMediaHub,
+        app: tauri::AppHandle,
+    ) -> Result<Self, String> {
         let listener = StdTcpListener::bind("0.0.0.0:0").map_err(|error| error.to_string())?;
         listener
             .set_nonblocking(true)
@@ -41,7 +46,7 @@ impl SignalingServer {
             let Ok(listener) = TcpListener::from_std(listener) else {
                 return;
             };
-            run_server(listener, session, media, shutdown_receiver).await;
+            run_server(listener, session, media, app, shutdown_receiver).await;
         });
 
         Ok(Self {
@@ -89,6 +94,7 @@ async fn run_server(
     listener: TcpListener,
     session: SharedSession,
     media: SharedMediaHub,
+    app: tauri::AppHandle,
     mut shutdown: oneshot::Receiver<()>,
 ) {
     loop {
@@ -100,6 +106,7 @@ async fn run_server(
                         stream,
                         Arc::clone(&session),
                         Arc::clone(&media),
+                        app.clone(),
                     ));
                 }
             }
@@ -110,7 +117,12 @@ async fn run_server(
     }
 }
 
-async fn handle_client(stream: TcpStream, session: SharedSession, media: SharedMediaHub) {
+async fn handle_client(
+    stream: TcpStream,
+    session: SharedSession,
+    media: SharedMediaHub,
+    app: tauri::AppHandle,
+) {
     let peer_address = stream.peer_addr().ok();
     let accepted =
         tokio_tungstenite::accept_hdr_async(stream, |request: &Request, response: Response| {
@@ -139,7 +151,7 @@ async fn handle_client(stream: TcpStream, session: SharedSession, media: SharedM
                     }
                     break;
                 };
-                if !handle_client_message(message, &mut socket, &session, &media, &mut device_id).await {
+                if !handle_client_message(message, &mut socket, &session, &media, &app, &mut device_id).await {
                     break;
                 }
             }
@@ -172,6 +184,16 @@ async fn handle_client(stream: TcpStream, session: SharedSession, media: SharedM
     if let Some(peer_address) = peer_address {
         log::info!("Signaling client disconnected from {peer_address}");
     }
+    if let Some(device_id) = device_id {
+        let session = match session.lock() {
+            Ok(mut store) => store.disconnect_device(device_id),
+            Err(error) => {
+                log::warn!("Mark disconnected failed: {error}");
+                return;
+            }
+        };
+        emit_room_session(&app, session);
+    }
 }
 
 async fn handle_client_message(
@@ -179,6 +201,7 @@ async fn handle_client_message(
     socket: &mut tokio_tungstenite::WebSocketStream<TcpStream>,
     session: &SharedSession,
     media: &SharedMediaHub,
+    app: &tauri::AppHandle,
     device_id: &mut Option<String>,
 ) -> bool {
     let Ok(text) = message.into_text() else {
@@ -189,11 +212,11 @@ async fn handle_client_message(
     match parsed {
         Ok(SignalClientMessage::JoinRequest { request }) => {
             *device_id = Some(request.device_id.clone());
-            let response = join_response(session, request);
+            let response = join_response(session, app, request);
             send_json(socket, &response).await.is_ok()
         }
         Ok(SignalClientMessage::ReceiverReady { device_id }) => {
-            let response = receiver_ready_response(session, device_id);
+            let response = receiver_ready_response(session, app, device_id);
             send_json(socket, &response).await.is_ok()
         }
         Ok(SignalClientMessage::Answer { description }) => {
@@ -231,7 +254,11 @@ async fn handle_client_message(
     }
 }
 
-fn join_response(session: &SharedSession, request: JoinRequest) -> SignalServerMessage {
+fn join_response(
+    session: &SharedSession,
+    app: &tauri::AppHandle,
+    request: JoinRequest,
+) -> SignalServerMessage {
     let store_result = session.lock().map_err(|error| error.to_string());
     let mut store = match store_result {
         Ok(store) => store,
@@ -239,27 +266,43 @@ fn join_response(session: &SharedSession, request: JoinRequest) -> SignalServerM
     };
 
     match store.submit_join_request(request.clone()) {
-        Ok(session) => SignalServerMessage::ApprovalWaiting {
-            device_id: request.device_id,
-            session,
-        },
+        Ok(session) => {
+            emit_room_session(app, session.clone());
+            SignalServerMessage::ApprovalWaiting {
+                device_id: request.device_id,
+                session,
+            }
+        }
         Err(reason) => SignalServerMessage::JoinRejected { reason },
     }
 }
 
-fn receiver_ready_response(session: &SharedSession, device_id: String) -> SignalServerMessage {
+fn receiver_ready_response(
+    session: &SharedSession,
+    app: &tauri::AppHandle,
+    device_id: String,
+) -> SignalServerMessage {
     let store_result = session.lock().map_err(|error| error.to_string());
     let mut store = match store_result {
         Ok(store) => store,
         Err(message) => return SignalServerMessage::Error { message },
     };
     let session = store.mark_device_connected(device_id.clone());
+    emit_room_session(app, session.clone());
 
     SignalServerMessage::PermissionChanged {
         device_id,
         state: DeviceConnectionState::Connected,
         sharing: SharingState::Enabled,
         session,
+    }
+}
+
+pub fn emit_room_session(app: &tauri::AppHandle, session: crate::domain::RoomSession) {
+    use tauri::Emitter;
+
+    if let Err(error) = app.emit(ROOM_SESSION_EVENT, session) {
+        log::warn!("Room session event failed: {error}");
     }
 }
 
