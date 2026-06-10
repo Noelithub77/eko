@@ -1,0 +1,176 @@
+import type {
+  IceCandidateMessage,
+  JoinRequest,
+  SignalClientMessage,
+  SignalServerMessage,
+} from "@shared/bindings/tauri";
+import type { PairingLinkPayload } from "@shared/types/pairing-link";
+
+type WebReceiverHandlers = {
+  onStatus: (message: string) => void;
+  onStream: (stream: MediaStream) => void;
+};
+
+export type WebReceiverSession = {
+  close: () => void;
+};
+
+export async function startWebReceiver(
+  payload: PairingLinkPayload,
+  request: JoinRequest,
+  handlers: WebReceiverHandlers,
+): Promise<WebReceiverSession> {
+  const socket = new WebSocket(`ws://${payload.host}:${payload.port}/eko`);
+  const peer = new RTCPeerConnection();
+  let isClosed = false;
+
+  peer.ontrack = (event: RTCTrackEvent) => {
+    const [stream] = event.streams;
+    if (stream) {
+      handlers.onStream(stream);
+    }
+  };
+
+  peer.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
+    if (!event.candidate) {
+      return;
+    }
+    send(socket, {
+      kind: "iceCandidate",
+      candidate: {
+        deviceId: request.deviceId,
+        candidate: JSON.stringify(event.candidate.toJSON()),
+      },
+    });
+  };
+
+  socket.addEventListener("open", () => {
+    handlers.onStatus("Asking desktop.");
+    send(socket, { kind: "joinRequest", request });
+  });
+
+  socket.addEventListener("message", (event: MessageEvent<string>) => {
+    void handleServerMessage(socket, peer, request.deviceId, event.data, handlers);
+  });
+
+  socket.addEventListener("close", () => {
+    if (!isClosed) {
+      handlers.onStatus("Desktop connection closed.");
+    }
+  });
+
+  socket.addEventListener("error", () => {
+    handlers.onStatus("Could not reach desktop.");
+  });
+
+  return {
+    close: () => {
+      isClosed = true;
+      socket.close();
+      peer.close();
+    },
+  };
+}
+
+async function handleServerMessage(
+  socket: WebSocket,
+  peer: RTCPeerConnection,
+  deviceId: string,
+  text: string,
+  handlers: WebReceiverHandlers,
+): Promise<void> {
+  const message = parseServerMessage(text);
+  if (!message) {
+    return;
+  }
+
+  if (message.kind === "approvalWaiting") {
+    handlers.onStatus("Waiting for desktop approval.");
+    return;
+  }
+
+  if (message.kind === "joinRejected") {
+    handlers.onStatus(message.reason);
+    return;
+  }
+
+  if (message.kind === "permissionChanged") {
+    if (message.state === "connecting") {
+      handlers.onStatus("Connecting audio.");
+      send(socket, { kind: "receiverReady", deviceId });
+    }
+    if (message.state === "denied") {
+      handlers.onStatus("Desktop denied this device.");
+    }
+    return;
+  }
+
+  if (message.kind === "hostOffer") {
+    await answerOffer(socket, peer, message.description);
+    return;
+  }
+
+  if (message.kind === "hostIceCandidate") {
+    await addHostCandidate(peer, message.candidate);
+    return;
+  }
+
+  if (message.kind === "error") {
+    handlers.onStatus(message.message);
+  }
+}
+
+async function answerOffer(
+  socket: WebSocket,
+  peer: RTCPeerConnection,
+  description: { deviceId: string; sdp: string },
+): Promise<void> {
+  await peer.setRemoteDescription({ type: "offer", sdp: description.sdp });
+  const answer = await peer.createAnswer();
+  await peer.setLocalDescription(answer);
+
+  if (!answer.sdp) {
+    return;
+  }
+
+  send(socket, {
+    kind: "answer",
+    description: {
+      deviceId: description.deviceId,
+      sdp: answer.sdp,
+    },
+  });
+}
+
+async function addHostCandidate(
+  peer: RTCPeerConnection,
+  candidate: IceCandidateMessage,
+): Promise<void> {
+  const parsed: unknown = JSON.parse(candidate.candidate);
+  if (!isIceCandidateInit(parsed)) {
+    return;
+  }
+  await peer.addIceCandidate(parsed);
+}
+
+function send(socket: WebSocket, message: SignalClientMessage): void {
+  if (socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify(message));
+  }
+}
+
+function parseServerMessage(text: string): SignalServerMessage | null {
+  try {
+    return JSON.parse(text) as SignalServerMessage;
+  } catch {
+    return null;
+  }
+}
+
+function isIceCandidateInit(value: unknown): value is RTCIceCandidateInit {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate = (value as { candidate?: unknown }).candidate;
+  return typeof candidate === "string";
+}

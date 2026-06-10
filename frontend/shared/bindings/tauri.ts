@@ -20,6 +20,8 @@ export const commands = {
 	findNearbyHosts: () => __TAURI_INVOKE<DiscoveredHost[]>("find_nearby_hosts"),
 	startNativeReceiver: (payload: QrPairingPayload, request: JoinRequest) => __TAURI_INVOKE<null>("start_native_receiver", { payload, request }),
 	stopNativeReceiver: () => __TAURI_INVOKE<null>("stop_native_receiver"),
+	startAndroidMediaSession: () => __TAURI_INVOKE<null>("start_android_media_session"),
+	stopAndroidMediaSession: () => __TAURI_INVOKE<null>("stop_android_media_session"),
 };
 
 /* Types */

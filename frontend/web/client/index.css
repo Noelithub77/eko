@@ -1,0 +1,3 @@
+@import "../../mobile/index.css";
+
+@source "./**/*.{ts,tsx,html}";

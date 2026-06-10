@@ -15,6 +15,7 @@ use crate::domain::{
     DeviceConnectionState, JoinRequest, SharingState, SignalClientMessage, SignalServerMessage,
 };
 use crate::session::SessionStore;
+use crate::web_client;
 use crate::webrtc_core::media_hub::{MediaSignal, SharedMediaHub};
 
 pub type SharedSession = Arc<Mutex<SessionStore>>;
@@ -123,6 +124,14 @@ async fn handle_client(
     media: SharedMediaHub,
     app: tauri::AppHandle,
 ) {
+    let mut peek = [0_u8; 512];
+    if let Ok(read) = stream.peek(&mut peek).await {
+        if web_client::looks_like_http_client(&peek[..read]) {
+            web_client::serve(stream).await;
+            return;
+        }
+    }
+
     let peer_address = stream.peer_addr().ok();
     let accepted =
         tokio_tungstenite::accept_hdr_async(stream, |request: &Request, response: Response| {

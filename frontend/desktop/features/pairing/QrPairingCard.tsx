@@ -1,13 +1,14 @@
 import { QRCodeSVG } from "qrcode.react";
 import { Card, CardContent, CardHeader, CardTitle } from "@shared/components/ui/card";
 import type { QrPairingPayload } from "@shared/types/stream";
+import { createPairingLink } from "@shared/utils/pairing-link";
 
 type QrPairingCardProps = {
   payload: QrPairingPayload | null;
 };
 
 export function QrPairingCard({ payload }: QrPairingCardProps) {
-  const qrValue = payload ? JSON.stringify(payload) : "";
+  const qrValue = payload ? createPairingLink(payload) : "";
 
   return (
     <Card className="min-h-full rounded-2xl shadow-sm">

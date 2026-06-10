@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { MobileLayout } from "./layouts/MobileLayout";
 import { Button } from "@shared/components/ui/button";
-import { findNearbyHosts, startNativeReceiver, stopNativeReceiver } from "@shared/utils/api";
+import {
+  findNearbyHosts,
+  startAndroidMediaSession,
+  startNativeReceiver,
+  stopAndroidMediaSession,
+  stopNativeReceiver,
+} from "@shared/utils/api";
 import { initAppLogging, logError } from "@shared/utils/logger";
 import type { JoinRequest } from "@shared/types/device";
 import type { DiscoveredHost, NativeReceiverEvent } from "@shared/types/signaling";
@@ -48,16 +54,19 @@ function App() {
       if (event.payload.kind === "connected") {
         setStatus("connected");
         setMessage(event.payload.message);
+        void startAndroidMediaSession();
         return;
       }
       if (event.payload.kind === "denied") {
         setStatus("denied");
         setMessage(event.payload.message);
+        void stopAndroidMediaSession();
         return;
       }
       if (event.payload.kind === "error" || event.payload.kind === "closed") {
         setStatus("disconnected");
         setMessage(event.payload.message);
+        void stopAndroidMediaSession();
       }
     });
 
@@ -124,6 +133,7 @@ function App() {
           latencyMs={latencyMs}
           onDisconnect={() => {
             void stopNativeReceiver();
+            void stopAndroidMediaSession();
             setConnectedHost(null);
             setStatus("disconnected");
             setMessage("Scan or find a host.");
@@ -142,6 +152,7 @@ function App() {
           <Button
             onClick={() => {
               void stopNativeReceiver();
+              void stopAndroidMediaSession();
               setConnectedHost(null);
               setStatus("disconnected");
               setMessage("Scan or find a host.");

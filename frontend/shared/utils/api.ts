@@ -1,4 +1,5 @@
 import { commands } from "../bindings/tauri";
+import { invoke } from "@tauri-apps/api/core";
 import type {
   CoreProofStatus,
   DevEvent,
@@ -207,6 +208,20 @@ export function stopNativeReceiver(): Promise<void> {
     return Promise.resolve();
   }
   return commands.stopNativeReceiver().then(() => undefined);
+}
+
+export function startAndroidMediaSession(): Promise<void> {
+  if (!isTauriRuntime()) {
+    return Promise.resolve();
+  }
+  return invoke<null>("start_android_media_session").then(() => undefined);
+}
+
+export function stopAndroidMediaSession(): Promise<void> {
+  if (!isTauriRuntime()) {
+    return Promise.resolve();
+  }
+  return invoke<null>("stop_android_media_session").then(() => undefined);
 }
 
 function isTauriRuntime(): boolean {
