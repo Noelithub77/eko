@@ -29,15 +29,34 @@ npm run dev:web:desktop
 npm run dev:desktop
 ```
 
-## Open Android Studio For Android
+Desktop dev uses a separate Cargo target folder:
 
-Opens the generated Android project in Android Studio. Pick the device and build variant in Android Studio, then click Run there.
+```text
+rust/target/desktop-dev/
+```
+
+## Start Android Tauri Dev In Android Studio
+
+Starts normal Tauri Android dev mode and opens Android Studio. Pick the device and build variant in Android Studio, then click Run there.
 
 ```powershell
 npm run dev:android
 ```
 
-VS Code `Ctrl+Shift+B` runs the default build task `dev: desktop + android studio`, which starts desktop Tauri dev and opens Android Studio for `rust/gen/android`.
+This runs:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop-android-dev.ps1
+npm run tauri -- android dev --open --host <your LAN IP>
+```
+
+Android dev uses a separate Cargo target folder so it does not wait on the desktop Rust build lock:
+
+```text
+rust/target/android-dev/
+```
+
+VS Code `Ctrl+Shift+B` runs the default build task `dev: desktop tauri + android tauri open`, which starts desktop Tauri dev and Tauri Android dev together. Desktop uses Vite port `1420`; Android mobile dev uses Vite port `1422` and lets Tauri provide `TAURI_DEV_HOST` for phone access. Android Studio is opened by Tauri after the mobile dev server and Android build setup are ready.
 
 Raw Tauri Android CLI dev, without Android Studio:
 
@@ -150,3 +169,4 @@ npm run test:core
 - Final latency acceptance needs real Windows hardware plus a real Android phone.
 - Emulator builds are useful for app wiring, but not for the under-100 ms latency target.
 - Android playback is native Rust WebRTC receive, Rust Opus decode, and Oboe output.
+- Desktop and Android dev use separate Cargo target folders to avoid `Blocking waiting for file lock on build directory` when both are started from VS Code.

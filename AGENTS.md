@@ -59,7 +59,7 @@ Only run full slow commands when the changed layer needs them or the user asks:
 - `npm run tauri -- build`
 - `npm run tauri -- android build --debug --apk ...`
 - `npm run dev:android:direct`
-- VS Code `Ctrl+Shift+B` desktop dev + Android Studio task
+- VS Code `Ctrl+Shift+B` desktop Tauri dev + `tauri android dev --open`
 
 When a slow build is needed, say why before running it.
 
@@ -68,6 +68,7 @@ When a slow build is needed, say why before running it.
 Prefer caching over repeated clean builds.
 
 - Keep Cargo target directories intact. Do not delete `rust/target` unless the user asks or the cache is clearly corrupt.
+- Desktop and Android dev intentionally use separate Cargo target folders: `rust/target/desktop-dev` and `rust/target/android-dev`. Keep them separate so VS Code can run both tasks without Cargo build-lock waiting.
 - Keep Gradle caches intact. Do not delete `rust/gen/android/.gradle` or global Gradle caches unless needed.
 - If `sccache` is installed, use it for Rust builds with `RUSTC_WRAPPER=sccache`.
 - If `sccache` is not installed, ask before installing it.

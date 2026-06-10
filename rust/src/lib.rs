@@ -19,6 +19,7 @@ use domain::{
 use mobile_receiver::NativeReceiverManager;
 use session::SessionStore;
 use signaling::{SharedSession, SignalingServer};
+#[cfg(any(test, all(debug_assertions, not(mobile))))]
 use specta_typescript::Typescript;
 use tauri_plugin_log::{Target, TargetKind};
 use tauri_specta::{collect_commands, Builder, ErrorHandlingMode};
