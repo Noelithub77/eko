@@ -58,6 +58,36 @@
         "reveal": "always"
       },
       "problemMatcher": []
+    },
+    {
+      "label": "build desktop",
+      "type": "shell",
+      "command": "npm run build:production:desktop",
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "group": "eko-build",
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "build android",
+      "type": "shell",
+      "command": "npm run build:production:android",
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "group": "eko-build",
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      "problemMatcher": []
     }
   ]
 }

@@ -4,10 +4,12 @@ mod audio;
 mod core_proof;
 mod discovery;
 mod domain;
+mod eko_media;
 mod mobile_receiver;
 mod network_host;
 mod session;
 mod signaling;
+mod web_client;
 mod webrtc_core;
 
 use discovery::{DiscoveredHost, DiscoveryAdvertiser};
@@ -287,6 +289,18 @@ fn stop_native_receiver(state: tauri::State<'_, AppState>) -> Result<(), String>
     Ok(())
 }
 
+#[tauri::command]
+#[specta::specta]
+fn start_android_media_session(app: tauri::AppHandle) -> Result<(), String> {
+    eko_media::start_session(&app)
+}
+
+#[tauri::command]
+#[specta::specta]
+fn stop_android_media_session(app: tauri::AppHandle) -> Result<(), String> {
+    eko_media::stop_session(&app)
+}
+
 fn stop_signaling(state: &tauri::State<'_, AppState>) -> Result<(), String> {
     if let Some(mut server) = state
         .signaling
@@ -350,6 +364,7 @@ pub fn run() {
         )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(eko_media::init())
         .manage(AppState::default())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
@@ -410,7 +425,9 @@ fn command_builder() -> Builder<tauri::Wry> {
             get_core_proof_status,
             find_nearby_hosts,
             start_native_receiver,
-            stop_native_receiver
+            stop_native_receiver,
+            start_android_media_session,
+            stop_android_media_session
         ])
 }
 

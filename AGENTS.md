@@ -2,9 +2,9 @@
 
 ## Project Goal
 
-Build Eko as a local desktop-to-Android audio relay.
+Build Eko as a local desktop-to-device audio relay.
 
-The desktop app captures computer audio and streams it to approved Android devices on the same local network. The app must work without accounts, cloud services, or internet access.
+The desktop app captures computer audio and streams it to approved Android devices on the same local network. Android is the preferred client experience. A desktop-served web client exists mainly as an iOS/browser fallback. The app must work without accounts, cloud services, or internet access.
 
 ## Main Rules
 
@@ -52,7 +52,8 @@ Use targeted checks instead of full builds:
 - Session/signaling TypeScript test change: `npm run test:core`.
 - Rust desktop core change: `cd rust; cargo check`.
 - Android Rust compile concern: prefer the narrowest Tauri Android command needed; avoid repeated full APK builds.
-- UI preview check: use `npm run dev:web:desktop` or `npm run dev:web:mobile`.
+- Android Kotlin/media plugin concern: use `cd rust/gen/android; .\gradlew.bat :app:compileUniversalDebugKotlin`.
+- UI preview check: use `npm run dev:web:desktop`, `npm run dev:web:mobile`, or `npm run dev:web:client`.
 
 Only run full slow commands when the changed layer needs them or the user asks:
 
@@ -94,12 +95,16 @@ Do not put production source code in `step-01`, `step-02`, or similar folders. S
 **[CHOSEN]** Tauri 2 app with a Rust core and React UI.
 
 - Rust owns audio capture, signaling, LAN discovery, sessions, and WebRTC sender logic.
-- React owns desktop and mobile screens.
-- The Android app uses the Tauri Android WebView for UI and WebRTC playback.
+- React owns desktop, Android, and web fallback screens.
+- Android uses the Tauri Android WebView for UI, but native Rust/Android code owns receiver playback.
+- Android should be treated as the preferred client experience.
+- The web client is mainly for iOS/browser fallback and uses browser WebRTC/audio APIs.
+- The desktop local signaling server also serves the built web client at `/client`.
 - Shared TypeScript types live in `frontend/shared/types`.
 - Shared Rust types live in `rust/src/domain`.
 
 Do not move core audio or session approval logic into React.
+Do not make the browser web client the primary Android experience.
 
 ## Pairing Rules
 
@@ -109,6 +114,16 @@ Only two pairing methods are allowed:
 - LAN discovery
 
 Manual IP entry is not allowed.
+
+The desktop QR uses a local web URL with a hash payload:
+
+```text
+http://<desktop-lan-ip>:<port>/client#payload=<base64url-json>
+```
+
+The Android app scanner must parse this QR directly and start the native receiver. It must not open the website from inside the app.
+
+The browser/iOS fallback opens the same URL and runs the desktop-served web client.
 
 Scanning a QR code or finding a LAN host must not grant access by itself. The desktop user must approve every device before it can receive audio.
 
@@ -138,7 +153,7 @@ It must handle:
 
 ## Android Responsibilities
 
-The Android app must stay simple.
+The Android app must stay simple and native-first.
 
 It must show only:
 
@@ -149,6 +164,32 @@ It must show only:
 - Connected or denied state
 
 Manual IP entry must not be added.
+
+Android playback rules:
+
+- Use the native receiver path, not browser WebRTC, when running inside the Android app.
+- Use Android Media3 `MediaSessionService` for media notification, lock-screen, and play/pause controls.
+- Play/pause controls are client-only. Pause must stop local Android playback and clear stale samples while keeping the desktop stream/session alive.
+- Resume must continue from the live stream, not old buffered audio.
+- Do not claim Spotify-level durable background playback unless the receiver lifecycle is actually anchored to the foreground media service and tested under Android background limits.
+
+## Web Client Responsibilities
+
+The web client is a fallback, mainly for iOS and browsers.
+
+It must:
+
+- Be served by the desktop local server at `/client`.
+- Parse the same QR hash payload as the Android app.
+- Ask the desktop for approval before playback.
+- Use browser WebRTC/audio APIs.
+- Avoid LAN discovery and manual IP entry for v1.
+
+It must not:
+
+- Use Cloudflare as an audio or signaling relay.
+- Replace the Android native app as the preferred Android experience.
+- Use a full Rust/WASM receiver unless the user explicitly chooses that later.
 
 ## Package Rules
 
@@ -167,6 +208,7 @@ Current preferred package direction:
 - `wasapi` or `cpal` for desktop audio capture, depending on target OS
 - `qrcode.react` for desktop QR display
 - `@zxing/browser` for Android QR scanning
+- `androidx.media3` for Android media session controls
 - `specta` and `tauri-specta` for Rust-to-TypeScript command types
 - `zod` only when runtime validation is needed at app boundaries
 
@@ -188,15 +230,41 @@ frontend/
     components/
     types/
     utils/
+  web/
+    client/
+      App.tsx
+      features/
 rust/
   src/
     audio/
     discovery/
     domain/
+    mobile_receiver/
     signaling/
     session/
+    web_client/
     webrtc/
+  plugins/
+    tauri-plugin-eko-media/
+      src/
+      android/
+        src/main/kotlin/com/codialo/eko/media/
 ```
+
+Native Android plugin source should use the Tauri plugin shape when possible:
+
+```text
+rust/plugins/tauri-plugin-eko-media/
+  src/
+    lib.rs
+    mobile.rs
+  android/
+    src/main/kotlin/com/codialo/eko/media/
+```
+
+The long `com/codialo/eko/media` package path is normal Android/Kotlin structure. Prefer `kotlin` over `java` for `.kt` files.
+
+Do not put canonical production source code in `rust/gen/android`. That folder is generated Tauri Android output. Small Gradle or manifest wiring may exist there if needed, but stable native source should live outside `gen`.
 
 ## Reporting After Work
 
