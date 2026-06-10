@@ -14,7 +14,9 @@ build
 .cxx
 local.properties
 key.properties
-keystore.properties
+!keystore.properties
+!keystore/
+!keystore/eko-release.keystore
 
 /.tauri
 /tauri.settings.gradle
