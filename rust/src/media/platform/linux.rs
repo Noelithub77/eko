@@ -1,7 +1,13 @@
 use crate::media::MediaState;
+use crate::media::platform::ControlCommand;
+use std::sync::OnceLock;
 use tauri::{AppHandle, Emitter};
 
+static APP: OnceLock<AppHandle> = OnceLock::new();
+
 pub fn start_monitoring(app: AppHandle) {
+    let _ = APP.set(app.clone());
+
     std::thread::spawn(move || {
         let finder = match mpris::PlayerFinder::new() {
             Ok(f) => f,
@@ -21,10 +27,8 @@ pub fn start_monitoring(app: AppHandle) {
 
         log::info!("Monitoring media player: {}", player.identity());
 
-        // Send initial state
         emit_state(&app, &player);
 
-        // Start event loop
         let events = match player.events() {
             Ok(e) => e,
             Err(e) => {
@@ -34,17 +38,43 @@ pub fn start_monitoring(app: AppHandle) {
         };
 
         for event in events {
-            match event {
-                Ok(_) => {
-                    emit_state(&app, &player);
-                }
-                Err(e) => {
-                    log::error!("MPRIS event error: {}", e);
-                    break;
-                }
+            if event.is_ok() {
+                emit_state(&app, &player);
+            } else if let Err(e) = event {
+                log::error!("MPRIS event error: {}", e);
+                break;
             }
         }
     });
+}
+
+pub fn control(cmd: ControlCommand) -> Result<(), String> {
+    let finder = mpris::PlayerFinder::new().map_err(|e| e.to_string())?;
+    let player = finder.find_active().map_err(|e| e.to_string())?;
+
+    match cmd {
+        ControlCommand::Play => player.play().map_err(|e| e.to_string())?,
+        ControlCommand::Pause => player.pause().map_err(|e| e.to_string())?,
+        ControlCommand::Next => player.next().map_err(|e| e.to_string())?,
+        ControlCommand::Previous => player.previous().map_err(|e| e.to_string())?,
+        ControlCommand::Toggle => {
+            if player.get_playback_status().map_err(|e| e.to_string())?
+                == mpris::PlaybackStatus::Playing
+            {
+                player.pause().map_err(|e| e.to_string())?;
+            } else {
+                player.play().map_err(|e| e.to_string())?;
+            }
+        }
+    }
+
+    // The mpris crate's Event enum has no StatusChanged variant,
+    // so PlaybackStatus property changes are dropped. Emit state directly.
+    if let Some(app) = APP.get() {
+        emit_state(app, &player);
+    }
+
+    Ok(())
 }
 
 fn emit_state(app: &AppHandle, player: &mpris::Player) {
@@ -58,8 +88,8 @@ fn emit_state(app: &AppHandle, player: &mpris::Player) {
         artist: metadata.as_ref().and_then(|m| m.artists().map(|v| v.join(", "))),
         album: metadata.as_ref().and_then(|m| m.album_name().map(|s| s.to_string())),
         is_playing: playback_status == Some(mpris::PlaybackStatus::Playing),
-        position_ms: position.map(|d| d.as_millis() as u64),
-        duration_ms: duration.map(|d| d.as_millis() as u64),
+        position_ms: position.map(|d| d.as_millis() as f64),
+        duration_ms: duration.map(|d| d.as_millis() as f64),
         app_name: Some(player.identity().to_string()),
     };
 

@@ -1,16 +1,18 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use tauri::AppHandle;
 
 pub mod platform;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
 pub struct MediaState {
     pub title: Option<String>,
     pub artist: Option<String>,
     pub album: Option<String>,
     pub is_playing: bool,
-    pub position_ms: Option<u64>,
-    pub duration_ms: Option<u64>,
+    pub position_ms: Option<f64>,
+    pub duration_ms: Option<f64>,
     pub app_name: Option<String>,
 }
 

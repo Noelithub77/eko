@@ -9,6 +9,12 @@ import { DeviceList } from "./features/devices/DeviceList";
 import { QrPairingCard } from "./features/pairing/QrPairingCard";
 import { SettingsPanel } from "./features/settings/SettingsPanel";
 import { NowPlayingCard } from "./features/stream/NowPlayingCard";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@shared/components/ui/tooltip";
 import "./App.css";
 
 function App() {
@@ -59,43 +65,61 @@ function App() {
   }, [listenToSessionEvents]);
 
   const headerActions = (
-    <>
+    <TooltipProvider delayDuration={400}>
       <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-1.5 text-sm">
         <Wifi className="size-4 text-green-500" />
         <span className="text-muted-foreground">
           {isRunning ? "Ready for phones" : "Starting stream"}
         </span>
       </div>
-      <button
-        type="button"
-        onClick={() => void restart()}
-        className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        aria-label="Restart stream"
-        title="Restart stream"
-      >
-        <RefreshCw className="size-5" />
-      </button>
-      <button
-        type="button"
-        onClick={() => setView((v) => (v === "settings" ? "stream" : "settings"))}
-        className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        aria-label={view === "settings" ? "Close settings" : "Settings"}
-        title={view === "settings" ? "Close settings" : "Settings"}
-      >
-        {view === "settings" ? <X className="size-5" /> : <Settings className="size-5" />}
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={() => void restart()}
+            className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            aria-label="Restart stream"
+          >
+            <RefreshCw className="size-5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Restart stream</p>
+        </TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={() => setView((v) => (v === "settings" ? "stream" : "settings"))}
+            className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            aria-label={view === "settings" ? "Close settings" : "Settings"}
+          >
+            {view === "settings" ? <X className="size-5" /> : <Settings className="size-5" />}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{view === "settings" ? "Close settings" : "Settings"}</p>
+        </TooltipContent>
+      </Tooltip>
       {devMode ? (
-        <button
-          type="button"
-          onClick={() => setView((v) => (v === "dev" ? "stream" : "dev"))}
-          className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          aria-label="Dev"
-          title="Dev"
-        >
-          <Bug className="size-5" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => setView((v) => (v === "dev" ? "stream" : "dev"))}
+              className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              aria-label={view === "dev" ? "Main view" : "Dev panel"}
+            >
+              <Bug className="size-5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{view === "dev" ? "Main view" : "Dev panel"}</p>
+          </TooltipContent>
+        </Tooltip>
       ) : null}
-    </>
+    </TooltipProvider>
   );
 
   return (

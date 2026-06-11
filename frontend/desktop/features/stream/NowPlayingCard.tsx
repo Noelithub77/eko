@@ -1,17 +1,9 @@
 import { useEffect, useState } from "react";
-import { Music, Pause, Play } from "lucide-react";
+import { Music, Pause, Play, SkipBack, SkipForward } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
+import { Button } from "@shared/components/ui/button";
 import { Card, CardContent } from "@shared/components/ui/card";
-
-interface MediaState {
-  title: string | null;
-  artist: string | null;
-  album: string | null;
-  is_playing: boolean;
-  position_ms: number | null;
-  duration_ms: number | null;
-  app_name: string | null;
-}
+import { commands, type MediaState } from "@shared/bindings/tauri";
 
 export function NowPlayingCard() {
   const [media, setMedia] = useState<MediaState | null>(null);
@@ -46,8 +38,8 @@ export function NowPlayingCard() {
   }
 
   const progress =
-    media.duration_ms && media.position_ms
-      ? Math.round((media.position_ms / media.duration_ms) * 100)
+    media.durationMs && media.positionMs
+      ? Math.round((media.positionMs / media.durationMs) * 100)
       : 0;
 
   const formatTime = (ms: number | null) => {
@@ -56,6 +48,18 @@ export function NowPlayingCard() {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  };
+
+  const handleToggle = () => {
+    void commands.mediaToggle();
+  };
+
+  const handleNext = () => {
+    void commands.mediaNext();
+  };
+
+  const handlePrevious = () => {
+    void commands.mediaPrevious();
   };
 
   return (
@@ -67,14 +71,14 @@ export function NowPlayingCard() {
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              {media.is_playing ? (
+              {media.isPlaying ? (
                 <Play className="size-4 text-green-500" />
               ) : (
                 <Pause className="size-4 text-yellow-500" />
               )}
               <span className="text-sm text-muted-foreground">
-                {media.is_playing ? "Playing" : "Paused"}
-                {media.app_name ? ` • ${media.app_name}` : ""}
+                {media.isPlaying ? "Playing" : "Paused"}
+                {media.appName ? ` • ${media.appName}` : ""}
               </span>
             </div>
             <div className="mt-1 truncate text-base font-semibold">{media.title}</div>
@@ -86,7 +90,7 @@ export function NowPlayingCard() {
             ) : null}
           </div>
         </div>
-        {media.duration_ms ? (
+        {media.durationMs ? (
           <div className="mt-3">
             <div className="h-1 overflow-hidden rounded-full bg-muted">
               <div
@@ -95,11 +99,28 @@ export function NowPlayingCard() {
               />
             </div>
             <div className="mt-1 flex justify-between text-xs text-muted-foreground">
-              <span>{formatTime(media.position_ms)}</span>
-              <span>{formatTime(media.duration_ms)}</span>
+              <span>{formatTime(media.positionMs)}</span>
+              <span>{formatTime(media.durationMs)}</span>
             </div>
           </div>
         ) : null}
+        <div className="mt-3 flex items-center justify-center gap-1">
+          <Button variant="ghost" size="icon" onClick={handlePrevious} aria-label="Previous track">
+            <SkipBack className="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleToggle}
+            aria-label={media.isPlaying ? "Pause" : "Play"}
+            className="size-10"
+          >
+            {media.isPlaying ? <Pause className="size-5" /> : <Play className="size-5" />}
+          </Button>
+          <Button variant="ghost" size="icon" onClick={handleNext} aria-label="Next track">
+            <SkipForward className="size-4" />
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
