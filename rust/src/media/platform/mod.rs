@@ -41,3 +41,16 @@ pub fn control(cmd: ControlCommand) -> Result<(), String> {
         Err("Media control not available on this platform".into())
     }
 }
+
+pub fn get_state() -> Result<Option<super::MediaState>, String> {
+    #[cfg(target_os = "linux")]
+    return linux::get_state();
+
+    #[cfg(target_os = "windows")]
+    return windows::get_state();
+
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+    {
+        Err("Media state not available on this platform".into())
+    }
+}
