@@ -6,6 +6,7 @@ import path from "node:path";
 const host = process.env.TAURI_DEV_HOST;
 const platform = process.env.PLATFORM || "desktop";
 const port = Number(process.env.VITE_PORT || 1420);
+const isWebClient = platform === "web/client";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -33,7 +34,12 @@ export default defineConfig({
           host,
           port: port + 1,
         }
-      : undefined,
+      : isWebClient
+        ? {
+            host: "localhost",
+            clientPort: port,
+          }
+        : undefined,
     watch: {
       ignored: ["**/rust/**"],
     },

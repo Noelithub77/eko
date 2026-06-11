@@ -18,6 +18,14 @@ async fn serve_inner(stream: &mut TcpStream) -> Result<(), String> {
         .await
         .map_err(|error| error.to_string())?;
     let request = String::from_utf8_lossy(&request[..read]);
+
+    if let Some(dev_url) = std::env::var("EKO_WEB_CLIENT_DEV_URL")
+        .ok()
+        .filter(|u| !u.is_empty())
+    {
+        return serve_proxy(stream, &request, &dev_url).await;
+    }
+
     let path = request_path(&request).unwrap_or("/client");
     let Some(file_path) = web_file_path(path)? else {
         write_response(stream, "404 Not Found", "text/plain; charset=utf-8", b"Not found").await?;
@@ -29,6 +37,64 @@ async fn serve_inner(stream: &mut TcpStream) -> Result<(), String> {
         .map_err(|error| error.to_string())?;
     let content_type = content_type(&file_path);
     write_response(stream, "200 OK", content_type, &bytes).await
+}
+
+async fn serve_proxy(
+    stream: &mut TcpStream,
+    request: &str,
+    dev_url: &str,
+) -> Result<(), String> {
+    let path = request_path(request).unwrap_or("/");
+    let proxied_path = proxy_target_path(path);
+    let target = format!("{}{}", dev_url.trim_end_matches('/'), proxied_path);
+
+    let target = target
+        .strip_prefix("http://")
+        .or_else(|| target.strip_prefix("https://"))
+        .unwrap_or(&target);
+    let (host, path_part) = target.split_once('/').unwrap_or((target, ""));
+    let request_line = if path_part.is_empty() {
+        "GET / HTTP/1.1".to_string()
+    } else {
+        format!("GET /{} HTTP/1.1", path_part)
+    };
+
+    let mut proxy = TcpStream::connect(host)
+        .await
+        .map_err(|error| format!("Web client dev server at {host} unreachable: {error}"))?;
+
+    let proxy_request = format!(
+        "{}\r\nHost: {}\r\nAccept: */*\r\nConnection: close\r\n\r\n",
+        request_line, host
+    );
+
+    proxy
+        .write_all(proxy_request.as_bytes())
+        .await
+        .map_err(|error| error.to_string())?;
+
+    let mut response = Vec::new();
+    proxy
+        .read_to_end(&mut response)
+        .await
+        .map_err(|error| error.to_string())?;
+
+    stream
+        .write_all(&response)
+        .await
+        .map_err(|error| error.to_string())?;
+
+    Ok(())
+}
+
+fn proxy_target_path(path: &str) -> &str {
+    if path == "/client" || path == "/client/" {
+        "/"
+    } else if let Some(stripped) = path.strip_prefix("/client") {
+        stripped
+    } else {
+        path
+    }
 }
 
 pub fn looks_like_http_client(bytes: &[u8]) -> bool {
