@@ -3,7 +3,8 @@ use std::path::{Component, Path, PathBuf};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
-const MAX_REQUEST_BYTES: usize = 4096;
+const MAX_REQUEST_BYTES: usize = 64 * 1024;
+const PROFILER_PATH: &str = "/__eko_profiler";
 
 pub async fn serve(mut stream: TcpStream) {
     if let Err(error) = serve_inner(&mut stream).await {
@@ -12,15 +13,35 @@ pub async fn serve(mut stream: TcpStream) {
 }
 
 async fn serve_inner(stream: &mut TcpStream) -> Result<(), String> {
-    let mut request = vec![0_u8; MAX_REQUEST_BYTES];
-    let read = stream
-        .read(&mut request)
-        .await
-        .map_err(|error| error.to_string())?;
-    let request = String::from_utf8_lossy(&request[..read]);
+    let request = read_http_request(stream).await?;
+    if is_profiler_post(&request) {
+        let body = request_body(&request);
+        crate::profiler::append_sample(body.as_bytes())?;
+        write_response(stream, "204 No Content", "text/plain; charset=utf-8", b"").await?;
+        return Ok(());
+    }
+
+    if is_profiler_get(&request) {
+        let body = crate::profiler::snapshot_json()?;
+        write_response(
+            stream,
+            "200 OK",
+            "application/json; charset=utf-8",
+            body.as_bytes(),
+        )
+        .await?;
+        return Ok(());
+    }
+
     let path = request_path(&request).unwrap_or("/client");
     let Some(file_path) = web_file_path(path)? else {
-        write_response(stream, "404 Not Found", "text/plain; charset=utf-8", b"Not found").await?;
+        write_response(
+            stream,
+            "404 Not Found",
+            "text/plain; charset=utf-8",
+            b"Not found",
+        )
+        .await?;
         return Ok(());
     };
 
@@ -33,10 +54,60 @@ async fn serve_inner(stream: &mut TcpStream) -> Result<(), String> {
 
 pub fn looks_like_http_client(bytes: &[u8]) -> bool {
     let text = String::from_utf8_lossy(bytes);
-    if !text.starts_with("GET ") {
+    if !text.starts_with("GET ") && !text.starts_with("POST ") {
         return false;
     }
     !text.to_ascii_lowercase().contains("upgrade: websocket")
+}
+
+async fn read_http_request(stream: &mut TcpStream) -> Result<String, String> {
+    let mut request = Vec::with_capacity(4096);
+    let mut buffer = [0_u8; 4096];
+
+    loop {
+        let read = stream
+            .read(&mut buffer)
+            .await
+            .map_err(|error| error.to_string())?;
+        if read == 0 {
+            break;
+        }
+
+        request.extend_from_slice(&buffer[..read]);
+        if request.len() > MAX_REQUEST_BYTES {
+            return Err("HTTP request is too large.".to_string());
+        }
+
+        if has_full_request(&request) {
+            break;
+        }
+    }
+
+    String::from_utf8(request).map_err(|error| error.to_string())
+}
+
+fn has_full_request(request: &[u8]) -> bool {
+    let Some(header_end) = header_end(request) else {
+        return false;
+    };
+    let headers = String::from_utf8_lossy(&request[..header_end]);
+    let content_length = content_length(&headers).unwrap_or(0);
+    request.len() >= header_end + 4 + content_length
+}
+
+fn header_end(request: &[u8]) -> Option<usize> {
+    request.windows(4).position(|window| window == b"\r\n\r\n")
+}
+
+fn content_length(headers: &str) -> Option<usize> {
+    headers.lines().find_map(|line| {
+        let (name, value) = line.split_once(':')?;
+        if name.eq_ignore_ascii_case("content-length") {
+            value.trim().parse::<usize>().ok()
+        } else {
+            None
+        }
+    })
 }
 
 fn request_path(request: &str) -> Option<&str> {
@@ -47,6 +118,26 @@ fn request_path(request: &str) -> Option<&str> {
         return None;
     }
     parts.next()
+}
+
+fn is_profiler_post(request: &str) -> bool {
+    request
+        .lines()
+        .next()
+        .map(|line| line.starts_with("POST ") && line.contains(PROFILER_PATH))
+        .unwrap_or(false)
+}
+
+fn is_profiler_get(request: &str) -> bool {
+    request
+        .lines()
+        .next()
+        .map(|line| line.starts_with("GET ") && line.contains(PROFILER_PATH))
+        .unwrap_or(false)
+}
+
+fn request_body(request: &str) -> &str {
+    request.split("\r\n\r\n").nth(1).unwrap_or("")
 }
 
 fn web_file_path(path: &str) -> Result<Option<PathBuf>, String> {
@@ -109,7 +200,7 @@ async fn write_response(
     body: &[u8],
 ) -> Result<(), String> {
     let headers = format!(
-        "HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        "HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n",
         body.len()
     );
     stream

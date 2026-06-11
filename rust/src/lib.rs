@@ -7,6 +7,7 @@ mod domain;
 mod eko_media;
 mod mobile_receiver;
 mod network_host;
+mod profiler;
 mod session;
 mod signaling;
 mod web_client;
@@ -16,7 +17,7 @@ use discovery::{DiscoveredHost, DiscoveryAdvertiser};
 use domain::{
     IceCandidateMessage, JoinMethod, JoinRequest, NativeReceiverEvent, QrPairingPayload,
     RoomSession, SessionDescriptionMessage, SignalClientMessage, SignalServerMessage,
-    StartStreamResult,
+    StartStreamResult, StreamProfilerSample,
 };
 use mobile_receiver::NativeReceiverManager;
 use session::SessionStore;
@@ -416,6 +417,7 @@ fn command_builder() -> Builder<tauri::Wry> {
         .typ::<SignalClientMessage>()
         .typ::<SignalServerMessage>()
         .typ::<NativeReceiverEvent>()
+        .typ::<StreamProfilerSample>()
         .commands(collect_commands![
             greet,
             start_stream,

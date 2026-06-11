@@ -12,6 +12,7 @@ type WebReceiverHandlers = {
 };
 
 export type WebReceiverSession = {
+  peer: RTCPeerConnection;
   close: () => void;
 };
 
@@ -23,8 +24,10 @@ export async function startWebReceiver(
   const socket = new WebSocket(`ws://${payload.host}:${payload.port}/eko`);
   const peer = new RTCPeerConnection();
   let isClosed = false;
+  let hasOpened = false;
 
   peer.ontrack = (event: RTCTrackEvent) => {
+    tuneAudioReceivers(peer);
     const [stream] = event.streams;
     if (stream) {
       handlers.onStream(stream);
@@ -45,6 +48,7 @@ export async function startWebReceiver(
   };
 
   socket.addEventListener("open", () => {
+    hasOpened = true;
     handlers.onStatus("Asking desktop.");
     send(socket, { kind: "joinRequest", request });
   });
@@ -55,15 +59,18 @@ export async function startWebReceiver(
 
   socket.addEventListener("close", () => {
     if (!isClosed) {
-      handlers.onStatus("Desktop connection closed.");
+      handlers.onStatus(
+        hasOpened ? "Desktop connection closed." : "Could not open desktop connection.",
+      );
     }
   });
 
   socket.addEventListener("error", () => {
-    handlers.onStatus("Could not reach desktop.");
+    handlers.onStatus(`Could not reach desktop at ${payload.host}:${payload.port}.`);
   });
 
   return {
+    peer,
     close: () => {
       isClosed = true;
       socket.close();
@@ -173,4 +180,17 @@ function isIceCandidateInit(value: unknown): value is RTCIceCandidateInit {
   }
   const candidate = (value as { candidate?: unknown }).candidate;
   return typeof candidate === "string";
+}
+
+function tuneAudioReceivers(peer: RTCPeerConnection): void {
+  for (const receiver of peer.getReceivers()) {
+    if (receiver.track.kind !== "audio" || !("jitterBufferTarget" in receiver)) {
+      continue;
+    }
+
+    const audioReceiver = receiver as RTCRtpReceiver & {
+      jitterBufferTarget: number | null;
+    };
+    audioReceiver.jitterBufferTarget = 80;
+  }
 }

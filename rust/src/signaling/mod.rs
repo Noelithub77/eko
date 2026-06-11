@@ -250,6 +250,12 @@ async fn handle_client_message(
                     .is_ok(),
             }
         }
+        Ok(SignalClientMessage::ProfilerSample { sample }) => {
+            if let Err(error) = crate::profiler::append_typed_sample(sample) {
+                log::warn!("Live profiler sample ignored: {error}");
+            }
+            true
+        }
         Ok(SignalClientMessage::Offer { .. }) => send_json(
             socket,
             &SignalServerMessage::Error {

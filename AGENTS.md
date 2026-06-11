@@ -32,6 +32,37 @@ Native crashes are expensive to debug, especially on Android. Treat every app st
 - If the app can keep running after an error, keep it running and show the simplest useful state.
 - If the app cannot keep running, log one clear error and stop that feature instead of aborting the whole process.
 
+## Live Profiling Rules
+
+Use live profiling when improving stream smoothness, latency, jitter, buffering, packet loss, or audio quality.
+
+- Keep profiling session-only by default. Do not write profiler logs to disk unless the user explicitly asks.
+- The desktop local server exposes the current in-memory profiler snapshot at:
+
+```text
+GET /__eko_profiler
+```
+
+- Web clients should send browser WebRTC stats while connected.
+- Android native receivers should send native receive/playback stats while connected.
+- Keep samples small and model-readable. Prefer one compact object per sample.
+- Collect only useful stream-quality fields:
+  - `source`: `web` or `android`
+  - `connectionId`
+  - `deviceId`
+  - `roomId`
+  - `sampleIndex`
+  - `latencyMs`
+  - `jitterMs`
+  - `bufferMs`
+  - `packetLossPercent`
+  - `packetsReceived`
+  - `packetsLost`
+- Do not collect personal data, raw audio, IP history, tokens, SDP bodies, ICE candidates, or full user-agent strings in profiler samples.
+- Keep a bounded rolling window in memory so agents can inspect the current run without creating stale files.
+- When using profiler data, compare several samples instead of reacting to one spike.
+- Treat missing fields honestly. Browser WebRTC can expose jitter and jitter-buffer stats; Android native may only expose packet counts and playback buffer until deeper native stats are added.
+
 ## Fast Check Rules
 
 Full Tauri and Android builds are slow. Do not run them as the default verification step.

@@ -42,6 +42,7 @@ impl NativeReceiverManager {
 #[cfg(target_os = "android")]
 mod android {
     use std::sync::Arc;
+    use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
     use futures_util::{SinkExt, StreamExt};
     use opus::{Channels, Decoder};
@@ -59,10 +60,12 @@ mod android {
     use crate::domain::{
         DeviceConnectionState, IceCandidateMessage, JoinRequest, NativeReceiverEvent,
         QrPairingPayload, SessionDescriptionMessage, SignalClientMessage, SignalServerMessage,
+        StreamProfilerSample,
     };
 
     const EVENT_NAME: &str = "native-receiver-event";
     const DECODED_SAMPLES: usize = 960 * 2;
+    const PROFILER_INTERVAL: Duration = Duration::from_secs(2);
 
     pub async fn run_receiver(app: AppHandle, payload: QrPairingPayload, request: JoinRequest) {
         if let Err(message) = run_receiver_inner(app.clone(), payload, request).await {
@@ -89,7 +92,15 @@ mod android {
         let (mut writer, mut reader) = socket.split();
         let (sender, mut outgoing) = mpsc::unbounded_channel::<SignalClientMessage>();
         let device_id = request.device_id.clone();
-        let peer = Arc::new(create_peer(app.clone(), device_id.clone(), sender.clone()).await?);
+        let peer = Arc::new(
+            create_peer(
+                app.clone(),
+                device_id.clone(),
+                payload.room_id.clone(),
+                sender.clone(),
+            )
+            .await?,
+        );
 
         sender
             .send(SignalClientMessage::JoinRequest { request })
@@ -132,6 +143,7 @@ mod android {
     async fn create_peer(
         app: AppHandle,
         device_id: String,
+        room_id: String,
         sender: mpsc::UnboundedSender<SignalClientMessage>,
     ) -> Result<RTCPeerConnection, String> {
         let mut media_engine = MediaEngine::default();
@@ -168,12 +180,16 @@ mod android {
 
         let ready_sender = sender.clone();
         let ready_device_id = device_id.clone();
+        let profiler_room_id = room_id.clone();
         peer.on_track(Box::new(move |track, _, _| {
             let app = app.clone();
             let ready_sender = ready_sender.clone();
             let device_id = ready_device_id.clone();
+            let room_id = profiler_room_id.clone();
             Box::pin(async move {
-                let _ = ready_sender.send(SignalClientMessage::ReceiverReady { device_id });
+                let _ = ready_sender.send(SignalClientMessage::ReceiverReady {
+                    device_id: device_id.clone(),
+                });
                 emit(
                     &app,
                     NativeReceiverEvent::Connected {
@@ -202,11 +218,16 @@ mod android {
                     }
                 };
                 let mut decoded = vec![0.0_f32; DECODED_SAMPLES];
+                let mut profiler = AndroidProfiler::new(room_id, device_id);
 
                 while let Ok((packet, _)) = track.read_rtp().await {
+                    profiler.record_packet(packet.header.sequence_number);
                     if let Ok(frames) = decoder.decode_float(&packet.payload, &mut decoded, false) {
                         let used_samples = frames * 2;
                         player.push_samples(&decoded[..used_samples.min(decoded.len())]);
+                    }
+                    if let Some(sample) = profiler.next_sample(player.buffer_ms()) {
+                        let _ = ready_sender.send(SignalClientMessage::ProfilerSample { sample });
                     }
                 }
                 player.stop();
@@ -306,6 +327,93 @@ mod android {
 
     fn emit(app: &AppHandle, event: NativeReceiverEvent) {
         let _ = app.emit(EVENT_NAME, event);
+    }
+
+    struct AndroidProfiler {
+        connection_id: String,
+        device_id: String,
+        last_sequence: Option<u16>,
+        last_sample_at: Instant,
+        packet_count: u64,
+        lost_count: u64,
+        previous_packet_count: u64,
+        previous_lost_count: u64,
+        room_id: String,
+        sample_index: u64,
+    }
+
+    impl AndroidProfiler {
+        fn new(room_id: String, device_id: String) -> Self {
+            Self {
+                connection_id: format!("android-{}-{}", device_id, now_ms()),
+                device_id,
+                last_sequence: None,
+                last_sample_at: Instant::now(),
+                packet_count: 0,
+                lost_count: 0,
+                previous_packet_count: 0,
+                previous_lost_count: 0,
+                room_id,
+                sample_index: 0,
+            }
+        }
+
+        fn record_packet(&mut self, sequence: u16) {
+            if let Some(previous) = self.last_sequence {
+                let expected = previous.wrapping_add(1);
+                if sequence != expected {
+                    let gap = sequence.wrapping_sub(expected);
+                    if gap < 3_000 {
+                        self.lost_count += u64::from(gap);
+                    }
+                }
+            }
+            self.last_sequence = Some(sequence);
+            self.packet_count += 1;
+        }
+
+        fn next_sample(&mut self, buffer_ms: Option<f64>) -> Option<StreamProfilerSample> {
+            if self.last_sample_at.elapsed() < PROFILER_INTERVAL {
+                return None;
+            }
+
+            self.last_sample_at = Instant::now();
+            self.sample_index += 1;
+            let packets_received = self.packet_count - self.previous_packet_count;
+            let packets_lost = self.lost_count - self.previous_lost_count;
+            self.previous_packet_count = self.packet_count;
+            self.previous_lost_count = self.lost_count;
+            let total_packets = packets_received + packets_lost;
+            let packet_loss_percent = if total_packets == 0 {
+                Some(0.0)
+            } else {
+                Some((packets_lost as f64 / total_packets as f64) * 100.0)
+            };
+
+            Some(StreamProfilerSample {
+                version: 1,
+                source: "android".to_string(),
+                kind: "qualitySample".to_string(),
+                created_at_ms: now_ms(),
+                connection_id: self.connection_id.clone(),
+                device_id: self.device_id.clone(),
+                room_id: self.room_id.clone(),
+                sample_index: self.sample_index,
+                latency_ms: None,
+                jitter_ms: None,
+                buffer_ms,
+                packet_loss_percent,
+                packets_received: Some(packets_received),
+                packets_lost: Some(packets_lost),
+            })
+        }
+    }
+
+    fn now_ms() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_millis() as u64)
+            .unwrap_or(0)
     }
 }
 
