@@ -76,7 +76,7 @@ export function StyledPairingQr({ value }: StyledPairingQrProps) {
           ref={containerRef}
           role="img"
         />
-        <div className="pointer-events-none absolute -inset-10 rounded-full bg-[radial-gradient(circle_at_center,rgba(134,213,205,0.07),rgba(134,213,205,0.03)_40%,rgba(134,213,205,0.008)_70%,transparent_100%)] transition-[background] duration-700 ease-out group-hover:bg-[radial-gradient(circle_at_center,rgba(134,213,205,0.14),rgba(134,213,205,0.06)_40%,rgba(134,213,205,0.015)_70%,transparent_100%)]" />
+        <div className="pointer-events-none absolute -inset-32 rounded-full bg-[radial-gradient(circle_at_center,rgba(134,213,205,0.04),rgba(134,213,205,0.032)_12%,rgba(134,213,205,0.024)_25%,rgba(134,213,205,0.016)_40%,rgba(134,213,205,0.009)_55%,rgba(134,213,205,0.004)_72%,rgba(134,213,205,0.001)_88%,transparent_100%)] transition-all duration-700 ease-out group-hover:bg-[radial-gradient(circle_at_center,rgba(134,213,205,0.22),rgba(134,213,205,0.18)_12%,rgba(134,213,205,0.13)_25%,rgba(134,213,205,0.085)_40%,rgba(134,213,205,0.045)_55%,rgba(134,213,205,0.02)_72%,rgba(134,213,205,0.005)_88%,transparent_100%)]" />
       </div>
     </div>
   );

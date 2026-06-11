@@ -310,6 +310,36 @@ fn stop_android_media_session(app: tauri::AppHandle) -> Result<(), String> {
     eko_media::stop_session(&app)
 }
 
+#[tauri::command]
+#[specta::specta]
+fn media_play() -> Result<(), String> {
+    media::play()
+}
+
+#[tauri::command]
+#[specta::specta]
+fn media_pause() -> Result<(), String> {
+    media::pause()
+}
+
+#[tauri::command]
+#[specta::specta]
+fn media_toggle() -> Result<(), String> {
+    media::toggle()
+}
+
+#[tauri::command]
+#[specta::specta]
+fn media_next() -> Result<(), String> {
+    media::next()
+}
+
+#[tauri::command]
+#[specta::specta]
+fn media_previous() -> Result<(), String> {
+    media::previous()
+}
+
 fn stop_signaling(state: &tauri::State<'_, AppState>) -> Result<(), String> {
     if let Some(mut server) = state
         .signaling
@@ -419,6 +449,7 @@ fn command_builder() -> Builder<tauri::Wry> {
         .typ::<SignalClientMessage>()
         .typ::<SignalServerMessage>()
         .typ::<NativeReceiverEvent>()
+        .typ::<media::MediaState>()
         .commands(collect_commands![
             greet,
             start_stream,
@@ -437,7 +468,12 @@ fn command_builder() -> Builder<tauri::Wry> {
             start_native_receiver,
             stop_native_receiver,
             start_android_media_session,
-            stop_android_media_session
+            stop_android_media_session,
+            media_play,
+            media_pause,
+            media_toggle,
+            media_next,
+            media_previous
         ])
 }
 
