@@ -215,7 +215,7 @@ function DeviceRow({
 
 function EmptyDevices() {
   return (
-    <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-dashed p-8 text-center">
+    <div className="flex min-h-[200px] items-center justify-center rounded-2xl border border-dashed p-6 text-center lg:min-h-[300px]">
       <div>
         <Smartphone className="mx-auto mb-3 size-8 text-muted-foreground" />
         <p className="text-base font-medium">No phones yet</p>

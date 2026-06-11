@@ -30,7 +30,7 @@ export function renderStartupError(message: string): void {
   }
 
   root.innerHTML = `
-    <main style="min-height:100vh;display:grid;place-items:center;background:#111;color:#f4f4f5;padding:24px;font-family:sans-serif;">
+    <main style="min-height:100vh;display:grid;place-items:center;background:#111;color:#f4f4f5;padding:24px;font-family:'Nunito',sans-serif;">
       <section style="max-width:560px;border:1px solid #333;border-radius:18px;background:#18181b;padding:24px;">
         <h1 style="font-size:22px;margin:0 0 8px;">Eko could not start</h1>
         <p style="color:#a1a1aa;margin:0 0 16px;">The app hit a startup error. The details were logged.</p>

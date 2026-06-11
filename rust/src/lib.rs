@@ -5,6 +5,8 @@ mod core_proof;
 mod discovery;
 mod domain;
 mod eko_media;
+pub mod linux_wayland;
+mod media;
 mod mobile_receiver;
 mod network_host;
 mod profiler;
@@ -309,6 +311,42 @@ fn stop_android_media_session(app: tauri::AppHandle) -> Result<(), String> {
     eko_media::stop_session(&app)
 }
 
+#[tauri::command]
+#[specta::specta]
+fn media_play() -> Result<(), String> {
+    media::play()
+}
+
+#[tauri::command]
+#[specta::specta]
+fn media_pause() -> Result<(), String> {
+    media::pause()
+}
+
+#[tauri::command]
+#[specta::specta]
+fn media_toggle() -> Result<(), String> {
+    media::toggle()
+}
+
+#[tauri::command]
+#[specta::specta]
+fn media_next() -> Result<(), String> {
+    media::next()
+}
+
+#[tauri::command]
+#[specta::specta]
+fn media_previous() -> Result<(), String> {
+    media::previous()
+}
+
+#[tauri::command]
+#[specta::specta]
+fn media_get_state() -> Result<Option<media::MediaState>, String> {
+    media::get_state()
+}
+
 fn stop_signaling(state: &tauri::State<'_, AppState>) -> Result<(), String> {
     if let Some(mut server) = state
         .signaling
@@ -377,6 +415,7 @@ pub fn run() {
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             builder.mount_events(app);
+            media::start_monitoring(app.handle().clone());
             Ok(())
         })
         .run(tauri::generate_context!())
@@ -418,6 +457,7 @@ fn command_builder() -> Builder<tauri::Wry> {
         .typ::<SignalServerMessage>()
         .typ::<NativeReceiverEvent>()
         .typ::<StreamProfilerSample>()
+        .typ::<media::MediaState>()
         .commands(collect_commands![
             greet,
             start_stream,
@@ -436,7 +476,13 @@ fn command_builder() -> Builder<tauri::Wry> {
             start_native_receiver,
             stop_native_receiver,
             start_android_media_session,
-            stop_android_media_session
+            stop_android_media_session,
+            media_play,
+            media_pause,
+            media_toggle,
+            media_next,
+            media_previous,
+            media_get_state
         ])
 }
 

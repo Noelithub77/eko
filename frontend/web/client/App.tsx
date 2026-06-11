@@ -1,8 +1,12 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Play, Pause, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@shared/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@shared/components/ui/card";
+import { Slider } from "@shared/components/ui/slider";
+import { cn } from "@shared/lib/utils";
 import { parsePairingSource } from "@shared/utils/pairing-link";
 import { startWebReceiver, type WebReceiverSession } from "@shared/utils/web-signaling-client";
+import { AudioWaveVisualizer } from "./components/AudioWaveVisualizer";
 import type { JoinRequest } from "@shared/types/device";
 import type { PairingLinkPayload } from "@shared/types/pairing-link";
 import { ConnectionQualityPanel } from "./features/playback/ConnectionQualityPanel";
@@ -20,8 +24,39 @@ function App() {
   );
   const [peer, setPeer] = useState<RTCPeerConnection | null>(null);
   const [profiler, setProfiler] = useState<LiveProfiler | null>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [volume, setVolume] = useState(1);
+  const [elapsed, setElapsed] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const sessionRef = useRef<WebReceiverSession | null>(null);
+  const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startElapsedTimer = useCallback(() => {
+    setElapsed(0);
+    if (elapsedTimerRef.current) {
+      clearInterval(elapsedTimerRef.current);
+    }
+    elapsedTimerRef.current = setInterval(() => {
+      setElapsed((prev) => prev + 1);
+    }, 1000);
+  }, []);
+
+  const stopElapsedTimer = useCallback(() => {
+    if (elapsedTimerRef.current) {
+      clearInterval(elapsedTimerRef.current);
+      elapsedTimerRef.current = null;
+    }
+    setElapsed(0);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (elapsedTimerRef.current) {
+        clearInterval(elapsedTimerRef.current);
+      }
+    };
+  }, []);
 
   const connect = useCallback(async () => {
     if (!payload) {
@@ -30,6 +65,9 @@ function App() {
 
     setStatus("waiting");
     setMessage("Asking desktop.");
+    setStream(null);
+    setIsPlaying(false);
+    stopElapsedTimer();
     sessionRef.current?.close();
     setPeer(null);
     setProfiler(null);
@@ -38,11 +76,15 @@ function App() {
     try {
       const session = await startWebReceiver(payload, request, {
         onStatus: (nextMessage) => setMessage(nextMessage),
-        onStream: (stream) => {
+        onStream: (nextStream) => {
+          setStream(nextStream);
           if (audioRef.current) {
-            audioRef.current.srcObject = stream;
+            audioRef.current.srcObject = nextStream;
             audioRef.current.muted = false;
-            void audioRef.current.play();
+            void audioRef.current.play().then(() => {
+              setIsPlaying(true);
+              startElapsedTimer();
+            });
           }
           setStatus("connected");
           setMessage("Connected.");
@@ -62,7 +104,7 @@ function App() {
       setStatus("failed");
       setMessage(error instanceof Error ? error.message : "Could not start web receiver.");
     }
-  }, [deviceId, payload]);
+  }, [deviceId, payload, startElapsedTimer, stopElapsedTimer]);
 
   const disconnect = useCallback(() => {
     sessionRef.current?.close();
@@ -73,9 +115,43 @@ function App() {
       audioRef.current.pause();
       audioRef.current.srcObject = null;
     }
+    setStream(null);
+    setIsPlaying(false);
+    stopElapsedTimer();
     setStatus(payload ? "ready" : "failed");
     setMessage(payload ? "Ready to ask the desktop." : "This link is missing pairing data.");
-  }, [payload]);
+  }, [payload, stopElapsedTimer]);
+
+  const togglePlay = useCallback(() => {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+      if (elapsedTimerRef.current) {
+        clearInterval(elapsedTimerRef.current);
+        elapsedTimerRef.current = null;
+      }
+    } else {
+      void audioRef.current.play().then(() => {
+        setIsPlaying(true);
+        elapsedTimerRef.current = setInterval(() => {
+          setElapsed((prev) => prev + 1);
+        }, 1000);
+      });
+    }
+  }, [isPlaying]);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+    }
+  }, [volume]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
 
   const writeQuality = useCallback(
     (quality: ConnectionQuality) => {
@@ -91,19 +167,93 @@ function App() {
           <h1 className="text-2xl font-semibold leading-tight">Eko</h1>
           <p className="text-sm leading-5 text-muted-foreground">Web receiver for iPhone.</p>
         </div>
+
         <Card className="gap-4 rounded-2xl py-5 shadow-none">
           <CardHeader className="px-5">
             <CardTitle>Status</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 px-5">
             <div className="rounded-xl bg-muted px-3 py-2 text-sm font-medium">{message}</div>
-            <audio autoPlay controls playsInline preload="auto" ref={audioRef}>
+            <audio ref={audioRef} className="hidden" playsInline preload="auto">
               <track kind="captions" label="No captions available" />
             </audio>
+
+            <div
+              className={cn(
+                "relative h-32 w-full overflow-hidden rounded-xl bg-black/40 transition-opacity",
+                status === "connected" ? "opacity-100" : "opacity-30",
+              )}
+            >
+              <AudioWaveVisualizer
+                stream={stream}
+                isPlaying={isPlaying}
+                className="absolute inset-0"
+              />
+              {status !== "connected" && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-xs font-medium text-white/40">Waiting for audio…</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={togglePlay}
+                disabled={status !== "connected"}
+                className={cn(
+                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-all",
+                  status === "connected" ? "hover:bg-primary/80 active:scale-95" : "opacity-50",
+                )}
+                aria-label={isPlaying ? "Pause" : "Play"}
+              >
+                {isPlaying ? <Pause className="size-4" /> : <Play className="size-4" />}
+              </button>
+
+              <span className="min-w-[3rem] text-sm font-medium tabular-nums text-muted-foreground">
+                {formatTime(elapsed)}
+              </span>
+
+              {/* Visual progress bar */}
+              <div className="flex-1">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-1000 ease-linear"
+                    style={{
+                      width: status === "connected" ? "100%" : "0%",
+                      transitionDuration: status === "connected" ? "60s" : "0s",
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setVolume((v) => (v > 0 ? 0 : 1))}
+                  className="text-muted-foreground transition-colors hover:text-foreground"
+                  aria-label={volume > 0 ? "Mute" : "Unmute"}
+                >
+                  {volume === 0 ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
+                </button>
+                <div className="w-20">
+                  <Slider
+                    value={[volume * 100]}
+                    min={0}
+                    max={100}
+                    step={1}
+                    onValueChange={(vals) => setVolume(vals[0] / 100)}
+                    disabled={status !== "connected"}
+                  />
+                </div>
+              </div>
+            </div>
+
             <ConnectionQualityPanel
               onQuality={writeQuality}
               peer={status === "connected" ? peer : null}
             />
+
             {status === "connected" ? (
               <Button className="h-11" onClick={disconnect} variant="outline">
                 Disconnect
