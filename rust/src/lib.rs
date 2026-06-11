@@ -340,6 +340,12 @@ fn media_previous() -> Result<(), String> {
     media::previous()
 }
 
+#[tauri::command]
+#[specta::specta]
+fn media_get_state() -> Result<Option<media::MediaState>, String> {
+    media::get_state()
+}
+
 fn stop_signaling(state: &tauri::State<'_, AppState>) -> Result<(), String> {
     if let Some(mut server) = state
         .signaling
@@ -473,7 +479,8 @@ fn command_builder() -> Builder<tauri::Wry> {
             media_pause,
             media_toggle,
             media_next,
-            media_previous
+            media_previous,
+            media_get_state
         ])
 }
 
