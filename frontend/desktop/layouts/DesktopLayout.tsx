@@ -1,12 +1,26 @@
 import type { ReactNode } from "react";
 
-export function DesktopLayout({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
+export function DesktopLayout({
+  children,
+  actions,
+  onEkoClick,
+}: {
+  children: ReactNode;
+  actions?: ReactNode;
+  onEkoClick?: () => void;
+}) {
   return (
     <div className="flex h-screen flex-col bg-muted/30 text-foreground">
       <header className="shrink-0 border-b bg-background">
         <div className="mx-auto flex w-full items-center justify-between px-6 py-4 lg:px-8">
           <div>
-            <h1 className="text-xl font-semibold tracking-tight lg:text-2xl">Eko</h1>
+            <button
+              type="button"
+              className="text-xl font-semibold tracking-tight lg:text-2xl"
+              onClick={onEkoClick}
+            >
+              Eko
+            </button>
             <p className="text-sm text-muted-foreground lg:text-base">
               Echo your device audio with lots of devices
             </p>

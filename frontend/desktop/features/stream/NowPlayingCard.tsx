@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Music, Pause, Play, SkipBack, SkipForward } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { Button } from "@shared/components/ui/button";
@@ -7,12 +7,24 @@ import { commands, type MediaState } from "@shared/bindings/tauri";
 
 export function NowPlayingCard() {
   const [media, setMedia] = useState<MediaState | null>(null);
+  const lastRef = useRef<MediaState | null>(null);
 
   useEffect(() => {
     let unlisten: (() => void) | null = null;
 
     listen<MediaState>("media-changed", (event) => {
-      setMedia(event.payload);
+      const next = event.payload;
+      // Safety net: if the event has no duration but the previous one did,
+      // keep the previous duration to avoid hiding the seekbar during a
+      // metadata transition.
+      if (!next.durationMs && lastRef.current?.durationMs) {
+        const merged = { ...next, durationMs: lastRef.current.durationMs };
+        lastRef.current = merged;
+        setMedia(merged);
+      } else {
+        lastRef.current = next;
+        setMedia(next);
+      }
     }).then((fn) => {
       unlisten = fn;
     });
