@@ -6,6 +6,7 @@ mod discovery;
 mod domain;
 mod eko_media;
 pub mod linux_wayland;
+mod media;
 mod mobile_receiver;
 mod network_host;
 mod session;
@@ -377,6 +378,7 @@ pub fn run() {
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             builder.mount_events(app);
+            media::start_monitoring(app.handle().clone());
             Ok(())
         })
         .run(tauri::generate_context!())

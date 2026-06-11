@@ -68,13 +68,16 @@ export function StyledPairingQr({ value }: StyledPairingQrProps) {
   }, [value]);
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center rounded-full bg-[radial-gradient(circle_at_center,rgba(134,213,205,0.1),rgba(134,213,205,0.028)_56%,transparent_72%)] p-2 opacity-95 transition-[background,opacity,transform] duration-700 ease-out hover:scale-[1.008] hover:bg-[radial-gradient(circle_at_center,rgba(134,213,205,0.14),rgba(134,213,205,0.04)_56%,transparent_72%)] hover:opacity-100">
-      <div
-        aria-label="Eko pairing QR code"
-        className="aspect-square h-full max-w-full"
-        ref={containerRef}
-        role="img"
-      />
+    <div className="absolute inset-0 flex items-center justify-center">
+      <div className="group relative aspect-square h-full max-w-full transition-transform duration-700 ease-out hover:scale-[1.008]">
+        <div
+          aria-label="Eko pairing QR code"
+          className="h-full max-w-full"
+          ref={containerRef}
+          role="img"
+        />
+        <div className="pointer-events-none absolute -inset-10 rounded-full bg-[radial-gradient(circle_at_center,rgba(134,213,205,0.07),rgba(134,213,205,0.03)_40%,rgba(134,213,205,0.008)_70%,transparent_100%)] transition-[background] duration-700 ease-out group-hover:bg-[radial-gradient(circle_at_center,rgba(134,213,205,0.14),rgba(134,213,205,0.06)_40%,rgba(134,213,205,0.015)_70%,transparent_100%)]" />
+      </div>
     </div>
   );
 }
