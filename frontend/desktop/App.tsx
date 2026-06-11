@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Bug, Settings, X } from "lucide-react";
 import { DesktopLayout } from "./layouts/DesktopLayout";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@shared/components/ui/tabs";
 import { useSettingsStore } from "@shared/stores/settings-store";
 import { useStreamStore } from "@shared/stores/stream-store";
 import { initAppLogging } from "@shared/utils/logger";
@@ -12,6 +12,7 @@ import { StreamControls } from "./features/stream/StreamControls";
 import "./App.css";
 
 function App() {
+  const [view, setView] = useState<"stream" | "settings" | "dev">("stream");
   const session = useStreamStore((state) => state.session);
   const qrPayload = useStreamStore((state) => state.qrPayload);
   const errorMessage = useStreamStore((state) => state.errorMessage);
@@ -55,19 +56,36 @@ function App() {
     };
   }, [listenToSessionEvents]);
 
-  return (
-    <DesktopLayout>
-      <Tabs className="flex h-full flex-col" defaultValue="stream">
-        <TabsList>
-          <TabsTrigger value="stream">Stream</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-          {devMode ? <TabsTrigger value="dev">Dev</TabsTrigger> : null}
-        </TabsList>
-        <TabsContent
-          className="mt-6 grid min-h-0 flex-1 gap-6 overflow-hidden lg:grid-cols-[minmax(300px,1fr)_minmax(360px,1.2fr)]"
-          value="stream"
+  const headerActions = (
+    <>
+      <button
+        type="button"
+        onClick={() => setView((v) => (v === "settings" ? "stream" : "settings"))}
+        className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        aria-label={view === "settings" ? "Close settings" : "Settings"}
+        title={view === "settings" ? "Close settings" : "Settings"}
+      >
+        {view === "settings" ? <X className="size-5" /> : <Settings className="size-5" />}
+      </button>
+      {devMode ? (
+        <button
+          type="button"
+          onClick={() => setView((v) => (v === "dev" ? "stream" : "dev"))}
+          className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          aria-label="Dev"
+          title="Dev"
         >
-          <div className="grid min-h-0 grid-rows-[auto_1fr] gap-6 overflow-hidden">
+          <Bug className="size-5" />
+        </button>
+      ) : null}
+    </>
+  );
+
+  return (
+    <DesktopLayout actions={headerActions}>
+      {view === "stream" ? (
+        <div className="grid min-h-0 h-full gap-6 overflow-hidden lg:grid-cols-[minmax(300px,1fr)_minmax(360px,1.2fr)]">
+          <div className="grid min-h-0 h-full grid-rows-[auto_1fr] gap-6 overflow-hidden">
             <StreamControls onRestart={restart} session={session} />
             <QrPairingCard payload={qrPayload} />
           </div>
@@ -79,19 +97,21 @@ function App() {
             onSharingChange={toggleSharing}
             onUnblock={unblock}
           />
-        </TabsContent>
-        <TabsContent className="mt-4" value="settings">
+        </div>
+      ) : null}
+      {view === "settings" ? (
+        <div className="mt-4">
           <SettingsPanel devMode={devMode} onDevModeChange={setDevMode} />
-        </TabsContent>
-        {devMode ? (
-          <TabsContent className="mt-4" value="dev">
-            <DevPanel
-              onAddTestDevice={() => addTestDevice("Android test phone", "qr")}
-              session={session}
-            />
-          </TabsContent>
-        ) : null}
-      </Tabs>
+        </div>
+      ) : null}
+      {view === "dev" ? (
+        <div className="mt-4">
+          <DevPanel
+            onAddTestDevice={() => addTestDevice("Android test phone", "qr")}
+            session={session}
+          />
+        </div>
+      ) : null}
       {errorMessage ? (
         <div className="mt-4 rounded-md border border-destructive/30 p-3 text-sm">
           {errorMessage}

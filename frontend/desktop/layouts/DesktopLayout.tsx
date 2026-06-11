@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export function DesktopLayout({ children }: { children: ReactNode }) {
+export function DesktopLayout({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
   return (
     <div className="flex h-screen flex-col bg-muted/30 text-foreground">
       <header className="shrink-0 border-b bg-background">
@@ -11,6 +11,7 @@ export function DesktopLayout({ children }: { children: ReactNode }) {
               Echo your device audio with lots of devices
             </p>
           </div>
+          <div className="flex items-center gap-2">{actions}</div>
         </div>
       </header>
       <main className="mx-auto w-full flex-1 overflow-hidden px-4 py-4 lg:px-8 lg:py-6">
