@@ -123,7 +123,7 @@ function App() {
   );
 
   return (
-    <DesktopLayout actions={headerActions}>
+    <DesktopLayout actions={headerActions} onEkoClick={() => setView("stream")}>
       {view === "stream" ? (
         <div className="grid min-h-0 h-full gap-6 overflow-hidden lg:grid-cols-[minmax(300px,1fr)_minmax(360px,1.2fr)]">
           <div className="grid min-h-0 h-full grid-rows-[auto_1fr] gap-6 overflow-hidden">

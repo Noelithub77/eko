@@ -68,10 +68,15 @@ pub fn control(cmd: ControlCommand) -> Result<(), String> {
         }
     }
 
-    // The mpris crate's Event enum has no StatusChanged variant,
-    // so PlaybackStatus property changes are dropped. Emit state directly.
-    if let Some(app) = APP.get() {
-        emit_state(app, &player);
+    // Emit state for play/pause/toggle — the mpris crate's Event enum has no
+    // StatusChanged variant, so PlaybackStatus changes are dropped by the event loop.
+    // Skip next/previous — the event loop catches TrackChanged with complete metadata,
+    // and the player may not have finished populating metadata yet (race condition).
+    let emit_needed = matches!(cmd, ControlCommand::Play | ControlCommand::Pause | ControlCommand::Toggle);
+    if emit_needed {
+        if let Some(app) = APP.get() {
+            emit_state(app, &player);
+        }
     }
 
     Ok(())
