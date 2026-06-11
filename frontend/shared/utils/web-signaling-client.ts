@@ -21,7 +21,8 @@ export async function startWebReceiver(
   request: JoinRequest,
   handlers: WebReceiverHandlers,
 ): Promise<WebReceiverSession> {
-  const socket = new WebSocket(`ws://${payload.host}:${payload.port}/eko`);
+  const wsHost = window.location.host;
+  const socket = new WebSocket(`ws://${wsHost}/eko`);
   const peer = new RTCPeerConnection();
   let isClosed = false;
   let hasOpened = false;

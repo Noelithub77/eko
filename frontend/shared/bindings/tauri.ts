@@ -22,6 +22,20 @@ export const commands = {
 	stopNativeReceiver: () => __TAURI_INVOKE<null>("stop_native_receiver"),
 	startAndroidMediaSession: () => __TAURI_INVOKE<null>("start_android_media_session"),
 	stopAndroidMediaSession: () => __TAURI_INVOKE<null>("stop_android_media_session"),
+	mediaPlay: () => __TAURI_INVOKE<null>("media_play"),
+	mediaPause: () => __TAURI_INVOKE<null>("media_pause"),
+	mediaToggle: () => __TAURI_INVOKE<null>("media_toggle"),
+	mediaNext: () => __TAURI_INVOKE<null>("media_next"),
+	mediaPrevious: () => __TAURI_INVOKE<null>("media_previous"),
+	mediaGetState: () => __TAURI_INVOKE<{
+	title: string | null,
+	artist: string | null,
+	album: string | null,
+	isPlaying: boolean,
+	positionMs: number | null,
+	durationMs: number | null,
+	appName: string | null,
+} | null>("media_get_state"),
 };
 
 /* Types */
@@ -94,6 +108,16 @@ export type JoinRequest = {
 	roomId: string,
 	method: JoinMethod,
 	token: string,
+};
+
+export type MediaState = {
+	title: string | null,
+	artist: string | null,
+	album: string | null,
+	isPlaying: boolean,
+	positionMs: number | null,
+	durationMs: number | null,
+	appName: string | null,
 };
 
 export type NativeReceiverEvent = { kind: "waiting"; message: string } | { kind: "connecting"; message: string } | { kind: "connected"; message: string } | { kind: "denied"; message: string } | { kind: "error"; message: string } | { kind: "closed"; message: string };

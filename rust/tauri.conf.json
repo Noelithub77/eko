@@ -13,8 +13,16 @@
     "windows": [
       {
         "title": "eko",
-        "width": 800,
-        "height": 600
+        "width": 1280,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600,
+        "decorations": true,
+        "resizable": true,
+        "fullscreen": false,
+        "maximized": true,
+        "visible": true,
+        "center": true
       }
     ],
     "security": {
