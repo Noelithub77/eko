@@ -42,6 +42,10 @@ specta-serde = "0.0.12"
 
 [target."cfg(windows)".dependencies]
 wasapi = "0.23.0"
+[target.'cfg(target_os = "linux")'.dependencies]
+mpris = "2.1.0"
+[target.'cfg(target_os = "windows")'.dependencies]
+smtc-suite = "2.6.1"
 
 [target.'cfg(target_os = "android")'.dependencies]
 oboe = { version = "0.6.1", features = ["fetch-prebuilt", "java-interface"] }
