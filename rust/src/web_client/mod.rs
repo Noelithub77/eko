@@ -28,6 +28,7 @@ async fn serve_inner(stream: &mut TcpStream) -> Result<(), String> {
 
     let path = request_path(&request).unwrap_or("/client");
     let Some(file_path) = web_file_path(path)? else {
+        log::info!("Web client 404 for path: {path}");
         write_response(stream, "404 Not Found", "text/plain; charset=utf-8", b"Not found").await?;
         return Ok(());
     };
@@ -102,6 +103,20 @@ pub fn looks_like_http_client(bytes: &[u8]) -> bool {
     if !text.starts_with("GET ") {
         return false;
     }
+    let Some(path) = text.split_whitespace().nth(1) else {
+        return true;
+    };
+    // Known web client paths are definitely HTTP.
+    if path == "/" || path == "/client" || path.starts_with("/client/") || path.starts_with("/assets/")
+    {
+        return true;
+    }
+    // Known WebSocket path — definitely not HTTP.
+    if path == "/eko" {
+        return false;
+    }
+    // Unknown path: fall back to checking for the upgrade header.
+    // This handles browser auto-requests like /favicon.ico.
     !text.to_ascii_lowercase().contains("upgrade: websocket")
 }
 

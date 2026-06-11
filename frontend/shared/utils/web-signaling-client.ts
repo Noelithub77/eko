@@ -16,11 +16,12 @@ export type WebReceiverSession = {
 };
 
 export async function startWebReceiver(
-  payload: PairingLinkPayload,
+  _payload: PairingLinkPayload,
   request: JoinRequest,
   handlers: WebReceiverHandlers,
 ): Promise<WebReceiverSession> {
-  const socket = new WebSocket(`ws://${payload.host}:${payload.port}/eko`);
+  const wsHost = window.location.host;
+  const socket = new WebSocket(`ws://${wsHost}/eko`);
   const peer = new RTCPeerConnection();
   let isClosed = false;
 

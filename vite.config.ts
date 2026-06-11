@@ -7,6 +7,7 @@ const host = process.env.TAURI_DEV_HOST;
 const platform = process.env.PLATFORM || "desktop";
 const port = Number(process.env.VITE_PORT || 1420);
 const isWebClient = platform === "web/client";
+const webClientHost = process.env.WEB_CLIENT_DEV_HOST;
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -27,16 +28,16 @@ export default defineConfig({
   server: {
     port,
     strictPort: true,
-    host: host || false,
+    host: host || (isWebClient && webClientHost ? "0.0.0.0" : false),
     hmr: host
       ? {
           protocol: "ws",
           host,
           port: port + 1,
         }
-      : isWebClient
+      : isWebClient && webClientHost
         ? {
-            host: "localhost",
+            host: webClientHost,
             clientPort: port,
           }
         : undefined,

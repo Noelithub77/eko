@@ -127,6 +127,7 @@ async fn handle_client(
     let mut peek = [0_u8; 512];
     if let Ok(read) = stream.peek(&mut peek).await {
         if web_client::looks_like_http_client(&peek[..read]) {
+            log::info!("Signaling serving HTTP web client assets");
             web_client::serve(stream).await;
             return;
         }
@@ -220,6 +221,7 @@ async fn handle_client_message(
 
     match parsed {
         Ok(SignalClientMessage::JoinRequest { request }) => {
+            log::info!("Signaling JoinRequest from device={} name={}", request.device_id, request.device_name);
             let response = join_response(session, app, request);
             if let SignalServerMessage::ApprovalWaiting {
                 device_id: joined_device_id,
@@ -227,27 +229,40 @@ async fn handle_client_message(
             } = &response
             {
                 *device_id = Some(joined_device_id.clone());
+                log::info!("Signaling JoinRequest approved, device={}", joined_device_id);
+            }
+            if let SignalServerMessage::JoinRejected { reason } = &response {
+                log::warn!("Signaling JoinRequest rejected: {reason}");
             }
             send_json(socket, &response).await.is_ok()
         }
         Ok(SignalClientMessage::ReceiverReady { device_id }) => {
+            log::info!("Signaling ReceiverReady from {}", device_id);
             let response = receiver_ready_response(session, app, device_id);
             send_json(socket, &response).await.is_ok()
         }
         Ok(SignalClientMessage::Answer { description }) => {
+            log::info!("Signaling Answer from {} (sdp len={})", description.device_id, description.sdp.len());
             match media.accept_answer(description).await {
                 Ok(()) => send_signal_ack(socket).await.is_ok(),
-                Err(message) => send_json(socket, &SignalServerMessage::Error { message })
-                    .await
-                    .is_ok(),
+                Err(message) => {
+                    log::warn!("Signaling accept_answer failed: {message}");
+                    send_json(socket, &SignalServerMessage::Error { message })
+                        .await
+                        .is_ok()
+                }
             }
         }
         Ok(SignalClientMessage::IceCandidate { candidate }) => {
+            log::info!("Signaling ICE candidate from {}", candidate.device_id);
             match media.add_ice_candidate(candidate).await {
                 Ok(()) => send_signal_ack(socket).await.is_ok(),
-                Err(message) => send_json(socket, &SignalServerMessage::Error { message })
-                    .await
-                    .is_ok(),
+                Err(message) => {
+                    log::warn!("Signaling add_ice_candidate failed: {message}");
+                    send_json(socket, &SignalServerMessage::Error { message })
+                        .await
+                        .is_ok()
+                }
             }
         }
         Ok(SignalClientMessage::Offer { .. }) => send_json(
@@ -336,6 +351,7 @@ async fn send_permission_update(
         if last_state.as_ref() == Some(&state) {
             return Ok(None);
         }
+        log::info!("Signaling device {} state changed to {:?}", device_id, state);
         *last_state = Some(state.clone());
         SignalServerMessage::PermissionChanged {
             device_id: device_id.to_string(),
