@@ -1,8 +1,23 @@
 import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
+import os from "node:os";
 
 const rootPath = resolve(import.meta.dirname, "..");
 const targetDir = join(rootPath, "rust", "target", "desktop-dev");
+
+function getLanIp() {
+  const interfaces = os.networkInterfaces();
+  for (const addrs of Object.values(interfaces)) {
+    for (const addr of addrs || []) {
+      if (addr.family === "IPv4" && !addr.internal) {
+        return addr.address;
+      }
+    }
+  }
+  return "127.0.0.1";
+}
+
+const lanIp = getLanIp();
 
 if (process.platform === "win32") {
   const { execSync } = await import("node:child_process");
@@ -30,6 +45,7 @@ if (process.platform === "win32") {
   const vite = spawnProcess("web-client", "npx", ["vite"], {
     PLATFORM: "web/client",
     VITE_PORT: "5174",
+    WEB_CLIENT_DEV_HOST: lanIp,
   });
 
   await new Promise((resolve) => setTimeout(resolve, 3000));
