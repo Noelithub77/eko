@@ -5,11 +5,9 @@ type StyledPairingQrProps = {
   value: string;
 };
 
-const qrSize = 460;
-
 const qrOptions: Options = {
-  width: qrSize,
-  height: qrSize,
+  width: 460,
+  height: 460,
   type: "svg",
   shape: "square",
   margin: 16,
@@ -40,35 +38,40 @@ export function StyledPairingQr({ value }: StyledPairingQrProps) {
 
   useEffect(() => {
     const container = containerRef.current;
+    if (!container) return;
 
-    if (!container) {
-      return;
-    }
+    const resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const { width, height } = entry.contentRect;
+      const size = Math.max(1, Math.floor(Math.min(width, height)));
 
-    if (!qrRef.current) {
-      qrRef.current = new QRCodeStyling({
-        ...qrOptions,
-        data: value,
-      });
-      qrRef.current.append(container);
-      const svg = container.querySelector("svg");
-      if (svg) {
-        svg.removeAttribute("width");
-        svg.removeAttribute("height");
-        svg.style.width = "100%";
-        svg.style.height = "100%";
+      if (qrRef.current) {
+        qrRef.current.update({
+          width: size,
+          height: size,
+          data: value,
+        });
+      } else {
+        qrRef.current = new QRCodeStyling({
+          ...qrOptions,
+          width: size,
+          height: size,
+          data: value,
+        });
+        qrRef.current.append(container);
       }
-      return;
-    }
+    });
 
-    qrRef.current.update({ data: value });
+    resizeObserver.observe(container);
+    return () => resizeObserver.disconnect();
   }, [value]);
 
   return (
-    <div className="flex aspect-square max-h-full max-w-full min-w-48 items-center justify-center rounded-full bg-[radial-gradient(circle_at_center,rgba(134,213,205,0.1),rgba(134,213,205,0.028)_56%,transparent_72%)] p-2 opacity-95 transition-[background,opacity,transform] duration-700 ease-out hover:scale-[1.008] hover:bg-[radial-gradient(circle_at_center,rgba(134,213,205,0.14),rgba(134,213,205,0.04)_56%,transparent_72%)] hover:opacity-100">
+    <div className="absolute inset-0 flex items-center justify-center rounded-full bg-[radial-gradient(circle_at_center,rgba(134,213,205,0.1),rgba(134,213,205,0.028)_56%,transparent_72%)] p-2 opacity-95 transition-[background,opacity,transform] duration-700 ease-out hover:scale-[1.008] hover:bg-[radial-gradient(circle_at_center,rgba(134,213,205,0.14),rgba(134,213,205,0.04)_56%,transparent_72%)] hover:opacity-100">
       <div
         aria-label="Eko pairing QR code"
-        className="size-full overflow-hidden [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
+        className="aspect-square h-full max-w-full"
         ref={containerRef}
         role="img"
       />
