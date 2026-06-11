@@ -16,7 +16,7 @@ export function DesktopLayout({
           <div>
             <button
               type="button"
-              className="text-xl font-semibold tracking-tight lg:text-2xl"
+              className="block text-xl font-semibold tracking-tight lg:text-2xl"
               onClick={onEkoClick}
             >
               Eko
