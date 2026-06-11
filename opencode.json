@@ -1,0 +1,22 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["AGENTS.md"],
+  "command": {
+    "test:types": {
+      "description": "Check TypeScript types",
+      "template": "Run npm run test:types"
+    },
+    "lint": {
+      "description": "Run linter",
+      "template": "Run npm run lint"
+    },
+    "test:core": {
+      "description": "Run core tests",
+      "template": "Run npm run test:core"
+    },
+    "check:rust": {
+      "description": "Check Rust compilation",
+      "template": "Run cargo check in the rust directory"
+    }
+  }
+}

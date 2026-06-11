@@ -64,7 +64,7 @@ function App() {
           {devMode ? <TabsTrigger value="dev">Dev</TabsTrigger> : null}
         </TabsList>
         <TabsContent
-          className="mt-6 grid min-h-0 flex-1 gap-6 overflow-hidden xl:grid-cols-[minmax(520px,0.95fr)_minmax(620px,1.25fr)]"
+          className="mt-6 grid min-h-0 flex-1 gap-6 overflow-hidden lg:grid-cols-[minmax(300px,1fr)_minmax(360px,1.2fr)]"
           value="stream"
         >
           <div className="grid min-h-0 grid-rows-[auto_1fr] gap-6 overflow-hidden">
