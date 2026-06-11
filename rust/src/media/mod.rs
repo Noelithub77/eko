@@ -20,6 +20,10 @@ pub fn start_monitoring(app: AppHandle) {
     platform::start_monitoring(app);
 }
 
+pub fn get_state() -> Result<Option<MediaState>, String> {
+    platform::get_state()
+}
+
 pub fn play() -> Result<(), String> {
     platform::control(platform::ControlCommand::Play)
 }

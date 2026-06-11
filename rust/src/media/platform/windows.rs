@@ -95,3 +95,15 @@ fn emit_and_store(app: &AppHandle, state: MediaState) {
         log::error!("Failed to emit media-changed event: {}", e);
     }
 }
+
+pub fn get_state() -> Result<Option<MediaState>, String> {
+    let guard = LAST_STATE
+        .get()
+        .and_then(|m| m.lock().ok())
+        .ok_or_else(|| "Media state not initialized".to_string())?;
+    let last = guard.clone();
+    if last.title.is_none() && last.artist.is_none() {
+        return Ok(None);
+    }
+    Ok(Some(last))
+}

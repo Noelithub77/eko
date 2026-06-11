@@ -1,6 +1,7 @@
 use crate::media::MediaState;
 use crate::media::platform::ControlCommand;
 use std::sync::OnceLock;
+use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 
 static APP: OnceLock<AppHandle> = OnceLock::new();
@@ -17,32 +18,40 @@ pub fn start_monitoring(app: AppHandle) {
             }
         };
 
-        let player = match finder.find_active() {
-            Ok(p) => p,
-            Err(_) => {
-                log::info!("No active MPRIS media player found");
-                return;
-            }
-        };
+        // Outer loop: handles player disconnects and re-connects.
+        // If no active player is found, poll every 2s until one appears.
+        loop {
+            let player = match finder.find_active() {
+                Ok(p) => p,
+                Err(_) => {
+                    std::thread::sleep(Duration::from_secs(2));
+                    continue;
+                }
+            };
 
-        log::info!("Monitoring media player: {}", player.identity());
+            log::info!("Monitoring media player: {}", player.identity());
+            emit_state(&app, &player);
 
-        emit_state(&app, &player);
+            let events = match player.events() {
+                Ok(e) => e,
+                Err(e) => {
+                    log::error!("Failed to start MPRIS event stream: {}", e);
+                    std::thread::sleep(Duration::from_secs(2));
+                    continue;
+                }
+            };
 
-        let events = match player.events() {
-            Ok(e) => e,
-            Err(e) => {
-                log::error!("Failed to start MPRIS event stream: {}", e);
-                return;
-            }
-        };
-
-        for event in events {
-            if event.is_ok() {
-                emit_state(&app, &player);
-            } else if let Err(e) = event {
-                log::error!("MPRIS event error: {}", e);
-                break;
+            // Inner loop: process events from the current player.
+            // Breaks when the player disconnects or events error out.
+            // The outer loop then tries to find another player.
+            for event in events {
+                match event {
+                    Ok(_) => emit_state(&app, &player),
+                    Err(e) => {
+                        log::info!("MPRIS event stream ended ({}), looking for new player", e);
+                        break;
+                    }
+                }
             }
         }
     });
@@ -82,13 +91,13 @@ pub fn control(cmd: ControlCommand) -> Result<(), String> {
     Ok(())
 }
 
-fn emit_state(app: &AppHandle, player: &mpris::Player) {
+fn build_state(player: &mpris::Player) -> MediaState {
     let metadata = player.get_metadata().ok();
     let playback_status = player.get_playback_status().ok();
     let position = player.get_position().ok();
     let duration = metadata.as_ref().and_then(|m| m.length());
 
-    let state = MediaState {
+    MediaState {
         title: metadata.as_ref().and_then(|m| m.title().map(|s| s.to_string())),
         artist: metadata.as_ref().and_then(|m| m.artists().map(|v| v.join(", "))),
         album: metadata.as_ref().and_then(|m| m.album_name().map(|s| s.to_string())),
@@ -96,9 +105,20 @@ fn emit_state(app: &AppHandle, player: &mpris::Player) {
         position_ms: position.map(|d| d.as_millis() as f64),
         duration_ms: duration.map(|d| d.as_millis() as f64),
         app_name: Some(player.identity().to_string()),
-    };
+    }
+}
 
+fn emit_state(app: &AppHandle, player: &mpris::Player) {
+    let state = build_state(player);
     if let Err(e) = app.emit("media-changed", state) {
         log::error!("Failed to emit media-changed event: {}", e);
+    }
+}
+
+pub fn get_state() -> Result<Option<MediaState>, String> {
+    let finder = mpris::PlayerFinder::new().map_err(|e| e.to_string())?;
+    match finder.find_active() {
+        Ok(player) => Ok(Some(build_state(&player))),
+        Err(_) => Ok(None),
     }
 }
