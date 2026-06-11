@@ -51,6 +51,13 @@ export function StyledPairingQr({ value }: StyledPairingQrProps) {
         data: value,
       });
       qrRef.current.append(container);
+      const svg = container.querySelector("svg");
+      if (svg) {
+        svg.removeAttribute("width");
+        svg.removeAttribute("height");
+        svg.style.width = "100%";
+        svg.style.height = "100%";
+      }
       return;
     }
 
@@ -58,10 +65,10 @@ export function StyledPairingQr({ value }: StyledPairingQrProps) {
   }, [value]);
 
   return (
-    <div className="flex aspect-square w-[min(60vh,calc(100%-0.5rem),500px)] max-w-full min-w-48 items-center justify-center rounded-full bg-[radial-gradient(circle_at_center,rgba(134,213,205,0.1),rgba(134,213,205,0.028)_56%,transparent_72%)] p-2 opacity-95 transition-[background,opacity,transform] duration-700 ease-out hover:scale-[1.008] hover:bg-[radial-gradient(circle_at_center,rgba(134,213,205,0.14),rgba(134,213,205,0.04)_56%,transparent_72%)] hover:opacity-100">
+    <div className="flex aspect-square max-h-full max-w-full min-w-48 items-center justify-center rounded-full bg-[radial-gradient(circle_at_center,rgba(134,213,205,0.1),rgba(134,213,205,0.028)_56%,transparent_72%)] p-2 opacity-95 transition-[background,opacity,transform] duration-700 ease-out hover:scale-[1.008] hover:bg-[radial-gradient(circle_at_center,rgba(134,213,205,0.14),rgba(134,213,205,0.04)_56%,transparent_72%)] hover:opacity-100">
       <div
         aria-label="Eko pairing QR code"
-        className="size-full [&>svg]:block [&>svg]:size-full"
+        className="size-full overflow-hidden [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
         ref={containerRef}
         role="img"
       />

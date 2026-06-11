@@ -16,7 +16,7 @@ export function QrPairingCard({ payload }: QrPairingCardProps) {
         <CardTitle className="text-xl">QR Pairing</CardTitle>
       </CardHeader>
       <CardContent className="flex h-full min-h-0 items-center justify-center px-4 pb-4">
-        <div className="flex min-h-0 w-full items-center justify-center">
+        <div className="flex h-full min-h-0 w-full items-center justify-center">
           {payload ? (
             <StyledPairingQr value={qrValue} />
           ) : (
