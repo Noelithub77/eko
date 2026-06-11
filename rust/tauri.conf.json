@@ -14,7 +14,12 @@
       {
         "title": "eko",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "decorations": true,
+        "resizable": true,
+        "fullscreen": false,
+        "visible": true,
+        "center": true
       }
     ],
     "security": {
