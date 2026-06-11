@@ -1,13 +1,33 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Music, Pause, Play, SkipBack, SkipForward } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { Button } from "@shared/components/ui/button";
 import { Card, CardContent } from "@shared/components/ui/card";
 import { commands, type MediaState } from "@shared/bindings/tauri";
 
+const TICK_MS = 250;
+
+type Anchor = {
+  basePositionMs: number;
+  startedAt: number;
+};
+
 export function NowPlayingCard() {
   const [media, setMedia] = useState<MediaState | null>(null);
+  const [livePositionMs, setLivePositionMs] = useState<number | null>(null);
   const lastRef = useRef<MediaState | null>(null);
+  const anchorRef = useRef<Anchor | null>(null);
+  const playingRef = useRef<boolean>(false);
+
+  // Reset the timer anchor whenever the backend reports a new position or play state.
+  const applyAnchor = useCallback((state: MediaState) => {
+    playingRef.current = state.isPlaying;
+    anchorRef.current = {
+      basePositionMs: state.positionMs ?? 0,
+      startedAt: performance.now(),
+    };
+    setLivePositionMs(state.positionMs ?? 0);
+  }, []);
 
   useEffect(() => {
     let unlisten: (() => void) | null = null;
@@ -17,22 +37,43 @@ export function NowPlayingCard() {
       // Safety net: if the event has no duration but the previous one did,
       // keep the previous duration to avoid hiding the seekbar during a
       // metadata transition.
-      if (!next.durationMs && lastRef.current?.durationMs) {
-        const merged = { ...next, durationMs: lastRef.current.durationMs };
-        lastRef.current = merged;
-        setMedia(merged);
-      } else {
-        lastRef.current = next;
-        setMedia(next);
-      }
+      const merged =
+        !next.durationMs && lastRef.current?.durationMs
+          ? { ...next, durationMs: lastRef.current.durationMs }
+          : next;
+      lastRef.current = merged;
+      setMedia(merged);
+      applyAnchor(merged);
     }).then((fn) => {
       unlisten = fn;
+    });
+
+    // Fetch the current state to handle the race where the backend
+    // emitted before this listener was attached.
+    void commands.mediaGetState().then((state) => {
+      if (state) {
+        lastRef.current = state;
+        setMedia(state);
+        applyAnchor(state);
+      }
     });
 
     return () => {
       unlisten?.();
     };
-  }, []);
+  }, [applyAnchor]);
+
+  // Tick the timer forward locally while playing.
+  useEffect(() => {
+    if (!media?.isPlaying) return;
+    const id = window.setInterval(() => {
+      const anchor = anchorRef.current;
+      if (!anchor || !playingRef.current) return;
+      const elapsed = performance.now() - anchor.startedAt;
+      setLivePositionMs(anchor.basePositionMs + elapsed);
+    }, TICK_MS);
+    return () => window.clearInterval(id);
+  }, [media?.isPlaying]);
 
   if (!media?.title) {
     return (
@@ -49,9 +90,10 @@ export function NowPlayingCard() {
     );
   }
 
+  const positionMs = livePositionMs ?? media.positionMs ?? 0;
   const progress =
-    media.durationMs && media.positionMs
-      ? Math.round((media.positionMs / media.durationMs) * 100)
+    media.durationMs && positionMs
+      ? Math.min(100, Math.round((positionMs / media.durationMs) * 100))
       : 0;
 
   const formatTime = (ms: number | null) => {
@@ -105,13 +147,10 @@ export function NowPlayingCard() {
         {media.durationMs ? (
           <div className="mt-3">
             <div className="h-1 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-primary transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
+              <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
             </div>
             <div className="mt-1 flex justify-between text-xs text-muted-foreground">
-              <span>{formatTime(media.positionMs)}</span>
+              <span>{formatTime(positionMs)}</span>
               <span>{formatTime(media.durationMs)}</span>
             </div>
           </div>

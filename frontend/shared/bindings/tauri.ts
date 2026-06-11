@@ -27,6 +27,15 @@ export const commands = {
 	mediaToggle: () => __TAURI_INVOKE<null>("media_toggle"),
 	mediaNext: () => __TAURI_INVOKE<null>("media_next"),
 	mediaPrevious: () => __TAURI_INVOKE<null>("media_previous"),
+	mediaGetState: () => __TAURI_INVOKE<{
+	title: string | null,
+	artist: string | null,
+	album: string | null,
+	isPlaying: boolean,
+	positionMs: number | null,
+	durationMs: number | null,
+	appName: string | null,
+} | null>("media_get_state"),
 };
 
 /* Types */
