@@ -11,6 +11,8 @@ mod android {
     };
 
     static PLAYBACK_PAUSED: AtomicBool = AtomicBool::new(false);
+    const SAMPLE_RATE: f64 = 48_000.0;
+    const CHANNELS: f64 = 2.0;
 
     #[derive(Clone)]
     pub struct NativeAudioPlayer {
@@ -71,6 +73,13 @@ mod android {
             if let Ok(mut samples) = self.samples.lock() {
                 samples.clear();
             }
+        }
+
+        pub fn buffer_ms(&self) -> Option<f64> {
+            self.samples
+                .lock()
+                .ok()
+                .map(|samples| (samples.len() as f64 / (SAMPLE_RATE * CHANNELS)) * 1000.0)
         }
 
         pub fn stop(&self) {

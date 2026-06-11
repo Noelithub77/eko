@@ -23,6 +23,6 @@
       "@shared/*": ["./frontend/shared/*"]
     }
   },
-  "include": ["frontend/shared", "frontend/desktop", "frontend/mobile"],
+  "include": ["frontend/shared", "frontend/desktop", "frontend/mobile", "frontend/web"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

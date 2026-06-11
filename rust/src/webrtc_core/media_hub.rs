@@ -47,7 +47,9 @@ impl MediaHub {
                 mime_type: MIME_TYPE_OPUS.to_string(),
                 clock_rate: SAMPLE_RATE,
                 channels: 2,
-                sdp_fmtp_line: "minptime=10;useinbandfec=1".to_string(),
+                sdp_fmtp_line:
+                    "minptime=10;useinbandfec=1;stereo=1;sprop-stereo=1;maxaveragebitrate=128000"
+                        .to_string(),
                 rtcp_feedback: Vec::new(),
             },
             "eko-system-audio".to_string(),

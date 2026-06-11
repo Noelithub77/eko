@@ -10,4 +10,5 @@ pub use session::{
 };
 pub use signaling::{
     IceCandidateMessage, SessionDescriptionMessage, SignalClientMessage, SignalServerMessage,
+    StreamProfilerSample,
 };
