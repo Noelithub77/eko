@@ -5,6 +5,7 @@ mod core_proof;
 mod discovery;
 mod domain;
 mod eko_media;
+pub mod linux_wayland;
 mod mobile_receiver;
 mod network_host;
 mod session;
