@@ -25,3 +25,16 @@ releases/*
 *.njsproj
 *.sln
 *.sw?
+
+# Rust build artifacts
+rust/target/
+rust/desktop-dev/
+rust/src/bin/
+**/*.rs.bk
+**/*.pdb
+**/*.d
+**/*.dep
+
+# Tauri generated files
+rust/gen/
+**/gen/schemas/

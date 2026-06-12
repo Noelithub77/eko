@@ -120,5 +120,8 @@ mod windows {
 #[cfg(windows)]
 pub use windows::start_system_audio_source;
 
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
+pub use crate::audio::linux_capture::start_system_audio_source;
+
+#[cfg(not(any(windows, target_os = "linux")))]
 pub use crate::audio::silence::start_silence_source as start_system_audio_source;

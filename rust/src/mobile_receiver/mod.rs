@@ -394,17 +394,17 @@ mod android {
                 version: 1,
                 source: "android".to_string(),
                 kind: "qualitySample".to_string(),
-                created_at_ms: now_ms(),
+                created_at_ms: now_ms() as f64,
                 connection_id: self.connection_id.clone(),
                 device_id: self.device_id.clone(),
                 room_id: self.room_id.clone(),
-                sample_index: self.sample_index,
+                sample_index: self.sample_index as u32,
                 latency_ms: None,
                 jitter_ms: None,
                 buffer_ms,
                 packet_loss_percent,
-                packets_received: Some(packets_received),
-                packets_lost: Some(packets_lost),
+                packets_received: Some(packets_received as u32),
+                packets_lost: Some(packets_lost as u32),
             })
         }
     }

@@ -1,6 +1,7 @@
+use std::collections::HashMap;
 use std::net::TcpListener as StdTcpListener;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use futures_util::{SinkExt, StreamExt};
 use serde::Serialize;
@@ -20,6 +21,22 @@ use crate::webrtc_core::media_hub::{MediaSignal, SharedMediaHub};
 
 pub type SharedSession = Arc<Mutex<SessionStore>>;
 pub const ROOM_SESSION_EVENT: &str = "room-session-updated";
+
+const LOG_DEDUP_WINDOW_MS: u64 = 5_000;
+
+fn log_dedup(key: &str) -> bool {
+    use std::sync::OnceLock;
+    static LAST_LOGS: OnceLock<Mutex<HashMap<String, Instant>>> = OnceLock::new();
+    let map = LAST_LOGS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut guard = map.lock().unwrap();
+    let now = Instant::now();
+    let window = Duration::from_millis(LOG_DEDUP_WINDOW_MS);
+    let should_log = guard.get(key).map(|t| now.duration_since(*t) > window).unwrap_or(true);
+    if should_log {
+        guard.insert(key.to_string(), now);
+    }
+    should_log
+}
 
 #[derive(Debug)]
 pub struct SignalingServer {
@@ -102,7 +119,10 @@ async fn run_server(
         tokio::select! {
             accept_result = listener.accept() => {
                 if let Ok((stream, address)) = accept_result {
-                    log::info!("Signaling client connected from {address}");
+                    let ip = address.ip().to_string();
+                    if log_dedup(&format!("conn:{ip}")) {
+                        log::info!("Signaling client connected from {address}");
+                    }
                     tauri::async_runtime::spawn(handle_client(
                         stream,
                         Arc::clone(&session),
@@ -127,7 +147,9 @@ async fn handle_client(
     let mut peek = [0_u8; 512];
     if let Ok(read) = stream.peek(&mut peek).await {
         if web_client::looks_like_http_client(&peek[..read]) {
-            log::info!("Signaling serving HTTP web client assets");
+            if log_dedup("http:assets") {
+                log::info!("Signaling serving HTTP web client assets");
+            }
             web_client::serve(stream).await;
             return;
         }
@@ -136,7 +158,10 @@ async fn handle_client(
     let peer_address = stream.peer_addr().ok();
     let accepted =
         tokio_tungstenite::accept_hdr_async(stream, |request: &Request, response: Response| {
-            log::info!("Signaling websocket upgrade path: {}", request.uri().path());
+            let path = request.uri().path().to_string();
+            if log_dedup(&format!("ws:{path}")) {
+                log::info!("Signaling websocket upgrade path: {path}");
+            }
             Ok(response)
         })
         .await;
@@ -144,9 +169,11 @@ async fn handle_client(
     let Ok(mut socket) = accepted else {
         if let Err(error) = accepted {
             log::warn!("Signaling websocket handshake failed: {error}");
+            push_session_event(&session, &app, "warn", &format!("Signaling handshake failed: {error}"));
         }
         return;
     };
+    push_session_event(&session, &app, "info", "Signaling WebSocket client connected");
     let mut device_id: Option<String> = None;
     let mut last_state: Option<DeviceConnectionState> = None;
     let mut media_signals: Option<mpsc::UnboundedReceiver<MediaSignal>> = None;
@@ -193,6 +220,7 @@ async fn handle_client(
 
     if let Some(peer_address) = peer_address {
         log::info!("Signaling client disconnected from {peer_address}");
+        push_session_event(&session, &app, "info", &format!("Signaling client disconnected: {peer_address}"));
     }
     if let Some(device_id) = device_id {
         let session = match session.lock() {
@@ -203,6 +231,18 @@ async fn handle_client(
             }
         };
         emit_room_session(&app, session);
+    }
+}
+
+fn push_session_event(
+    session: &SharedSession,
+    app: &tauri::AppHandle,
+    level: &str,
+    message: &str,
+) {
+    if let Ok(mut store) = session.lock() {
+        let session = store.push_event(level, message);
+        emit_room_session(app, session);
     }
 }
 
@@ -255,9 +295,13 @@ async fn handle_client_message(
                 description.sdp.len()
             );
             match media.accept_answer(description).await {
-                Ok(()) => send_signal_ack(socket).await.is_ok(),
+                Ok(()) => {
+                    push_session_event(session, app, "info", "WebRTC answer accepted");
+                    send_signal_ack(socket).await.is_ok()
+                }
                 Err(message) => {
                     log::warn!("Signaling accept_answer failed: {message}");
+                    push_session_event(session, app, "warn", &format!("WebRTC answer failed: {message}"));
                     send_json(socket, &SignalServerMessage::Error { message })
                         .await
                         .is_ok()
@@ -270,6 +314,7 @@ async fn handle_client_message(
                 Ok(()) => send_signal_ack(socket).await.is_ok(),
                 Err(message) => {
                     log::warn!("Signaling add_ice_candidate failed: {message}");
+                    push_session_event(session, app, "warn", &format!("ICE candidate failed: {message}"));
                     send_json(socket, &SignalServerMessage::Error { message })
                         .await
                         .is_ok()

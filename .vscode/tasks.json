@@ -16,6 +16,10 @@
       "type": "shell",
       "command": "npm run dev:desktop",
       "isBackground": true,
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
       "presentation": {
         "group": "eko-dev",
         "panel": "dedicated",
