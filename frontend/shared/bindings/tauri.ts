@@ -148,7 +148,7 @@ export type SessionDescriptionMessage = {
 
 export type SharingState = "enabled" | "disabled";
 
-export type SignalClientMessage = { kind: "joinRequest"; request: JoinRequest } | { kind: "receiverReady"; deviceId: string } | { kind: "offer"; description: SessionDescriptionMessage } | { kind: "answer"; description: SessionDescriptionMessage } | { kind: "iceCandidate"; candidate: IceCandidateMessage };
+export type SignalClientMessage = { kind: "joinRequest"; request: JoinRequest } | { kind: "receiverReady"; deviceId: string } | { kind: "offer"; description: SessionDescriptionMessage } | { kind: "answer"; description: SessionDescriptionMessage } | { kind: "iceCandidate"; candidate: IceCandidateMessage } | { kind: "profilerSample"; sample: StreamProfilerSample };
 
 export type SignalServerMessage = { kind: "approvalWaiting"; deviceId: string; session: RoomSession } | { kind: "joinRejected"; reason: string } | { kind: "permissionChanged"; deviceId: string; state: DeviceConnectionState; sharing: SharingState; session: RoomSession } | { kind: "webRtcReady"; deviceId: string } | { kind: "hostOffer"; description: SessionDescriptionMessage } | { kind: "hostIceCandidate"; candidate: IceCandidateMessage } | { kind: "audioReady"; deviceId: string } | { kind: "hostState"; session: RoomSession } | { kind: "signalAck"; message: string } | { kind: "error"; message: string };
 
@@ -161,6 +161,23 @@ export type SignalingProofStatus = {
 export type StartStreamResult = {
 	session: RoomSession,
 	qrPayload: QrPairingPayload,
+};
+
+export type StreamProfilerSample = {
+	version: number,
+	source: string,
+	kind: string,
+	createdAtMs: number | null,
+	connectionId: string,
+	deviceId: string,
+	roomId: string,
+	sampleIndex: number,
+	latencyMs: number | null,
+	jitterMs: number | null,
+	bufferMs: number | null,
+	packetLossPercent: number | null,
+	packetsReceived: number | null,
+	packetsLost: number | null,
 };
 
 export type StreamStatus = "idle" | "starting" | "running" | "stopping" | "failed";

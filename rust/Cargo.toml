@@ -39,6 +39,8 @@ specta = "2.0.0-rc.25"
 tauri-specta = { version = "2.0.0-rc.25", features = ["typescript"] }
 specta-typescript = "0.0.12"
 specta-serde = "0.0.12"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 
 [target."cfg(windows)".dependencies]
 wasapi = "0.23.0"

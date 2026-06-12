@@ -23,17 +23,17 @@ pub struct StreamProfilerSample {
     pub version: u8,
     pub source: String,
     pub kind: String,
-    pub created_at_ms: u64,
+    pub created_at_ms: f64,
     pub connection_id: String,
     pub device_id: String,
     pub room_id: String,
-    pub sample_index: u64,
+    pub sample_index: u32,
     pub latency_ms: Option<f64>,
     pub jitter_ms: Option<f64>,
     pub buffer_ms: Option<f64>,
     pub packet_loss_percent: Option<f64>,
-    pub packets_received: Option<u64>,
-    pub packets_lost: Option<u64>,
+    pub packets_received: Option<u32>,
+    pub packets_lost: Option<u32>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Type)]
