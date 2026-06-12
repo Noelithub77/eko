@@ -1,0 +1,328 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Build target
+        required: true
+        type: choice
+        options:
+          - windows-exe
+          - linux-appimage
+          - android-apk
+          - android-aab
+      bump_patch:
+        description: Patch bump package.json before building
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    name: Prepare release
+    runs-on: ubuntu-22.04
+    outputs:
+      app_version: ${{ steps.release.outputs.app_version }}
+      release_id: ${{ steps.release.outputs.release_id }}
+      release_sha: ${{ steps.release.outputs.release_sha }}
+      release_tag: ${{ steps.release.outputs.release_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.5.0 --activate
+
+      - name: Patch bump app version
+        if: inputs.bump_patch
+        run: |
+          if [ "${GITHUB_REF_TYPE}" != "branch" ]; then
+            echo "Patch bump releases must run from a branch."
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          npm version patch --no-git-tag-version
+          pnpm run release:sync-version
+          git add package.json rust/Cargo.toml rust/tauri.conf.json
+          git commit -m "chore: bump release version"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Create or reuse GitHub release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          APP_VERSION="$(node -p "require('./package.json').version")"
+          RELEASE_TAG="eko-v${APP_VERSION}"
+          RELEASE_SHA="$(git rev-parse HEAD)"
+
+          if ! git ls-remote --exit-code --tags origin "refs/tags/${RELEASE_TAG}" >/dev/null 2>&1; then
+            git tag "${RELEASE_TAG}" "${RELEASE_SHA}"
+            git push origin "${RELEASE_TAG}"
+          fi
+
+          if ! gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release create "${RELEASE_TAG}" \
+              --title "Eko v${APP_VERSION}" \
+              --notes "Manual Eko release." \
+              --target "${RELEASE_SHA}" \
+              --latest
+          fi
+
+          RELEASE_ID="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq ".id")"
+
+          echo "app_version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "release_id=${RELEASE_ID}" >> "$GITHUB_OUTPUT"
+          echo "release_sha=${RELEASE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+
+  windows-exe:
+    name: Build Windows EXE
+    needs: prepare
+    if: inputs.target == 'windows-exe'
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.release_sha }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.5.0 --activate
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ./rust -> target
+          cache-on-failure: true
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download old updater metadata
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/old-updater"
+          gh release download "$RELEASE_TAG" --pattern latest.json --dir "$RUNNER_TEMP/old-updater" || true
+
+      - name: Build and upload Windows EXE
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: .
+          releaseId: ${{ needs.prepare.outputs.release_id }}
+          tauriScript: pnpm tauri
+          args: --bundles nsis --ci
+          uploadUpdaterJson: true
+          uploadUpdaterSignatures: true
+
+      - name: Merge updater metadata
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/new-updater" "$RUNNER_TEMP/merged-updater"
+          gh release download "$RELEASE_TAG" --pattern latest.json --dir "$RUNNER_TEMP/new-updater" --clobber
+          pnpm run release:merge-updater-json -- "$RUNNER_TEMP/old-updater" "$RUNNER_TEMP/new-updater" "$RUNNER_TEMP/merged-updater/latest.json"
+          gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/merged-updater/latest.json" --clobber
+
+  linux-appimage:
+    name: Build Linux AppImage
+    needs: prepare
+    if: inputs.target == 'linux-appimage'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.release_sha }}
+
+      - name: Install Linux packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libfuse2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.5.0 --activate
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ./rust -> target
+          cache-on-failure: true
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download old updater metadata
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/old-updater"
+          gh release download "$RELEASE_TAG" --pattern latest.json --dir "$RUNNER_TEMP/old-updater" || true
+
+      - name: Build and upload Linux AppImage
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: .
+          releaseId: ${{ needs.prepare.outputs.release_id }}
+          tauriScript: pnpm tauri
+          args: --bundles appimage --ci
+          uploadUpdaterJson: true
+          uploadUpdaterSignatures: true
+
+      - name: Merge updater metadata
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/new-updater" "$RUNNER_TEMP/merged-updater"
+          gh release download "$RELEASE_TAG" --pattern latest.json --dir "$RUNNER_TEMP/new-updater" --clobber
+          pnpm run release:merge-updater-json -- "$RUNNER_TEMP/old-updater" "$RUNNER_TEMP/new-updater" "$RUNNER_TEMP/merged-updater/latest.json"
+          gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/merged-updater/latest.json" --clobber
+
+  android:
+    name: Build Android
+    needs: prepare
+    if: inputs.target == 'android-apk' || inputs.target == 'android-aab'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.release_sha }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.5.0 --activate
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android packages
+        run: |
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.0.12077973"
+          echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/27.0.12077973" >> "$GITHUB_ENV"
+          echo "NDK_HOME=${ANDROID_HOME}/ndk/27.0.12077973" >> "$GITHUB_ENV"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ./rust -> target
+          cache-on-failure: true
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Restore Android signing key
+        env:
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
+        run: |
+          KEYSTORE_PATH="$RUNNER_TEMP/eko-release.keystore"
+          echo "$ANDROID_KEY_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          {
+            echo "keyAlias=$ANDROID_KEY_ALIAS"
+            echo "password=$ANDROID_KEY_PASSWORD"
+            echo "storeFile=$KEYSTORE_PATH"
+          } > rust/gen/android/keystore.properties
+
+      - name: Build Android APK
+        if: inputs.target == 'android-apk'
+        run: pnpm tauri android build --apk --target aarch64 --ci
+
+      - name: Build Android AAB
+        if: inputs.target == 'android-aab'
+        run: pnpm tauri android build --aab --target aarch64 --ci
+
+      - name: Collect Android package
+        env:
+          APP_VERSION: ${{ needs.prepare.outputs.app_version }}
+          TARGET: ${{ inputs.target }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/release-assets"
+          if [ "$TARGET" = "android-apk" ]; then
+            PACKAGE_PATH="$(find rust/gen/android/app/build/outputs/apk -name "*.apk" -type f | head -n 1)"
+            PACKAGE_NAME="eko-${APP_VERSION}-android-aarch64.apk"
+          else
+            PACKAGE_PATH="$(find rust/gen/android/app/build/outputs/bundle -name "*.aab" -type f | head -n 1)"
+            PACKAGE_NAME="eko-${APP_VERSION}-android-aarch64.aab"
+          fi
+
+          if [ -z "$PACKAGE_PATH" ]; then
+            echo "Could not find Android package output."
+            exit 1
+          fi
+
+          cp "$PACKAGE_PATH" "$RUNNER_TEMP/release-assets/$PACKAGE_NAME"
+
+      - name: Upload Android package
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+        run: gh release upload "$RELEASE_TAG" "$RUNNER_TEMP"/release-assets/* --clobber

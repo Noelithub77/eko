@@ -398,22 +398,26 @@ mod android {
                 connection_id: self.connection_id.clone(),
                 device_id: self.device_id.clone(),
                 room_id: self.room_id.clone(),
-                sample_index: self.sample_index,
+                sample_index: to_profiler_count(self.sample_index),
                 latency_ms: None,
                 jitter_ms: None,
                 buffer_ms,
                 packet_loss_percent,
-                packets_received: Some(packets_received),
-                packets_lost: Some(packets_lost),
+                packets_received: Some(to_profiler_count(packets_received)),
+                packets_lost: Some(to_profiler_count(packets_lost)),
             })
         }
     }
 
-    fn now_ms() -> u64 {
+    fn to_profiler_count(value: u64) -> u32 {
+        u32::try_from(value).unwrap_or(u32::MAX)
+    }
+
+    fn now_ms() -> f64 {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map(|duration| duration.as_millis() as u64)
-            .unwrap_or(0)
+            .map(|duration| duration.as_millis() as f64)
+            .unwrap_or(0.0)
     }
 }
 

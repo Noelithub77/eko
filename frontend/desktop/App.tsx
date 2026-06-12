@@ -9,6 +9,7 @@ import { DeviceList } from "./features/devices/DeviceList";
 import { QrPairingCard } from "./features/pairing/QrPairingCard";
 import { SettingsPanel } from "./features/settings/SettingsPanel";
 import { NowPlayingCard } from "./features/stream/NowPlayingCard";
+import { UpdatePrompt } from "./features/updates/UpdatePrompt";
 import {
   Tooltip,
   TooltipContent,
@@ -72,6 +73,7 @@ function App() {
           {isRunning ? "Ready for phones" : "Starting stream"}
         </span>
       </div>
+      <UpdatePrompt />
       <Tooltip>
         <TooltipTrigger asChild>
           <button
