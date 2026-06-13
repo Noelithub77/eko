@@ -10,7 +10,7 @@ export function DesktopLayout({
   onEkoClick?: () => void;
 }) {
   return (
-    <div className="flex h-screen flex-col bg-muted/30 text-foreground">
+    <div className="flex h-screen flex-col bg-muted text-foreground">
       <header className="shrink-0 border-b bg-background">
         <div className="mx-auto flex w-full items-center justify-between px-6 py-4 lg:px-8">
           <div>
