@@ -29,5 +29,5 @@ Add the two approved pairing paths.
 - [x] LAN discovery publishes the active room over `_eko-audio._tcp.local.`.
 - [x] Android can browse nearby hosts through the native Tauri command.
 - [x] QR and LAN discovery both use the same approval flow.
-- [x] Web and Android receiver names are saved locally and editable before connecting.
+- [x] Web and Android receiver names are saved in a persisted Zustand store and editable before connecting.
 - [ ] Real device testing is still needed for Android mDNS behavior across routers.

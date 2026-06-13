@@ -6,11 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@shared/components/ui/
 import { Input } from "@shared/components/ui/input";
 import { Slider } from "@shared/components/ui/slider";
 import { cn } from "@shared/lib/utils";
-import {
-  getSavedDeviceId,
-  getSavedReceiverName,
-  saveReceiverName,
-} from "@shared/utils/device-profile";
+import { useDeviceProfileStore } from "@shared/stores/device-profile-store";
 import { parsePairingSource } from "@shared/utils/pairing-link";
 import { startWebReceiver, type WebReceiverSession } from "@shared/utils/web-signaling-client";
 import { AudioWaveVisualizer } from "./components/AudioWaveVisualizer";
@@ -23,8 +19,10 @@ type ConnectionState = "ready" | "waiting" | "connected" | "failed";
 
 function App() {
   const payload = useMemo(() => parsePairingSource(window.location.href), []);
-  const deviceId = useMemo(() => getSavedDeviceId("web"), []);
-  const [deviceName, setDeviceName] = useState(() => getSavedReceiverName("web"));
+  const deviceId = useDeviceProfileStore((state) => state.profiles.web.deviceId);
+  const deviceName = useDeviceProfileStore((state) => state.profiles.web.name);
+  const setReceiverName = useDeviceProfileStore((state) => state.setReceiverName);
+  const finalReceiverName = useDeviceProfileStore((state) => state.finalReceiverName);
   const [status, setStatus] = useState<ConnectionState>(payload ? "ready" : "failed");
   const [message, setMessage] = useState(
     payload ? "Ready to ask the desktop." : "This link is missing pairing data.",
@@ -85,8 +83,7 @@ function App() {
     setPeer(null);
     setProfiler(null);
 
-    const savedName = saveReceiverName("web", deviceName);
-    setDeviceName(savedName);
+    const savedName = finalReceiverName("web");
     const request = createJoinRequest(deviceId, savedName);
     try {
       const session = await startWebReceiver(payload, request, {
@@ -151,7 +148,7 @@ function App() {
       setStatus("failed");
       setMessage(error instanceof Error ? error.message : "Could not start web receiver.");
     }
-  }, [deviceId, deviceName, payload, startElapsedTimer, stopElapsedTimer]);
+  }, [deviceId, finalReceiverName, payload, startElapsedTimer, stopElapsedTimer]);
 
   const disconnect = useCallback(() => {
     sessionRef.current?.close();
@@ -229,8 +226,8 @@ function App() {
               <Input
                 id="web-receiver-name"
                 value={deviceName}
-                onBlur={() => setDeviceName(saveReceiverName("web", deviceName))}
-                onChange={(event) => setDeviceName(event.target.value)}
+                onBlur={() => finalReceiverName("web")}
+                onChange={(event) => setReceiverName("web", event.target.value)}
                 maxLength={40}
                 disabled={status === "connected" || status === "waiting"}
               />
