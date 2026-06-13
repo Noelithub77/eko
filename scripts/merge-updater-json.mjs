@@ -1,7 +1,8 @@
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
-const [oldJsonFolder, newJsonFolder, outputPath] = process.argv.slice(2);
+const scriptArgs = process.argv.slice(2).filter((arg) => arg !== "--");
+const [oldJsonFolder, newJsonFolder, outputPath] = scriptArgs;
 
 if (!oldJsonFolder || !newJsonFolder || !outputPath) {
   throw new Error(
