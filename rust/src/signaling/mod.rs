@@ -152,7 +152,7 @@ async fn handle_client(
             if log_dedup("http:assets") {
                 log::info!("Signaling serving HTTP web client assets");
             }
-            web_client::serve(stream).await;
+            web_client::serve(stream, app.clone()).await;
             return;
         }
     }
