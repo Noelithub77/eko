@@ -192,6 +192,17 @@ jobs:
           uploadUpdaterJson: true
           uploadUpdaterSignatures: true
 
+      - name: Upload Windows portable EXE
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APP_VERSION: ${{ needs.prepare.outputs.app_version }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/release-assets"
+          cp rust/target/release/eko.exe "$RUNNER_TEMP/release-assets/eko_${APP_VERSION}_x64.exe"
+          gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/release-assets/eko_${APP_VERSION}_x64.exe" --clobber
+
       - name: Merge updater metadata
         shell: bash
         env:
