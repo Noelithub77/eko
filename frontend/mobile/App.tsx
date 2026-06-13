@@ -1,12 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MobileLayout } from "./layouts/MobileLayout";
 import { Button } from "@shared/components/ui/button";
 import { Input } from "@shared/components/ui/input";
-import {
-  getSavedDeviceId,
-  getSavedReceiverName,
-  saveReceiverName,
-} from "@shared/utils/device-profile";
+import { useDeviceProfileStore } from "@shared/stores/device-profile-store";
 import {
   findNearbyHosts,
   startAndroidMediaSession,
@@ -38,9 +34,10 @@ function App() {
   const [isSearching, setIsSearching] = useState(false);
   const [connectedHost, setConnectedHost] = useState<ConnectedHost | null>(null);
   const [latencyMs] = useState<number | null>(null);
-  const [deviceName, setDeviceName] = useState(() => getSavedReceiverName("android"));
-
-  const deviceId = useMemo(() => getSavedDeviceId("android"), []);
+  const deviceId = useDeviceProfileStore((state) => state.profiles.android.deviceId);
+  const deviceName = useDeviceProfileStore((state) => state.profiles.android.name);
+  const setReceiverName = useDeviceProfileStore((state) => state.setReceiverName);
+  const finalReceiverName = useDeviceProfileStore((state) => state.finalReceiverName);
 
   useEffect(() => {
     void initAppLogging();
@@ -85,8 +82,7 @@ function App() {
   const requestApproval = useCallback(
     async (payload: QrPairingPayload, method: "qr" | "discovery") => {
       setConnectedHost(hostFromPayload(payload));
-      const savedName = saveReceiverName("android", deviceName);
-      setDeviceName(savedName);
+      const savedName = finalReceiverName("android");
 
       const request: JoinRequest = {
         deviceId,
@@ -106,7 +102,7 @@ function App() {
         setMessage("Native receiver failed.");
       }
     },
-    [deviceId, deviceName],
+    [deviceId, finalReceiverName],
   );
 
   const findHosts = useCallback(async () => {
@@ -135,8 +131,8 @@ function App() {
         <Input
           id="android-receiver-name"
           value={deviceName}
-          onBlur={() => setDeviceName(saveReceiverName("android", deviceName))}
-          onChange={(event) => setDeviceName(event.target.value)}
+          onBlur={() => finalReceiverName("android")}
+          onChange={(event) => setReceiverName("android", event.target.value)}
           maxLength={40}
           disabled={status === "connected" || status === "waiting" || status === "connecting"}
         />

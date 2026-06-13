@@ -92,11 +92,16 @@ export function DeviceList({
             {previousDevices.length > 0 ? (
               <Collapsible onOpenChange={setPreviousOpen} open={previousOpen}>
                 <CollapsibleTrigger asChild>
-                  <Button className="w-full justify-between px-0" variant="ghost">
+                  <Button
+                    className="h-auto w-full justify-between rounded-none bg-transparent px-0 py-0 text-sm font-semibold text-muted-foreground hover:bg-transparent hover:text-muted-foreground aria-expanded:bg-transparent aria-expanded:text-muted-foreground"
+                    variant="ghost"
+                  >
                     <span>Previous devices ({previousDevices.length})</span>
                     <ChevronDown
                       className={
-                        previousOpen ? "rotate-180 transition-transform" : "transition-transform"
+                        previousOpen
+                          ? "rotate-180 transition-transform"
+                          : "transition-transform"
                       }
                     />
                   </Button>
