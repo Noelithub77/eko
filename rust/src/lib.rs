@@ -272,6 +272,21 @@ fn set_device_sharing(
 
 #[tauri::command]
 #[specta::specta]
+fn clear_session_events(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<RoomSession, String> {
+    let session = state
+        .session
+        .lock()
+        .map_err(|error| error.to_string())?
+        .clear_events();
+    emit_room_session(&app, session.clone());
+    Ok(session)
+}
+
+#[tauri::command]
+#[specta::specta]
 fn get_core_proof_status() -> core_proof::CoreProofStatus {
     core_proof::proof_status()
 }
@@ -480,6 +495,7 @@ fn command_builder() -> Builder<tauri::Wry> {
             unblock_device,
             disconnect_device,
             set_device_sharing,
+            clear_session_events,
             get_core_proof_status,
             get_audio_capture_status,
             find_nearby_hosts,

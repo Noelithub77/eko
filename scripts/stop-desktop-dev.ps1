@@ -9,10 +9,28 @@ $patterns = @(
 )
 
 $currentProcessId = $PID
+$excludedProcessIds = [System.Collections.Generic.HashSet[int]]::new()
+[void]$excludedProcessIds.Add($currentProcessId)
+
+$cursorProcessId = $currentProcessId
+while ($true) {
+  $currentProcess = Get-CimInstance Win32_Process -Filter "ProcessId = $cursorProcessId" -ErrorAction SilentlyContinue
+  if (-not $currentProcess -or -not $currentProcess.ParentProcessId) {
+    break
+  }
+
+  $parentProcessId = [int]$currentProcess.ParentProcessId
+  if (-not $excludedProcessIds.Add($parentProcessId)) {
+    break
+  }
+
+  $cursorProcessId = $parentProcessId
+}
+
 $processes = Get-CimInstance Win32_Process |
   Where-Object {
     $commandLine = $_.CommandLine
-    if (-not $commandLine -or $_.ProcessId -eq $currentProcessId) {
+    if (-not $commandLine -or $excludedProcessIds.Contains([int]$_.ProcessId)) {
       return $false
     }
 

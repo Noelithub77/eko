@@ -16,6 +16,7 @@ export const commands = {
 	unblockDevice: (deviceId: string) => __TAURI_INVOKE<RoomSession>("unblock_device", { deviceId }),
 	disconnectDevice: (deviceId: string) => __TAURI_INVOKE<RoomSession>("disconnect_device", { deviceId }),
 	setDeviceSharing: (deviceId: string, enabled: boolean) => __TAURI_INVOKE<RoomSession>("set_device_sharing", { deviceId, enabled }),
+	clearSessionEvents: () => __TAURI_INVOKE<RoomSession>("clear_session_events"),
 	getCoreProofStatus: () => __TAURI_INVOKE<CoreProofStatus>("get_core_proof_status"),
 	getAudioCaptureStatus: () => __TAURI_INVOKE<AudioProofStatus>("get_audio_capture_status"),
 	findNearbyHosts: () => __TAURI_INVOKE<DiscoveredHost[]>("find_nearby_hosts"),

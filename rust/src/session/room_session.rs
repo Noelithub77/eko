@@ -5,6 +5,8 @@ use crate::domain::{
     RoomSession, SharingState, StartStreamResult, StreamStatus,
 };
 
+const MAX_SESSION_EVENTS: usize = 200;
+
 #[derive(Debug)]
 pub struct SessionStore {
     session: RoomSession,
@@ -255,7 +257,13 @@ impl SessionStore {
     }
 
     pub fn push_event(&mut self, level: &str, message: &str) -> RoomSession {
-        self.session.events.push(event(level, message));
+        self.push_limited_event(level, message);
+        self.snapshot()
+    }
+
+    pub fn clear_events(&mut self) -> RoomSession {
+        self.session.events.clear();
+        self.push_limited_event("info", "Monitor logs cleared");
         self.snapshot()
     }
 
@@ -276,6 +284,14 @@ impl SessionStore {
             .find(|device| device.device_id == device_id)
         {
             update(device);
+        }
+    }
+
+    fn push_limited_event(&mut self, level: &str, message: &str) {
+        self.session.events.push(event(level, message));
+        if self.session.events.len() > MAX_SESSION_EVENTS {
+            let remove_count = self.session.events.len() - MAX_SESSION_EVENTS;
+            self.session.events.drain(0..remove_count);
         }
     }
 }

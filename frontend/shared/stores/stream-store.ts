@@ -4,6 +4,7 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 import {
   addDevJoinRequest,
   allowDevice,
+  clearSessionEvents,
   denyDevice,
   disconnectDevice,
   getRoomSession,
@@ -30,6 +31,7 @@ type StreamState = {
   disconnect: (deviceId: string) => Promise<void>;
   toggleSharing: (deviceId: string, enabled: boolean) => Promise<void>;
   addTestDevice: (deviceName: string, method: "qr" | "discovery") => Promise<void>;
+  clearEvents: () => Promise<void>;
 };
 
 async function runSessionAction(action: () => Promise<RoomSession>): Promise<RoomSession> {
@@ -131,6 +133,17 @@ export const useStreamStore = create<StreamState>()((set) => ({
       });
     } catch (error) {
       void logError("Add test device failed", error);
+      set({ errorMessage: formatError(error) });
+    }
+  },
+  clearEvents: async () => {
+    try {
+      set({
+        session: await runSessionAction(() => clearSessionEvents()),
+        errorMessage: null,
+      });
+    } catch (error) {
+      void logError("Clear monitor logs failed", error);
       set({ errorMessage: formatError(error) });
     }
   },
