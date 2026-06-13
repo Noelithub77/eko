@@ -1,7 +1,7 @@
 {
   "name": "eko",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "scripts": {
     "dev:web": "cross-env PLATFORM=desktop vite",
