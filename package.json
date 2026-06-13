@@ -22,6 +22,7 @@
     "build:production:android": "tauri android build --apk --target aarch64",
     "release:sync-version": "node scripts/sync-version.mjs",
     "release:merge-updater-json": "node scripts/merge-updater-json.mjs",
+    "release:merge-public-updater-json": "node scripts/merge-public-updater-json.mjs",
     "build": "npm run build:desktop && npm run build:web:client",
     "preview": "vite preview",
     "tauri": "tauri",
