@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "eko",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "com.codialo.eko",
   "build": {
     "beforeDevCommand": "npm run dev:web:desktop",
@@ -44,7 +44,9 @@
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc0Njg0OTc4MzhGQzE4QzUKUldURkdQdzRlRWxvZEt1dXpJZjN1TjZ1RkEySlZ1bVh4cnJPUFQzaWZjMVRFb1gvcks2bUUyaHAK",
-      "endpoints": ["https://github.com/rider-vader/eko/releases/latest/download/latest.json"],
+      "endpoints": [
+        "https://github.com/rider-vader/eko/releases/latest/download/latest.json"
+      ],
       "windows": {
         "installMode": "passive"
       }
