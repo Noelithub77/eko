@@ -1,11 +1,16 @@
 use std::path::{Component, Path, PathBuf};
 
+use rust_embed::RustEmbed;
 use tauri::{path::BaseDirectory, AppHandle, Manager};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
 const MAX_REQUEST_BYTES: usize = 64 * 1024;
 const PROFILER_PATH: &str = "/__eko_profiler";
+
+#[derive(RustEmbed)]
+#[folder = "../dist/web/client"]
+struct EmbeddedWebClient;
 
 pub async fn serve(mut stream: TcpStream, app: AppHandle) {
     if let Err(error) = serve_inner(&mut stream, &app).await {
@@ -42,7 +47,7 @@ async fn serve_inner(stream: &mut TcpStream, app: &AppHandle) -> Result<(), Stri
     }
 
     let path = request_path(&request).unwrap_or("/client");
-    let Some(file_path) = web_file_path(path, app)? else {
+    let Some(file) = web_file(path, app)? else {
         log::info!("Web client 404 for path: {path}");
         write_response(
             stream,
@@ -54,11 +59,7 @@ async fn serve_inner(stream: &mut TcpStream, app: &AppHandle) -> Result<(), Stri
         return Ok(());
     };
 
-    let bytes = tokio::fs::read(&file_path)
-        .await
-        .map_err(|error| error.to_string())?;
-    let content_type = content_type(&file_path);
-    write_response(stream, "200 OK", content_type, &bytes).await
+    write_response(stream, "200 OK", file.content_type, &file.bytes).await
 }
 
 async fn serve_proxy(stream: &mut TcpStream, request: &str, dev_url: &str) -> Result<(), String> {
@@ -220,8 +221,12 @@ fn request_body(request: &str) -> &str {
     request.split("\r\n\r\n").nth(1).unwrap_or("")
 }
 
-fn web_file_path(path: &str, app: &AppHandle) -> Result<Option<PathBuf>, String> {
-    let root = web_root(app)?;
+struct WebFile {
+    bytes: Vec<u8>,
+    content_type: &'static str,
+}
+
+fn web_file(path: &str, app: &AppHandle) -> Result<Option<WebFile>, String> {
     let relative = if path == "/" || path == "/client" || path == "/client/" {
         PathBuf::from("index.html")
     } else if let Some(asset_path) = path.strip_prefix("/assets/") {
@@ -232,8 +237,29 @@ fn web_file_path(path: &str, app: &AppHandle) -> Result<Option<PathBuf>, String>
         return Ok(None);
     };
 
+    let embedded_path = relative
+        .to_str()
+        .ok_or_else(|| "Invalid web client path.".to_string())?
+        .replace('\\', "/");
+
+    if let Some(file) = EmbeddedWebClient::get(&embedded_path) {
+        return Ok(Some(WebFile {
+            bytes: file.data.into_owned(),
+            content_type: content_type(Path::new(&embedded_path)),
+        }));
+    }
+
+    let root = web_root(app)?;
     let file_path = root.join(relative);
-    Ok(file_path.exists().then_some(file_path))
+    if !file_path.exists() {
+        return Ok(None);
+    }
+
+    let bytes = std::fs::read(&file_path).map_err(|error| error.to_string())?;
+    Ok(Some(WebFile {
+        bytes,
+        content_type: content_type(&file_path),
+    }))
 }
 
 fn web_root(app: &AppHandle) -> Result<PathBuf, String> {
