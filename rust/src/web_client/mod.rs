@@ -1,18 +1,19 @@
 use std::path::{Component, Path, PathBuf};
 
+use tauri::{path::BaseDirectory, AppHandle, Manager};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
 const MAX_REQUEST_BYTES: usize = 64 * 1024;
 const PROFILER_PATH: &str = "/__eko_profiler";
 
-pub async fn serve(mut stream: TcpStream) {
-    if let Err(error) = serve_inner(&mut stream).await {
+pub async fn serve(mut stream: TcpStream, app: AppHandle) {
+    if let Err(error) = serve_inner(&mut stream, &app).await {
         log::warn!("Web client response failed: {error}");
     }
 }
 
-async fn serve_inner(stream: &mut TcpStream) -> Result<(), String> {
+async fn serve_inner(stream: &mut TcpStream, app: &AppHandle) -> Result<(), String> {
     let request = read_http_request(stream).await?;
     if is_profiler_post(&request) {
         let body = request_body(&request);
@@ -41,7 +42,7 @@ async fn serve_inner(stream: &mut TcpStream) -> Result<(), String> {
     }
 
     let path = request_path(&request).unwrap_or("/client");
-    let Some(file_path) = web_file_path(path)? else {
+    let Some(file_path) = web_file_path(path, app)? else {
         log::info!("Web client 404 for path: {path}");
         write_response(
             stream,
@@ -219,8 +220,8 @@ fn request_body(request: &str) -> &str {
     request.split("\r\n\r\n").nth(1).unwrap_or("")
 }
 
-fn web_file_path(path: &str) -> Result<Option<PathBuf>, String> {
-    let root = web_root()?;
+fn web_file_path(path: &str, app: &AppHandle) -> Result<Option<PathBuf>, String> {
+    let root = web_root(app)?;
     let relative = if path == "/" || path == "/client" || path == "/client/" {
         PathBuf::from("index.html")
     } else if let Some(asset_path) = path.strip_prefix("/assets/") {
@@ -235,16 +236,22 @@ fn web_file_path(path: &str) -> Result<Option<PathBuf>, String> {
     Ok(file_path.exists().then_some(file_path))
 }
 
-fn web_root() -> Result<PathBuf, String> {
+fn web_root(app: &AppHandle) -> Result<PathBuf, String> {
     let current_dir = std::env::current_dir().map_err(|error| error.to_string())?;
+    let resource_dir = app
+        .path()
+        .resolve("../dist/web/client", BaseDirectory::Resource)
+        .ok();
     let candidates = [
-        current_dir.join("dist/web/client"),
-        current_dir.join("../dist/web/client"),
-        current_dir.join("../../dist/web/client"),
+        resource_dir,
+        Some(current_dir.join("dist/web/client")),
+        Some(current_dir.join("../dist/web/client")),
+        Some(current_dir.join("../../dist/web/client")),
     ];
 
     candidates
         .into_iter()
+        .flatten()
         .find(|path| path.join("index.html").exists())
         .ok_or_else(|| "Web client build not found. Run npm run build:web:client.".to_string())
 }

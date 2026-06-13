@@ -22,7 +22,7 @@
     "build:production:android": "tauri android build --apk --target aarch64",
     "release:sync-version": "node scripts/sync-version.mjs",
     "release:merge-updater-json": "node scripts/merge-updater-json.mjs",
-    "build": "tsc --noEmit && cross-env PLATFORM=desktop vite build",
+    "build": "npm run build:desktop && npm run build:web:client",
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "npm run test:types && npm run test:core",
