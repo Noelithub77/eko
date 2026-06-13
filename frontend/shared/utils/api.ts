@@ -36,8 +36,6 @@ export function startStream(): Promise<StartStreamResult> {
     const qrPayload: QrPairingPayload = {
       host: "127.0.0.1",
       port: 44000,
-      roomId,
-      token,
     };
     browserMock.session = {
       ...emptySession(),

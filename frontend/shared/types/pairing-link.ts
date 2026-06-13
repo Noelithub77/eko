@@ -1,3 +1,4 @@
-import type { QrPairingPayload } from "./stream";
-
-export type PairingLinkPayload = QrPairingPayload;
+export type PairingLinkPayload = {
+  host: string;
+  port: number;
+};

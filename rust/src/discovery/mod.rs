@@ -19,27 +19,20 @@ pub struct DiscoveryAdvertiser {
 pub struct DiscoveredHost {
     pub host: String,
     pub port: u16,
-    pub room_id: String,
-    pub token: String,
 }
 
 impl DiscoveryAdvertiser {
     pub fn start(payload: &QrPairingPayload) -> Result<Self, String> {
         let daemon = ServiceDaemon::new().map_err(|error| error.to_string())?;
-        let instance_name = format!("eko-{}", payload.room_id);
+        let instance_name = "eko-desktop";
         let host_name = "eko.local.";
-        let properties = HashMap::from([
-            ("roomId".to_string(), payload.room_id.clone()),
-            ("token".to_string(), payload.token.clone()),
-            ("host".to_string(), payload.host.clone()),
-        ]);
         let service = ServiceInfo::new(
             SERVICE_TYPE,
-            &instance_name,
+            instance_name,
             host_name,
             payload.host.as_str(),
             payload.port,
-            Some(properties),
+            [("host", payload.host.as_str())].as_slice(),
         )
         .map_err(|error| error.to_string())?
         .enable_addr_auto();
@@ -87,8 +80,6 @@ impl Drop for DiscoveryAdvertiser {
 }
 
 fn host_from_service(info: &ResolvedService) -> Option<DiscoveredHost> {
-    let room_id = info.get_property_val_str("roomId")?.to_string();
-    let token = info.get_property_val_str("token")?.to_string();
     let host = info
         .get_property_val_str("host")
         .map(ToString::to_string)
@@ -97,13 +88,11 @@ fn host_from_service(info: &ResolvedService) -> Option<DiscoveredHost> {
     Some(DiscoveredHost {
         host,
         port: info.get_port(),
-        room_id,
-        token,
     })
 }
 
 fn discovered_host_key(host: &DiscoveredHost) -> String {
-    format!("{}-{}-{}", host.room_id, host.host, host.port)
+    format!("{}-{}", host.host, host.port)
 }
 
 #[derive(Clone, Debug, Serialize, Type)]

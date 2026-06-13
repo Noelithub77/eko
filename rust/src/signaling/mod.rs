@@ -21,6 +21,7 @@ use crate::webrtc_core::media_hub::{MediaSignal, SharedMediaHub};
 
 pub type SharedSession = Arc<Mutex<SessionStore>>;
 pub const ROOM_SESSION_EVENT: &str = "room-session-updated";
+pub const PAIRING_PORT: u16 = 13370;
 
 const LOG_DEDUP_WINDOW_MS: u64 = 5_000;
 
@@ -33,7 +34,10 @@ fn log_dedup(key: &str) -> bool {
     };
     let now = Instant::now();
     let window = Duration::from_millis(LOG_DEDUP_WINDOW_MS);
-    let should_log = guard.get(key).map(|t| now.duration_since(*t) > window).unwrap_or(true);
+    let should_log = guard
+        .get(key)
+        .map(|t| now.duration_since(*t) > window)
+        .unwrap_or(true);
     if should_log {
         guard.insert(key.to_string(), now);
     }
@@ -53,7 +57,8 @@ impl SignalingServer {
         media: SharedMediaHub,
         app: tauri::AppHandle,
     ) -> Result<Self, String> {
-        let listener = StdTcpListener::bind("0.0.0.0:0").map_err(|error| error.to_string())?;
+        let listener = StdTcpListener::bind(("0.0.0.0", PAIRING_PORT))
+            .map_err(|error| format!("Could not start Eko on port {PAIRING_PORT}: {error}"))?;
         listener
             .set_nonblocking(true)
             .map_err(|error| error.to_string())?;
@@ -171,11 +176,21 @@ async fn handle_client(
     let Ok(mut socket) = accepted else {
         if let Err(error) = accepted {
             log::warn!("Signaling websocket handshake failed: {error}");
-            push_session_event(&session, &app, "warn", &format!("Signaling handshake failed: {error}"));
+            push_session_event(
+                &session,
+                &app,
+                "warn",
+                &format!("Signaling handshake failed: {error}"),
+            );
         }
         return;
     };
-    push_session_event(&session, &app, "info", "Signaling WebSocket client connected");
+    push_session_event(
+        &session,
+        &app,
+        "info",
+        "Signaling WebSocket client connected",
+    );
     let mut device_id: Option<String> = None;
     let mut last_state: Option<DeviceConnectionState> = None;
     let mut media_signals: Option<mpsc::UnboundedReceiver<MediaSignal>> = None;
@@ -222,7 +237,12 @@ async fn handle_client(
 
     if let Some(peer_address) = peer_address {
         log::info!("Signaling client disconnected from {peer_address}");
-        push_session_event(&session, &app, "info", &format!("Signaling client disconnected: {peer_address}"));
+        push_session_event(
+            &session,
+            &app,
+            "info",
+            &format!("Signaling client disconnected: {peer_address}"),
+        );
     }
     if let Some(device_id) = device_id {
         let session = match session.lock() {
@@ -236,12 +256,7 @@ async fn handle_client(
     }
 }
 
-fn push_session_event(
-    session: &SharedSession,
-    app: &tauri::AppHandle,
-    level: &str,
-    message: &str,
-) {
+fn push_session_event(session: &SharedSession, app: &tauri::AppHandle, level: &str, message: &str) {
     if let Ok(mut store) = session.lock() {
         let session = store.push_event(level, message);
         emit_room_session(app, session);
@@ -303,7 +318,12 @@ async fn handle_client_message(
                 }
                 Err(message) => {
                     log::warn!("Signaling accept_answer failed: {message}");
-                    push_session_event(session, app, "warn", &format!("WebRTC answer failed: {message}"));
+                    push_session_event(
+                        session,
+                        app,
+                        "warn",
+                        &format!("WebRTC answer failed: {message}"),
+                    );
                     send_json(socket, &SignalServerMessage::Error { message })
                         .await
                         .is_ok()
@@ -316,7 +336,12 @@ async fn handle_client_message(
                 Ok(()) => send_signal_ack(socket).await.is_ok(),
                 Err(message) => {
                     log::warn!("Signaling add_ice_candidate failed: {message}");
-                    push_session_event(session, app, "warn", &format!("ICE candidate failed: {message}"));
+                    push_session_event(
+                        session,
+                        app,
+                        "warn",
+                        &format!("ICE candidate failed: {message}"),
+                    );
                     send_json(socket, &SignalServerMessage::Error { message })
                         .await
                         .is_ok()
