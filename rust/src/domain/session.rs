@@ -18,8 +18,6 @@ pub enum StreamStatus {
 pub struct QrPairingPayload {
     pub host: String,
     pub port: u16,
-    pub room_id: String,
-    pub token: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Type)]
