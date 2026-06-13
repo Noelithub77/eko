@@ -225,31 +225,17 @@ impl MediaHub {
                 }
             };
 
-            let mut frame_count = 0u64;
-            let mut success_count = 0u64;
             while let Some(frame) = receiver.recv().await {
                 let Ok(encoded) = encoder.encode(frame) else {
                     continue;
                 };
-                frame_count += 1;
                 let sample = Sample {
                     data: Bytes::from(encoded.data),
                     duration: Duration::from_millis(encoded.duration_ms),
                     ..Default::default()
                 };
-                let _sent_at_ms = encoded.created_at_ms;
-                match track.write_sample(&sample).await {
-                    Ok(()) => {
-                        success_count += 1;
-                        if success_count % 100 == 0 {
-                            log::info!("Audio loop: {success_count} samples written (frame_count={frame_count})");
-                        }
-                    }
-                    Err(error) => {
-                        if frame_count % 100 == 0 {
-                            log::error!("Audio loop: write_sample error: {error}");
-                        }
-                    }
+                if let Err(error) = track.write_sample(&sample).await {
+                    log::error!("Audio loop: write_sample error: {error}");
                 }
             }
         });

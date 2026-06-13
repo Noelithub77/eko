@@ -4,7 +4,10 @@ $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $patterns = @(
   "tauri dev",
   "dev:web:desktop",
+  "dev:web:client",
   "PLATFORM=desktop",
+  "PLATFORM=web/client",
+  "VITE_PORT=5174",
   "start-desktop-dev.ps1"
 )
 
@@ -45,7 +48,7 @@ foreach ($process in $processes) {
   Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
 }
 
-$ports = @(1420, 1421)
+$ports = @(1420, 1421, 5174)
 $portProcesses = Get-NetTCPConnection -LocalPort $ports -ErrorAction SilentlyContinue |
   Where-Object { $_.OwningProcess -ne 0 -and $_.OwningProcess -ne $currentProcessId } |
   Select-Object -ExpandProperty OwningProcess -Unique
