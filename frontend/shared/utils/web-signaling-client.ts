@@ -28,12 +28,45 @@ export async function startWebReceiver(
   let hasOpened = false;
 
   peer.ontrack = (event: RTCTrackEvent) => {
+    console.log(
+      `[eko] ontrack: kind=${event.track.kind} id=${event.track.id} streams=${event.streams.length}`,
+    );
     tuneAudioReceivers(peer);
     const [stream] = event.streams;
     if (stream) {
+      console.log(`[eko] stream received: id=${stream.id} tracks=${stream.getTracks().length}`);
       handlers.onStream(stream);
     }
   };
+
+  peer.onconnectionstatechange = () => {
+    console.log(`[eko] browser connection state: ${peer.connectionState}`);
+  };
+  peer.oniceconnectionstatechange = () => {
+    console.log(`[eko] browser ICE state: ${peer.iceConnectionState}`);
+  };
+
+  const statsInterval = setInterval(() => {
+    peer
+      .getStats()
+      .then((stats) => {
+        let audioBytes = 0;
+        let audioPackets = 0;
+        stats.forEach((raw) => {
+          const report = raw as Record<string, unknown>;
+          if (report.type === "inbound-rtp" && report.kind === "audio") {
+            audioBytes += (report.bytesReceived as number) ?? 0;
+            audioPackets += (report.packetsReceived as number) ?? 0;
+          }
+        });
+        if (audioBytes > 0 || audioPackets > 0) {
+          console.log(`[eko] inbound audio: packets=${audioPackets} bytes=${audioBytes}`);
+        }
+      })
+      .catch(() => {
+        /* ignore stats errors */
+      });
+  }, 2000);
 
   peer.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
     if (!event.candidate) {
@@ -74,6 +107,7 @@ export async function startWebReceiver(
     peer,
     close: () => {
       isClosed = true;
+      clearInterval(statsInterval);
       socket.close();
       peer.close();
     },

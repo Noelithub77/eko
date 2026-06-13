@@ -1,5 +1,5 @@
 import { CheckCircle2, Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CartesianGrid,
   Line,
@@ -12,16 +12,61 @@ import {
 import { Button } from "@shared/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@shared/components/ui/card";
 import type { CoreProofStatus, ProofAreaStatus } from "@shared/types/core-proof";
-import type { RoomSession } from "@shared/types/stream";
-import { getCoreProofStatus } from "@shared/utils/api";
+import type { AudioProofStatus } from "@shared/types/core-proof";
+import type { DevEvent, RoomSession } from "@shared/types/stream";
+import { getAudioCaptureStatus, getCoreProofStatus } from "@shared/utils/api";
 
 type DevPanelProps = {
   session: RoomSession | null;
   onAddTestDevice: () => void;
 };
 
+type DeduplicatedEvent = {
+  event: DevEvent;
+  count: number;
+};
+
+function deduplicateEvents(events: DevEvent[]): DeduplicatedEvent[] {
+  const result: DeduplicatedEvent[] = [];
+  for (const event of events) {
+    const last = result[result.length - 1];
+    if (last && last.event.message === event.message && last.event.level === event.level) {
+      last.count += 1;
+    } else {
+      result.push({ event, count: 1 });
+    }
+  }
+  return result;
+}
+
+function getEventLevelColor(level: string): string {
+  switch (level) {
+    case "error":
+      return "border-red-500 bg-red-500/10 text-red-700";
+    case "warn":
+      return "border-yellow-500 bg-yellow-500/10 text-yellow-700";
+    case "info":
+    default:
+      return "border-blue-500 bg-blue-500/10 text-blue-700";
+  }
+}
+
+function getEventLevelBadgeColor(level: string): string {
+  switch (level) {
+    case "error":
+      return "bg-red-500 text-white";
+    case "warn":
+      return "bg-yellow-500 text-black";
+    case "info":
+    default:
+      return "bg-blue-500 text-white";
+  }
+}
+
 export function DevPanel({ session, onAddTestDevice }: DevPanelProps) {
   const [coreProofStatus, setCoreProofStatus] = useState<CoreProofStatus | null>(null);
+  const [audioStatus, setAudioStatus] = useState<AudioProofStatus | null>(null);
+  const eventsRef = useRef<HTMLDivElement>(null);
   const chartData =
     session?.metrics.map((metric, index) => ({
       index,
@@ -29,11 +74,22 @@ export function DevPanel({ session, onAddTestDevice }: DevPanelProps) {
       label: metric.label,
     })) ?? [];
   const events = session?.events ?? [];
+  const dedupedEvents = useMemo(() => deduplicateEvents(events), [events]);
+
+  // Auto-scroll to bottom when events change
+  useEffect(() => {
+    if (eventsRef.current) {
+      eventsRef.current.scrollTop = eventsRef.current.scrollHeight;
+    }
+  }, [events]);
 
   useEffect(() => {
     getCoreProofStatus()
       .then(setCoreProofStatus)
       .catch(() => setCoreProofStatus(null));
+    getAudioCaptureStatus()
+      .then(setAudioStatus)
+      .catch(() => setAudioStatus(null));
   }, []);
 
   return (
@@ -42,11 +98,12 @@ export function DevPanel({ session, onAddTestDevice }: DevPanelProps) {
         <CardHeader>
           <CardTitle>Stream Server</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-4">
+        <CardContent className="grid gap-3 md:grid-cols-5">
           <ServerItem label="Status" value={session?.status ?? "idle"} />
           <ServerItem label="Host" value={session?.host ?? "-"} />
           <ServerItem label="Port" value={session?.port?.toString() ?? "-"} />
           <ServerItem label="LAN discovery" value={session?.lanDiscoveryEnabled ? "on" : "off"} />
+          <ServerItem label="Audio capture" value={audioStatus?.captureReady ? "ready" : "not ready"} />
         </CardContent>
       </Card>
       <Card className="rounded-lg shadow-sm lg:col-span-2">
@@ -92,14 +149,27 @@ export function DevPanel({ session, onAddTestDevice }: DevPanelProps) {
         <CardHeader>
           <CardTitle>Events</CardTitle>
         </CardHeader>
-        <CardContent className="grid max-h-64 gap-2 overflow-auto">
-          {events.length === 0 ? (
+        <CardContent className="grid max-h-64 gap-2 overflow-auto" ref={eventsRef}>
+          {dedupedEvents.length === 0 ? (
             <span className="text-sm text-muted-foreground">No events</span>
           ) : (
-            events.map((event) => (
-              <div key={event.id} className="rounded-md border p-2">
-                <div className="text-xs uppercase text-muted-foreground">{event.level}</div>
-                <div>{event.message}</div>
+            dedupedEvents.map((item, index) => (
+              <div
+                key={`${item.event.id}-${index}`}
+                className={`rounded-md border p-2 ${getEventLevelColor(item.event.level)}`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`rounded px-1.5 py-0.5 text-xs font-semibold ${getEventLevelBadgeColor(item.event.level)}`}>
+                    {item.event.level}
+                  </span>
+                  {item.count > 1 && (
+                    <span className="text-xs font-semibold">x{item.count}</span>
+                  )}
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    {new Date(item.event.createdAt).toLocaleTimeString()}
+                  </span>
+                </div>
+                <div className="mt-1 text-sm">{item.event.message}</div>
               </div>
             ))
           )}

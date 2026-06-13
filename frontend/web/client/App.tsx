@@ -77,14 +77,31 @@ function App() {
       const session = await startWebReceiver(payload, request, {
         onStatus: (nextMessage) => setMessage(nextMessage),
         onStream: (nextStream) => {
+          console.log(`[eko] App: onStream called, stream id=${nextStream.id} active=${nextStream.active} tracks=${nextStream.getTracks().length}`);
+          for (const track of nextStream.getTracks()) {
+            console.log(`[eko] App: stream track kind=${track.kind} id=${track.id} enabled=${track.enabled} muted=${track.muted} readyState=${track.readyState}`);
+            track.addEventListener("mute", () => console.log(`[eko] App: track ${track.id} MUTED`));
+            track.addEventListener("unmute", () => console.log(`[eko] App: track ${track.id} UNMUTED readyState=${track.readyState}`));
+            track.addEventListener("ended", () => console.log(`[eko] App: track ${track.id} ENDED`));
+          }
           setStream(nextStream);
           if (audioRef.current) {
+            console.log(`[eko] App: audio element found, paused=${audioRef.current.paused} srcObject=${!!audioRef.current.srcObject}`);
             audioRef.current.srcObject = nextStream;
             audioRef.current.muted = false;
-            void audioRef.current.play().then(() => {
+            audioRef.current.play().then(() => {
+              console.log(`[eko] App: audio.play() succeeded`);
               setIsPlaying(true);
               startElapsedTimer();
+            }).catch((err) => {
+              console.warn(`[eko] App: audio.play() failed:`, err);
             });
+            setTimeout(() => {
+              const t = nextStream.getAudioTracks()[0];
+              console.log(`[eko] App: after 2s — track muted=${t?.muted} readyState=${t?.readyState} enabled=${t?.enabled}`);
+            }, 2000);
+          } else {
+            console.warn(`[eko] App: audioRef.current is null — audio element not mounted`);
           }
           setStatus("connected");
           setMessage("Connected.");

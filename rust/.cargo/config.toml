@@ -9,3 +9,6 @@ linker = "i686-linux-android26-clang.cmd"
 
 [target.x86_64-linux-android]
 linker = "x86_64-linux-android26-clang.cmd"
+
+[env]
+BINDGEN_EXTRA_CLANG_ARGS = "-I/usr/lib/gcc/x86_64-linux-gnu/15/include"

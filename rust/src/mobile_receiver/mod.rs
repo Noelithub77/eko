@@ -394,7 +394,7 @@ mod android {
                 version: 1,
                 source: "android".to_string(),
                 kind: "qualitySample".to_string(),
-                created_at_ms: now_ms(),
+                created_at_ms: now_ms() as f64,
                 connection_id: self.connection_id.clone(),
                 device_id: self.device_id.clone(),
                 room_id: self.room_id.clone(),
