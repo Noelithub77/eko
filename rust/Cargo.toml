@@ -43,6 +43,7 @@ specta-serde = "0.0.12"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 rubato = "0.16"
+rust-embed = "8.11.0"
 
 [target."cfg(windows)".dependencies]
 wasapi = "0.23.0"
