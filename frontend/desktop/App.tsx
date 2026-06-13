@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Bug, RefreshCw, Settings, Wifi, X } from "lucide-react";
 import { DesktopLayout } from "./layouts/DesktopLayout";
+import { useMonitorLogStore } from "@shared/stores/monitor-log-store";
 import { useSettingsStore } from "@shared/stores/settings-store";
 import { useStreamStore } from "@shared/stores/stream-store";
 import { initAppLogging } from "@shared/utils/logger";
@@ -31,21 +32,35 @@ function App() {
   const disconnect = useStreamStore((state) => state.disconnect);
   const toggleSharing = useStreamStore((state) => state.toggleSharing);
   const addTestDevice = useStreamStore((state) => state.addTestDevice);
+  const clearSessionEvents = useStreamStore((state) => state.clearEvents);
+  const monitorLogs = useMonitorLogStore((state) => state.logs);
+  const loadMonitorLogs = useMonitorLogStore((state) => state.loadLogs);
+  const recordMonitorLogs = useMonitorLogStore((state) => state.recordLogs);
+  const clearMonitorLogs = useMonitorLogStore((state) => state.clearLogs);
   const devMode = useSettingsStore((state) => state.devMode);
   const loadSettings = useSettingsStore((state) => state.loadSettings);
   const setDevMode = useSettingsStore((state) => state.setDevMode);
   const startedOnOpen = useRef(false);
 
   const isRunning = session?.status === "running";
+  const clearMonitor = async () => {
+    await clearMonitorLogs();
+    await clearSessionEvents();
+  };
 
   useEffect(() => {
     void initAppLogging();
     loadSettings();
+    void loadMonitorLogs();
     if (!startedOnOpen.current) {
       startedOnOpen.current = true;
       void restart();
     }
-  }, [loadSettings, restart]);
+  }, [loadMonitorLogs, loadSettings, restart]);
+
+  useEffect(() => {
+    void recordMonitorLogs(session?.events ?? []);
+  }, [recordMonitorLogs, session?.events]);
 
   useEffect(() => {
     let stopListening: (() => void) | null = null;
@@ -104,23 +119,21 @@ function App() {
           <p>{view === "settings" ? "Close settings" : "Settings"}</p>
         </TooltipContent>
       </Tooltip>
-      {devMode ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={() => setView((v) => (v === "dev" ? "stream" : "dev"))}
-              className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              aria-label={view === "dev" ? "Main view" : "Dev panel"}
-            >
-              <Bug className="size-5" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{view === "dev" ? "Main view" : "Dev panel"}</p>
-          </TooltipContent>
-        </Tooltip>
-      ) : null}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={() => setView((v) => (v === "dev" ? "stream" : "dev"))}
+            className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            aria-label={view === "dev" ? "Main view" : "Monitor"}
+          >
+            <Bug className="size-5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{view === "dev" ? "Main view" : "Monitor"}</p>
+        </TooltipContent>
+      </Tooltip>
     </TooltipProvider>
   );
 
@@ -150,6 +163,9 @@ function App() {
       {view === "dev" ? (
         <div className="mt-4">
           <DevPanel
+            logs={monitorLogs}
+            showTestControls={devMode}
+            onClearLogs={clearMonitor}
             onAddTestDevice={() => addTestDevice("Android test phone", "qr")}
             session={session}
           />

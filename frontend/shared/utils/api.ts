@@ -123,6 +123,17 @@ export function setDeviceSharing(deviceId: string, enabled: boolean): Promise<Ro
   return commands.setDeviceSharing(deviceId, enabled);
 }
 
+export function clearSessionEvents(): Promise<RoomSession> {
+  if (!isTauriRuntime()) {
+    browserMock.session = {
+      ...browserMock.session,
+      events: [event("info", "Monitor logs cleared")],
+    };
+    return Promise.resolve(browserMock.session);
+  }
+  return commands.clearSessionEvents();
+}
+
 export function submitJoinRequest(request: JoinRequest): Promise<RoomSession> {
   if (!isTauriRuntime()) {
     void request;

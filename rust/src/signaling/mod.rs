@@ -28,7 +28,9 @@ fn log_dedup(key: &str) -> bool {
     use std::sync::OnceLock;
     static LAST_LOGS: OnceLock<Mutex<HashMap<String, Instant>>> = OnceLock::new();
     let map = LAST_LOGS.get_or_init(|| Mutex::new(HashMap::new()));
-    let mut guard = map.lock().unwrap();
+    let Ok(mut guard) = map.lock() else {
+        return true;
+    };
     let now = Instant::now();
     let window = Duration::from_millis(LOG_DEDUP_WINDOW_MS);
     let should_log = guard.get(key).map(|t| now.duration_since(*t) > window).unwrap_or(true);
