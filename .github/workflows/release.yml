@@ -173,12 +173,9 @@ jobs:
 
       - name: Download old updater metadata
         shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
         run: |
           mkdir -p "$RUNNER_TEMP/old-updater"
-          gh release download "$RELEASE_TAG" --pattern latest.json --dir "$RUNNER_TEMP/old-updater" || true
+          curl -fsSL "${PUBLIC_UPDATE_BASE_URL}/latest.json" -o "$RUNNER_TEMP/old-updater/latest.json" || true
 
       - name: Build and upload Windows EXE
         uses: tauri-apps/tauri-action@v0
@@ -203,15 +200,44 @@ jobs:
           cp rust/target/release/eko.exe "$RUNNER_TEMP/release-assets/eko_${APP_VERSION}_x64.exe"
           gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/release-assets/eko_${APP_VERSION}_x64.exe" --clobber
 
-      - name: Merge updater metadata
+      - name: Publish public Windows updater
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APP_VERSION: ${{ needs.prepare.outputs.app_version }}
           RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
         run: |
+          SETUP_NAME="eko_${APP_VERSION}_x64-setup.exe"
+          SETUP_PATH="rust/target/release/bundle/nsis/${SETUP_NAME}"
+          PUBLIC_SETUP_URL="${PUBLIC_UPDATE_BASE_URL}/updates/windows/${SETUP_NAME}"
+
           mkdir -p "$RUNNER_TEMP/new-updater" "$RUNNER_TEMP/merged-updater"
           gh release download "$RELEASE_TAG" --pattern latest.json --dir "$RUNNER_TEMP/new-updater" --clobber
-          pnpm run release:merge-updater-json -- "$RUNNER_TEMP/old-updater" "$RUNNER_TEMP/new-updater" "$RUNNER_TEMP/merged-updater/latest.json"
+          pnpm run release:merge-public-updater-json -- "$RUNNER_TEMP/old-updater" "$RUNNER_TEMP/new-updater" "$RUNNER_TEMP/merged-updater/latest.json" "$PUBLIC_SETUP_URL" windows-x86_64 windows-x86_64-nsis
+
+          PAGES_DIR="$RUNNER_TEMP/public-updates"
+          if ! git clone --depth 1 --branch gh-pages "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$PAGES_DIR"; then
+            mkdir -p "$PAGES_DIR"
+            git -C "$PAGES_DIR" init
+            git -C "$PAGES_DIR" checkout -b gh-pages
+          fi
+
+          mkdir -p "$PAGES_DIR/updates/windows"
+          cp "$SETUP_PATH" "$PAGES_DIR/updates/windows/$SETUP_NAME"
+          cp "${SETUP_PATH}.sig" "$PAGES_DIR/updates/windows/${SETUP_NAME}.sig"
+          cp "$RUNNER_TEMP/merged-updater/latest.json" "$PAGES_DIR/latest.json"
+          touch "$PAGES_DIR/.nojekyll"
+
+          git -C "$PAGES_DIR" config user.name "github-actions[bot]"
+          git -C "$PAGES_DIR" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$PAGES_DIR" add .
+          if git -C "$PAGES_DIR" diff --cached --quiet; then
+            echo "Public updater files are already current."
+          else
+            git -C "$PAGES_DIR" commit -m "publish public updater assets"
+            git -C "$PAGES_DIR" push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:gh-pages
+          fi
+
           gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/merged-updater/latest.json" --clobber
 
   linux-appimage:
@@ -273,12 +299,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Download old updater metadata
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
         run: |
           mkdir -p "$RUNNER_TEMP/old-updater"
-          gh release download "$RELEASE_TAG" --pattern latest.json --dir "$RUNNER_TEMP/old-updater" || true
+          curl -fsSL "${PUBLIC_UPDATE_BASE_URL}/latest.json" -o "$RUNNER_TEMP/old-updater/latest.json" || true
 
       - name: Build and upload Linux AppImage
         uses: tauri-apps/tauri-action@v0
@@ -292,14 +315,49 @@ jobs:
           uploadUpdaterJson: true
           uploadUpdaterSignatures: true
 
-      - name: Merge updater metadata
+      - name: Publish public Linux updater
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APP_VERSION: ${{ needs.prepare.outputs.app_version }}
           RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
         run: |
+          APPIMAGE_PATH="$(find rust/target/release/bundle/appimage -name "*.AppImage" -type f | head -n 1)"
+          if [ -z "$APPIMAGE_PATH" ]; then
+            echo "Could not find Linux AppImage output."
+            exit 1
+          fi
+          APPIMAGE_NAME="$(basename "$APPIMAGE_PATH")"
+          PUBLIC_APPIMAGE_URL="${PUBLIC_UPDATE_BASE_URL}/updates/linux/${APPIMAGE_NAME}"
+
           mkdir -p "$RUNNER_TEMP/new-updater" "$RUNNER_TEMP/merged-updater"
           gh release download "$RELEASE_TAG" --pattern latest.json --dir "$RUNNER_TEMP/new-updater" --clobber
-          pnpm run release:merge-updater-json -- "$RUNNER_TEMP/old-updater" "$RUNNER_TEMP/new-updater" "$RUNNER_TEMP/merged-updater/latest.json"
+          pnpm run release:merge-public-updater-json -- "$RUNNER_TEMP/old-updater" "$RUNNER_TEMP/new-updater" "$RUNNER_TEMP/merged-updater/latest.json" "$PUBLIC_APPIMAGE_URL" linux-x86_64
+
+          PAGES_DIR="$RUNNER_TEMP/public-updates"
+          if ! git clone --depth 1 --branch gh-pages "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$PAGES_DIR"; then
+            mkdir -p "$PAGES_DIR"
+            git -C "$PAGES_DIR" init
+            git -C "$PAGES_DIR" checkout -b gh-pages
+          fi
+
+          mkdir -p "$PAGES_DIR/updates/linux"
+          cp "$APPIMAGE_PATH" "$PAGES_DIR/updates/linux/$APPIMAGE_NAME"
+          if [ -f "${APPIMAGE_PATH}.sig" ]; then
+            cp "${APPIMAGE_PATH}.sig" "$PAGES_DIR/updates/linux/${APPIMAGE_NAME}.sig"
+          fi
+          cp "$RUNNER_TEMP/merged-updater/latest.json" "$PAGES_DIR/latest.json"
+          touch "$PAGES_DIR/.nojekyll"
+
+          git -C "$PAGES_DIR" config user.name "github-actions[bot]"
+          git -C "$PAGES_DIR" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$PAGES_DIR" add .
+          if git -C "$PAGES_DIR" diff --cached --quiet; then
+            echo "Public updater files are already current."
+          else
+            git -C "$PAGES_DIR" commit -m "publish public updater assets"
+            git -C "$PAGES_DIR" push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:gh-pages
+          fi
+
           gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/merged-updater/latest.json" --clobber
 
   android:
