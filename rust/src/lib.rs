@@ -26,6 +26,7 @@ use session::SessionStore;
 use signaling::{emit_room_session, SharedSession, SignalingServer};
 #[cfg(any(test, all(debug_assertions, not(mobile))))]
 use specta_typescript::Typescript;
+use tauri_plugin_log::fern::colors::{Color, ColoredLevelConfig};
 use tauri_plugin_log::{Target, TargetKind};
 use tauri_specta::{collect_commands, Builder, ErrorHandlingMode};
 use webrtc_core::media_hub::{MediaHub, SharedMediaHub};
@@ -417,19 +418,31 @@ pub fn run() {
     export_bindings(&builder);
 
     tauri::Builder::default()
-        .plugin(
+        .plugin({
+            let colors = ColoredLevelConfig::new()
+                .info(Color::Green)
+                .warn(Color::Yellow)
+                .error(Color::Red)
+                .debug(Color::Blue)
+                .trace(Color::Magenta);
+
             tauri_plugin_log::Builder::default()
                 .level(log::LevelFilter::Info)
                 .level_for("dtls", log::LevelFilter::Error)
                 .level_for("webrtc_ice", log::LevelFilter::Warn)
+                .level_for("mdns_sd", log::LevelFilter::Warn)
+                .format(move |out, message, _record| {
+                    out.finish(format_args!("{} {}", colors.color(_record.level()), message))
+                })
                 .targets([
                     Target::new(TargetKind::Stdout),
                     Target::new(TargetKind::LogDir {
                         file_name: Some("eko.log".to_string()),
                     }),
+                    Target::new(TargetKind::Webview),
                 ])
-                .build(),
-        )
+                .build()
+        })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_store::Builder::default().build())

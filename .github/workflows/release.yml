@@ -21,6 +21,14 @@ on:
 permissions:
   contents: write
 
+env:
+  PNPM_VERSION: 11.5.0
+  CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+  ANDROID_PLATFORM_PACKAGE: platforms;android-36
+  ANDROID_BUILD_TOOLS_PACKAGE: build-tools;36.0.0
+  ANDROID_NDK_VERSION: 27.0.12077973
+  ANDROID_NDK_PACKAGE: ndk;27.0.12077973
+
 jobs:
   prepare:
     name: Prepare release
@@ -36,15 +44,20 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Load release env
+        run: grep -vE '^(#|$)' actions.env >> "$GITHUB_ENV"
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Enable pnpm
         run: |
           corepack enable
-          corepack prepare pnpm@11.5.0 --activate
+          corepack prepare "pnpm@${PNPM_VERSION}" --activate
 
       - name: Patch bump app version
         if: inputs.bump_patch
@@ -102,15 +115,21 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.release_sha }}
 
+      - name: Load release env
+        shell: bash
+        run: grep -vE '^(#|$)' actions.env >> "$GITHUB_ENV"
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Enable pnpm
         run: |
           corepack enable
-          corepack prepare pnpm@11.5.0 --activate
+          corepack prepare "pnpm@${PNPM_VERSION}" --activate
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -137,8 +156,6 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: .
           releaseId: ${{ needs.prepare.outputs.release_id }}
@@ -169,6 +186,9 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.release_sha }}
 
+      - name: Load release env
+        run: grep -vE '^(#|$)' actions.env >> "$GITHUB_ENV"
+
       - name: Install Linux packages
         run: |
           sudo apt-get update
@@ -178,11 +198,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Enable pnpm
         run: |
           corepack enable
-          corepack prepare pnpm@11.5.0 --activate
+          corepack prepare "pnpm@${PNPM_VERSION}" --activate
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -208,8 +230,6 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: .
           releaseId: ${{ needs.prepare.outputs.release_id }}
@@ -239,15 +259,20 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.release_sha }}
 
+      - name: Load release env
+        run: grep -vE '^(#|$)' actions.env >> "$GITHUB_ENV"
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Enable pnpm
         run: |
           corepack enable
-          corepack prepare pnpm@11.5.0 --activate
+          corepack prepare "pnpm@${PNPM_VERSION}" --activate
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -255,14 +280,17 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - name: Setup Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
       - name: Install Android packages
         run: |
-          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.0.12077973"
-          echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/27.0.12077973" >> "$GITHUB_ENV"
-          echo "NDK_HOME=${ANDROID_HOME}/ndk/27.0.12077973" >> "$GITHUB_ENV"
+          sdkmanager "$ANDROID_PLATFORM_PACKAGE" "$ANDROID_BUILD_TOOLS_PACKAGE" "$ANDROID_NDK_PACKAGE"
+          echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}" >> "$GITHUB_ENV"
+          echo "NDK_HOME=${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}" >> "$GITHUB_ENV"
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -279,13 +307,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Restore Android signing key
-        env:
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
         run: |
           KEYSTORE_PATH="$RUNNER_TEMP/eko-release.keystore"
-          echo "$ANDROID_KEY_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
           {
             echo "keyAlias=$ANDROID_KEY_ALIAS"
             echo "password=$ANDROID_KEY_PASSWORD"
@@ -326,3 +350,28 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
         run: gh release upload "$RELEASE_TAG" "$RUNNER_TEMP"/release-assets/* --clobber
+
+  cleanup-empty-release:
+    name: Cleanup empty failed release
+    needs: [prepare, windows-exe, linux-appimage, android]
+    if: always() && needs.prepare.result == 'success' && (needs.windows-exe.result == 'failure' || needs.linux-appimage.result == 'failure' || needs.android.result == 'failure')
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Delete release with no assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+        run: |
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "No release exists for $RELEASE_TAG."
+            exit 0
+          fi
+
+          ASSET_COUNT="$(gh release view "$RELEASE_TAG" --json assets --jq '.assets | length')"
+          if [ "$ASSET_COUNT" != "0" ]; then
+            echo "Keeping $RELEASE_TAG because it has $ASSET_COUNT asset(s)."
+            exit 0
+          fi
+
+          gh release delete "$RELEASE_TAG" --cleanup-tag --yes
+          echo "Deleted empty release $RELEASE_TAG."

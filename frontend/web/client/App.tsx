@@ -182,7 +182,7 @@ function App() {
       <main className="mx-auto grid min-h-dvh w-full max-w-[430px] content-center gap-3 px-4">
         <div className="grid gap-1">
           <h1 className="text-2xl font-semibold leading-tight">Eko</h1>
-          <p className="text-sm leading-5 text-muted-foreground">Web receiver for iPhone.</p>
+          <p className="text-sm leading-5 text-muted-foreground">Web receiver</p>
         </div>
 
         <Card className="gap-4 rounded-2xl py-5 shadow-none">
