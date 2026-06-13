@@ -45,7 +45,22 @@ jobs:
           fetch-depth: 0
 
       - name: Load release env
-        run: grep -vE '^(#|$)' actions.env >> "$GITHUB_ENV"
+        run: |
+          while IFS='=' read -r name value; do
+            if [ -z "$name" ] || [[ "$name" == \#* ]]; then
+              continue
+            fi
+            if [[ "$name" == *KEY* || "$name" == *PASSWORD* ]]; then
+              echo "::add-mask::$value"
+            fi
+            echo "$name=$value" >> "$GITHUB_ENV"
+          done < actions.env
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -117,7 +132,22 @@ jobs:
 
       - name: Load release env
         shell: bash
-        run: grep -vE '^(#|$)' actions.env >> "$GITHUB_ENV"
+        run: |
+          while IFS='=' read -r name value; do
+            if [ -z "$name" ] || [[ "$name" == \#* ]]; then
+              continue
+            fi
+            if [[ "$name" == *KEY* || "$name" == *PASSWORD* ]]; then
+              echo "::add-mask::$value"
+            fi
+            echo "$name=$value" >> "$GITHUB_ENV"
+          done < actions.env
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -187,7 +217,22 @@ jobs:
           ref: ${{ needs.prepare.outputs.release_sha }}
 
       - name: Load release env
-        run: grep -vE '^(#|$)' actions.env >> "$GITHUB_ENV"
+        run: |
+          while IFS='=' read -r name value; do
+            if [ -z "$name" ] || [[ "$name" == \#* ]]; then
+              continue
+            fi
+            if [[ "$name" == *KEY* || "$name" == *PASSWORD* ]]; then
+              echo "::add-mask::$value"
+            fi
+            echo "$name=$value" >> "$GITHUB_ENV"
+          done < actions.env
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
 
       - name: Install Linux packages
         run: |
@@ -260,7 +305,22 @@ jobs:
           ref: ${{ needs.prepare.outputs.release_sha }}
 
       - name: Load release env
-        run: grep -vE '^(#|$)' actions.env >> "$GITHUB_ENV"
+        run: |
+          while IFS='=' read -r name value; do
+            if [ -z "$name" ] || [[ "$name" == \#* ]]; then
+              continue
+            fi
+            if [[ "$name" == *KEY* || "$name" == *PASSWORD* ]]; then
+              echo "::add-mask::$value"
+            fi
+            echo "$name=$value" >> "$GITHUB_ENV"
+          done < actions.env
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
 
       - name: Setup Node
         uses: actions/setup-node@v4
