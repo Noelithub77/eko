@@ -1,0 +1,15 @@
+{
+  "version": "0.1.4",
+  "notes": "",
+  "pub_date": "2026-06-13T22:10:05.918Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURkdQdzRlRWxvZEZhTkxabEtvK0lEcHF1dmNMZnRnT3FBL1lEN3ZrTHB0L3cvamRyYldibDNsci9BTWhjOFBZOVBRRjNQSCtVT1ZzOHB6RXFoSnRHWk9HM3R3U3lUSkFBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgxMzg4NjA0CWZpbGU6ZWtvXzAuMS40X3g2NC1zZXR1cC5leGUKVnEvcUg5ZS9OMnFNNVJmVzRzN0FDUEVFRkwvMWNxOTFqZW9WUHJGeUlOTml0ZW5uYWQzTEtYWExYTFVLOEUrV1dYeDdVeWpZazhIcWVxVnh4UW1VQWc9PQo=",
+      "url": "https://rider-vader.github.io/eko/updates/windows/eko_0.1.4_x64-setup.exe"
+    },
+    "windows-x86_64-nsis": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURkdQdzRlRWxvZEZhTkxabEtvK0lEcHF1dmNMZnRnT3FBL1lEN3ZrTHB0L3cvamRyYldibDNsci9BTWhjOFBZOVBRRjNQSCtVT1ZzOHB6RXFoSnRHWk9HM3R3U3lUSkFBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgxMzg4NjA0CWZpbGU6ZWtvXzAuMS40X3g2NC1zZXR1cC5leGUKVnEvcUg5ZS9OMnFNNVJmVzRzN0FDUEVFRkwvMWNxOTFqZW9WUHJGeUlOTml0ZW5uYWQzTEtYWExYTFVLOEUrV1dYeDdVeWpZazhIcWVxVnh4UW1VQWc9PQo=",
+      "url": "https://rider-vader.github.io/eko/updates/windows/eko_0.1.4_x64-setup.exe"
+    }
+  }
+}
