@@ -3,11 +3,9 @@ import type { RoomSession } from "../types/stream";
 
 export function isValidJoinRequest(session: RoomSession, request: JoinRequest): boolean {
   return Boolean(
-    session.roomId &&
-      session.token &&
-      session.status === "running" &&
-      request.roomId === session.roomId &&
-      request.token === session.token,
+    session.status === "running" &&
+      request.deviceId.trim().length > 0 &&
+      request.deviceName.trim().length > 0,
   );
 }
 

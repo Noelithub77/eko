@@ -46,8 +46,6 @@ impl SessionStore {
             qr_payload: QrPairingPayload {
                 host,
                 port,
-                room_id,
-                token,
             },
         })
     }
@@ -67,16 +65,6 @@ impl SessionStore {
             port: self
                 .session
                 .port
-                .ok_or_else(|| "Start stream before pairing.".to_string())?,
-            room_id: self
-                .session
-                .room_id
-                .clone()
-                .ok_or_else(|| "Start stream before pairing.".to_string())?,
-            token: self
-                .session
-                .token
-                .clone()
                 .ok_or_else(|| "Start stream before pairing.".to_string())?,
         })
     }
@@ -129,7 +117,7 @@ impl SessionStore {
                 DeviceConnectionState::Disconnected | DeviceConnectionState::Failed
             ) {
                 self.update_device(&request.device_id, |device| {
-                    device.device_name = request.device_name;
+                    device.device_name = receiver_name(request.device_name);
                     device.join_method = request.method;
                     device.state = DeviceConnectionState::Pending;
                     device.sharing = SharingState::Disabled;
@@ -147,7 +135,7 @@ impl SessionStore {
 
         self.session.devices.push(Device {
             device_id: request.device_id,
-            device_name: request.device_name,
+            device_name: receiver_name(request.device_name),
             label: None,
             state: DeviceConnectionState::Pending,
             join_method: request.method,
@@ -168,23 +156,10 @@ impl SessionStore {
         device_name: String,
         method: JoinMethod,
     ) -> Result<RoomSession, String> {
-        let room_id = self
-            .session
-            .room_id
-            .clone()
-            .ok_or_else(|| "Start stream before adding a test device.".to_string())?;
-        let token = self
-            .session
-            .token
-            .clone()
-            .ok_or_else(|| "Start stream before adding a test device.".to_string())?;
-
         self.submit_join_request(JoinRequest {
             device_id: format!("dev-{}", now_string()),
             device_name,
-            room_id,
             method,
-            token,
         })
     }
 
@@ -268,8 +243,8 @@ impl SessionStore {
     }
 
     fn is_valid_join(&self, request: &JoinRequest) -> bool {
-        self.session.room_id.as_ref() == Some(&request.room_id)
-            && self.session.token.as_ref() == Some(&request.token)
+        !request.device_id.trim().is_empty()
+            && !request.device_name.trim().is_empty()
             && matches!(self.session.status, StreamStatus::Running)
     }
 
@@ -334,4 +309,13 @@ fn event(level: &str, message: &str) -> DevEvent {
         message: message.to_string(),
         created_at: now_string(),
     }
+}
+
+fn receiver_name(name: String) -> String {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return "Unnamed receiver".to_string();
+    }
+
+    trimmed.chars().take(40).collect()
 }

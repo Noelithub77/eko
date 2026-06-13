@@ -1,11 +1,9 @@
 import type { PairingLinkPayload } from "@shared/types/pairing-link";
 
-const PAYLOAD_KEY = "payload";
 const CLIENT_PATH = "/client";
 
 export function createPairingLink(payload: PairingLinkPayload): string {
-  const encoded = encodePayload(payload);
-  return `http://${payload.host}:${payload.port}${CLIENT_PATH}#${PAYLOAD_KEY}=${encoded}`;
+  return `http://${payload.host}:${payload.port}${CLIENT_PATH}`;
 }
 
 export function parsePairingSource(text: string): PairingLinkPayload | null {
@@ -20,27 +18,10 @@ export function parsePairingSource(text: string): PairingLinkPayload | null {
 export function parsePairingLink(text: string): PairingLinkPayload | null {
   try {
     const url = new URL(text);
-    const hash = url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
-    const params = new URLSearchParams(hash);
-    const encoded = params.get(PAYLOAD_KEY);
-    return encoded ? decodePayload(encoded) : null;
-  } catch {
-    return null;
-  }
-}
-
-function encodePayload(payload: PairingLinkPayload): string {
-  const json = JSON.stringify(payload);
-  const base64 = btoa(json);
-  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-}
-
-function decodePayload(encoded: string): PairingLinkPayload | null {
-  try {
-    const padded = encoded.padEnd(encoded.length + ((4 - (encoded.length % 4)) % 4), "=");
-    const json = atob(padded.replace(/-/g, "+").replace(/_/g, "/"));
-    const value: unknown = JSON.parse(json);
-    return readPayload(value);
+    return readPayload({
+      host: url.hostname,
+      port: Number(url.port),
+    });
   } catch {
     return null;
   }
@@ -62,19 +43,12 @@ function readPayload(value: unknown): PairingLinkPayload | null {
 
   const host = value.host;
   const port = value.port;
-  const roomId = value.roomId;
-  const token = value.token;
 
-  if (
-    typeof host !== "string" ||
-    typeof port !== "number" ||
-    typeof roomId !== "string" ||
-    typeof token !== "string"
-  ) {
+  if (typeof host !== "string" || typeof port !== "number" || !Number.isInteger(port)) {
     return null;
   }
 
-  return { host, port, roomId, token };
+  return { host, port };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

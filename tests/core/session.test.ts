@@ -26,9 +26,7 @@ const runningSession: RoomSession = {
 const validJoin: JoinRequest = {
   deviceId: "phone-1",
   deviceName: "Noel phone",
-  roomId: "room-1",
   method: "qr",
-  token: "token-1",
 };
 
 const pendingDevice: Device = {
@@ -44,11 +42,9 @@ const pendingDevice: Device = {
 };
 
 assert.equal(isValidJoinRequest(runningSession, validJoin), true);
-assert.equal(isValidJoinRequest(runningSession, { ...validJoin, token: "wrong" }), false);
+assert.equal(isValidJoinRequest(runningSession, { ...validJoin, deviceName: "" }), false);
 
-const qrPayload = parseQrPayload(
-  JSON.stringify({ host: "192.168.1.10", port: 4444, roomId: "room-1", token: "token-1" }),
-);
+const qrPayload = parseQrPayload(JSON.stringify({ host: "192.168.1.10", port: 4444 }));
 assert.equal(qrPayload?.host, "192.168.1.10");
 assert.equal(parseQrPayload(JSON.stringify({ host: "missing-port" })), null);
 

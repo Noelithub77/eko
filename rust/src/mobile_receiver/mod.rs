@@ -96,7 +96,6 @@ mod android {
             create_peer(
                 app.clone(),
                 device_id.clone(),
-                payload.room_id.clone(),
                 sender.clone(),
             )
             .await?,
@@ -143,7 +142,6 @@ mod android {
     async fn create_peer(
         app: AppHandle,
         device_id: String,
-        room_id: String,
         sender: mpsc::UnboundedSender<SignalClientMessage>,
     ) -> Result<RTCPeerConnection, String> {
         let mut media_engine = MediaEngine::default();
@@ -180,12 +178,10 @@ mod android {
 
         let ready_sender = sender.clone();
         let ready_device_id = device_id.clone();
-        let profiler_room_id = room_id.clone();
         peer.on_track(Box::new(move |track, _, _| {
             let app = app.clone();
             let ready_sender = ready_sender.clone();
             let device_id = ready_device_id.clone();
-            let room_id = profiler_room_id.clone();
             Box::pin(async move {
                 let _ = ready_sender.send(SignalClientMessage::ReceiverReady {
                     device_id: device_id.clone(),
@@ -218,7 +214,7 @@ mod android {
                     }
                 };
                 let mut decoded = vec![0.0_f32; DECODED_SAMPLES];
-                let mut profiler = AndroidProfiler::new(room_id, device_id);
+                let mut profiler = AndroidProfiler::new(device_id);
 
                 while let Ok((packet, _)) = track.read_rtp().await {
                     profiler.record_packet(packet.header.sequence_number);
@@ -343,7 +339,7 @@ mod android {
     }
 
     impl AndroidProfiler {
-        fn new(room_id: String, device_id: String) -> Self {
+        fn new(device_id: String) -> Self {
             Self {
                 connection_id: format!("android-{}-{}", device_id, now_ms()),
                 device_id,
@@ -353,7 +349,7 @@ mod android {
                 lost_count: 0,
                 previous_packet_count: 0,
                 previous_lost_count: 0,
-                room_id,
+                room_id: "local-session".to_string(),
                 sample_index: 0,
             }
         }

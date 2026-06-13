@@ -1,14 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Play, Pause, Volume2, VolumeX } from "lucide-react";
+import { NetworkBadge } from "@shared/components/NetworkBadge";
 import { Button } from "@shared/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@shared/components/ui/card";
+import { Input } from "@shared/components/ui/input";
 import { Slider } from "@shared/components/ui/slider";
 import { cn } from "@shared/lib/utils";
+import {
+  getSavedDeviceId,
+  getSavedReceiverName,
+  saveReceiverName,
+} from "@shared/utils/device-profile";
 import { parsePairingSource } from "@shared/utils/pairing-link";
 import { startWebReceiver, type WebReceiverSession } from "@shared/utils/web-signaling-client";
 import { AudioWaveVisualizer } from "./components/AudioWaveVisualizer";
 import type { JoinRequest } from "@shared/types/device";
-import type { PairingLinkPayload } from "@shared/types/pairing-link";
 import { ConnectionQualityPanel } from "./features/playback/ConnectionQualityPanel";
 import type { ConnectionQuality } from "./features/playback/connection-quality";
 import { createLiveProfiler, type LiveProfiler } from "./features/playback/live-profiler";
@@ -17,7 +23,8 @@ type ConnectionState = "ready" | "waiting" | "connected" | "failed";
 
 function App() {
   const payload = useMemo(() => parsePairingSource(window.location.href), []);
-  const deviceId = useMemo(() => getDeviceId(), []);
+  const deviceId = useMemo(() => getSavedDeviceId("web"), []);
+  const [deviceName, setDeviceName] = useState(() => getSavedReceiverName("web"));
   const [status, setStatus] = useState<ConnectionState>(payload ? "ready" : "failed");
   const [message, setMessage] = useState(
     payload ? "Ready to ask the desktop." : "This link is missing pairing data.",
@@ -51,6 +58,12 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (payload) {
+      localStorage.setItem("eko-web-desktop-address", `${payload.host}:${payload.port}`);
+    }
+  }, [payload]);
+
+  useEffect(() => {
     return () => {
       if (elapsedTimerRef.current) {
         clearInterval(elapsedTimerRef.current);
@@ -72,33 +85,50 @@ function App() {
     setPeer(null);
     setProfiler(null);
 
-    const request = createJoinRequest(payload, deviceId);
+    const savedName = saveReceiverName("web", deviceName);
+    setDeviceName(savedName);
+    const request = createJoinRequest(deviceId, savedName);
     try {
       const session = await startWebReceiver(payload, request, {
         onStatus: (nextMessage) => setMessage(nextMessage),
         onStream: (nextStream) => {
-          console.log(`[eko] App: onStream called, stream id=${nextStream.id} active=${nextStream.active} tracks=${nextStream.getTracks().length}`);
+          console.log(
+            `[eko] App: onStream called, stream id=${nextStream.id} active=${nextStream.active} tracks=${nextStream.getTracks().length}`,
+          );
           for (const track of nextStream.getTracks()) {
-            console.log(`[eko] App: stream track kind=${track.kind} id=${track.id} enabled=${track.enabled} muted=${track.muted} readyState=${track.readyState}`);
+            console.log(
+              `[eko] App: stream track kind=${track.kind} id=${track.id} enabled=${track.enabled} muted=${track.muted} readyState=${track.readyState}`,
+            );
             track.addEventListener("mute", () => console.log(`[eko] App: track ${track.id} MUTED`));
-            track.addEventListener("unmute", () => console.log(`[eko] App: track ${track.id} UNMUTED readyState=${track.readyState}`));
-            track.addEventListener("ended", () => console.log(`[eko] App: track ${track.id} ENDED`));
+            track.addEventListener("unmute", () =>
+              console.log(`[eko] App: track ${track.id} UNMUTED readyState=${track.readyState}`),
+            );
+            track.addEventListener("ended", () =>
+              console.log(`[eko] App: track ${track.id} ENDED`),
+            );
           }
           setStream(nextStream);
           if (audioRef.current) {
-            console.log(`[eko] App: audio element found, paused=${audioRef.current.paused} srcObject=${!!audioRef.current.srcObject}`);
+            console.log(
+              `[eko] App: audio element found, paused=${audioRef.current.paused} srcObject=${!!audioRef.current.srcObject}`,
+            );
             audioRef.current.srcObject = nextStream;
             audioRef.current.muted = false;
-            audioRef.current.play().then(() => {
-              console.log(`[eko] App: audio.play() succeeded`);
-              setIsPlaying(true);
-              startElapsedTimer();
-            }).catch((err) => {
-              console.warn(`[eko] App: audio.play() failed:`, err);
-            });
+            audioRef.current
+              .play()
+              .then(() => {
+                console.log(`[eko] App: audio.play() succeeded`);
+                setIsPlaying(true);
+                startElapsedTimer();
+              })
+              .catch((err) => {
+                console.warn(`[eko] App: audio.play() failed:`, err);
+              });
             setTimeout(() => {
               const t = nextStream.getAudioTracks()[0];
-              console.log(`[eko] App: after 2s — track muted=${t?.muted} readyState=${t?.readyState} enabled=${t?.enabled}`);
+              console.log(
+                `[eko] App: after 2s — track muted=${t?.muted} readyState=${t?.readyState} enabled=${t?.enabled}`,
+              );
             }, 2000);
           } else {
             console.warn(`[eko] App: audioRef.current is null — audio element not mounted`);
@@ -121,7 +151,7 @@ function App() {
       setStatus("failed");
       setMessage(error instanceof Error ? error.message : "Could not start web receiver.");
     }
-  }, [deviceId, payload, startElapsedTimer, stopElapsedTimer]);
+  }, [deviceId, deviceName, payload, startElapsedTimer, stopElapsedTimer]);
 
   const disconnect = useCallback(() => {
     sessionRef.current?.close();
@@ -183,6 +213,9 @@ function App() {
         <div className="grid gap-1">
           <h1 className="text-2xl font-semibold leading-tight">Eko</h1>
           <p className="text-sm leading-5 text-muted-foreground">Web receiver</p>
+          <div className="mt-1">
+            <NetworkBadge label="Same network" />
+          </div>
         </div>
 
         <Card className="gap-4 rounded-2xl py-5 shadow-none">
@@ -191,6 +224,17 @@ function App() {
           </CardHeader>
           <CardContent className="grid gap-4 px-5">
             <div className="rounded-xl bg-muted px-3 py-2 text-sm font-medium">{message}</div>
+            <label className="grid gap-2 text-sm font-medium" htmlFor="web-receiver-name">
+              Receiver name
+              <Input
+                id="web-receiver-name"
+                value={deviceName}
+                onBlur={() => setDeviceName(saveReceiverName("web", deviceName))}
+                onChange={(event) => setDeviceName(event.target.value)}
+                maxLength={40}
+                disabled={status === "connected" || status === "waiting"}
+              />
+            </label>
             <audio ref={audioRef} className="hidden" playsInline preload="auto">
               <track kind="captions" label="No captions available" />
             </audio>
@@ -289,25 +333,12 @@ function App() {
 
 export default App;
 
-function createJoinRequest(payload: PairingLinkPayload, deviceId: string): JoinRequest {
+function createJoinRequest(deviceId: string, deviceName: string): JoinRequest {
   return {
     deviceId,
-    deviceName: "Web receiver",
+    deviceName,
     method: "qr",
-    roomId: payload.roomId,
-    token: payload.token,
   };
-}
-
-function getDeviceId(): string {
-  const key = "eko-web-device-id";
-  const existing = localStorage.getItem(key);
-  if (existing) {
-    return existing;
-  }
-  const created = createDeviceId();
-  localStorage.setItem(key, created);
-  return created;
 }
 
 function createDeviceId(): string {

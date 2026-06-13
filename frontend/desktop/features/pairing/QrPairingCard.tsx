@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Copy, ExternalLink } from "lucide-react";
+import { NetworkBadge } from "@shared/components/NetworkBadge";
 import { Button } from "@shared/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@shared/components/ui/card";
 import type { QrPairingPayload } from "@shared/types/stream";
@@ -35,7 +36,10 @@ export function QrPairingCard({ payload }: QrPairingCardProps) {
   return (
     <Card className="h-full min-h-0 rounded-2xl shadow-sm">
       <CardHeader>
-        <CardTitle className="text-xl">QR Pairing</CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-xl">QR Pairing</CardTitle>
+          <NetworkBadge label="Same network" />
+        </div>
       </CardHeader>
       <CardContent className="flex flex-1 min-h-0 px-4 pb-4">
         <div className="group relative h-full w-full">

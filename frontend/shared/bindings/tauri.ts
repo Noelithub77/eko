@@ -87,8 +87,6 @@ export type DeviceConnectionState = "pending" | "connecting" | "connected" | "di
 export type DiscoveredHost = {
 	host: string,
 	port: number,
-	roomId: string,
-	token: string,
 };
 
 export type DiscoveryProofStatus = {
@@ -107,9 +105,7 @@ export type JoinMethod = "qr" | "discovery";
 export type JoinRequest = {
 	deviceId: string,
 	deviceName: string,
-	roomId: string,
 	method: JoinMethod,
-	token: string,
 };
 
 export type MediaState = {
@@ -127,8 +123,6 @@ export type NativeReceiverEvent = { kind: "waiting"; message: string } | { kind:
 export type QrPairingPayload = {
 	host: string,
 	port: number,
-	roomId: string,
-	token: string,
 };
 
 export type RoomSession = {

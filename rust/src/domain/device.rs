@@ -45,7 +45,5 @@ pub struct Device {
 pub struct JoinRequest {
     pub device_id: String,
     pub device_name: String,
-    pub room_id: String,
     pub method: JoinMethod,
-    pub token: String,
 }

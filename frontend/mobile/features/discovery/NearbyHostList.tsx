@@ -1,5 +1,6 @@
 import { Info, Radar } from "lucide-react";
 import { useState } from "react";
+import { NetworkBadge } from "@shared/components/NetworkBadge";
 import { Button } from "@shared/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@shared/components/ui/card";
 import {
@@ -24,7 +25,10 @@ export function NearbyHostList({ hosts, isSearching, onFind, onSelect }: NearbyH
   return (
     <Card className="gap-4 rounded-2xl py-5 shadow-none">
       <CardHeader className="px-5">
-        <CardTitle>Nearby Host</CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle>Nearby Host</CardTitle>
+          <NetworkBadge label="Same network" />
+        </div>
       </CardHeader>
       <CardContent className="grid gap-3 px-5">
         <Button className="h-11" disabled={isSearching} onClick={onFind} variant="outline">
@@ -77,7 +81,7 @@ export function NearbyHostList({ hosts, isSearching, onFind, onSelect }: NearbyH
 }
 
 function getHostKey(host: DiscoveredHost): string {
-  return `${host.roomId}-${host.host}-${host.port}`;
+  return `${host.host}-${host.port}`;
 }
 
 function removeDuplicateHosts(hosts: DiscoveredHost[]): DiscoveredHost[] {

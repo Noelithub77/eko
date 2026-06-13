@@ -1,6 +1,7 @@
 import { BrowserQRCodeReader } from "@zxing/browser";
 import { Camera, ScanLine } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { NetworkBadge } from "@shared/components/NetworkBadge";
 import { Button } from "@shared/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@shared/components/ui/card";
 import { cn } from "@shared/lib/utils";
@@ -71,7 +72,10 @@ export function ScanQrScreen({ compact = false, onScanned }: ScanQrScreenProps) 
   return (
     <Card className="gap-4 rounded-2xl py-5 shadow-none">
       <CardHeader className="px-5">
-        <CardTitle>Scan QR</CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle>Scan QR</CardTitle>
+          <NetworkBadge label="Same network" />
+        </div>
       </CardHeader>
       <CardContent className="grid gap-3 px-5">
         <div className="relative aspect-square overflow-hidden rounded-2xl bg-muted">

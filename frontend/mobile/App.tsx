@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { MobileLayout } from "./layouts/MobileLayout";
 import { Button } from "@shared/components/ui/button";
+import { Input } from "@shared/components/ui/input";
+import {
+  getSavedDeviceId,
+  getSavedReceiverName,
+  saveReceiverName,
+} from "@shared/utils/device-profile";
 import {
   findNearbyHosts,
   startAndroidMediaSession,
@@ -32,8 +38,9 @@ function App() {
   const [isSearching, setIsSearching] = useState(false);
   const [connectedHost, setConnectedHost] = useState<ConnectedHost | null>(null);
   const [latencyMs] = useState<number | null>(null);
+  const [deviceName, setDeviceName] = useState(() => getSavedReceiverName("android"));
 
-  const deviceId = useMemo(() => getDeviceId(), []);
+  const deviceId = useMemo(() => getSavedDeviceId("android"), []);
 
   useEffect(() => {
     void initAppLogging();
@@ -78,13 +85,13 @@ function App() {
   const requestApproval = useCallback(
     async (payload: QrPairingPayload, method: "qr" | "discovery") => {
       setConnectedHost(hostFromPayload(payload));
+      const savedName = saveReceiverName("android", deviceName);
+      setDeviceName(savedName);
 
       const request: JoinRequest = {
         deviceId,
-        deviceName: navigator.userAgent.includes("Android") ? "Android phone" : "Mobile device",
+        deviceName: savedName,
         method,
-        roomId: payload.roomId,
-        token: payload.token,
       };
 
       setStatus("waiting");
@@ -99,7 +106,7 @@ function App() {
         setMessage("Native receiver failed.");
       }
     },
-    [deviceId],
+    [deviceId, deviceName],
   );
 
   const findHosts = useCallback(async () => {
@@ -123,6 +130,17 @@ function App() {
         <h1 className="text-2xl font-semibold leading-tight">Eko</h1>
         <p className="text-sm leading-5 text-muted-foreground">{message}</p>
       </div>
+      <label className="grid gap-2 text-sm font-medium" htmlFor="android-receiver-name">
+        Receiver name
+        <Input
+          id="android-receiver-name"
+          value={deviceName}
+          onBlur={() => setDeviceName(saveReceiverName("android", deviceName))}
+          onChange={(event) => setDeviceName(event.target.value)}
+          maxLength={40}
+          disabled={status === "connected" || status === "waiting" || status === "connecting"}
+        />
+      </label>
       <ScanQrScreen
         compact={status !== "disconnected"}
         onScanned={(payload) => requestApproval(payload, "qr")}
@@ -169,17 +187,6 @@ function App() {
 
 export default App;
 
-function getDeviceId(): string {
-  const key = "eko-device-id";
-  const existing = localStorage.getItem(key);
-  if (existing) {
-    return existing;
-  }
-  const created = crypto.randomUUID();
-  localStorage.setItem(key, created);
-  return created;
-}
-
 function hostFromPayload(payload: QrPairingPayload): ConnectedHost {
   return {
     name: "Eko Desktop",
@@ -191,7 +198,7 @@ function uniqueHosts(hosts: DiscoveredHost[]): DiscoveredHost[] {
   const hostMap = new Map<string, DiscoveredHost>();
 
   for (const host of hosts) {
-    hostMap.set(`${host.roomId}-${host.host}-${host.port}`, host);
+    hostMap.set(`${host.host}-${host.port}`, host);
   }
 
   return [...hostMap.values()];
