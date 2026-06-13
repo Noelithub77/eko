@@ -66,10 +66,11 @@ fn start_stream(
     stop_signaling(&state)?;
     stop_media(&state)?;
 
-    let media = MediaHub::start()?;
+    let media = MediaHub::start(Some(Arc::clone(&state.session)), Some(app.clone()))?;
     let server =
         SignalingServer::start(Arc::clone(&state.session), Arc::clone(&media), app.clone())?;
     let port = server.port();
+    log::info!("Signaling server started on port {port}");
     let host = network_host::pairing_host()?;
     let mut result = state
         .session
@@ -277,6 +278,12 @@ fn get_core_proof_status() -> core_proof::CoreProofStatus {
 
 #[tauri::command]
 #[specta::specta]
+fn get_audio_capture_status() -> audio::AudioProofStatus {
+    audio::proof_status()
+}
+
+#[tauri::command]
+#[specta::specta]
 fn find_nearby_hosts() -> Result<Vec<DiscoveredHost>, String> {
     discovery::browse_hosts(1_500)
 }
@@ -398,13 +405,13 @@ pub fn run() {
         .plugin(
             tauri_plugin_log::Builder::default()
                 .level(log::LevelFilter::Info)
+                .level_for("dtls", log::LevelFilter::Error)
+                .level_for("webrtc_ice", log::LevelFilter::Warn)
                 .targets([
                     Target::new(TargetKind::Stdout),
-                    Target::new(TargetKind::Stderr),
                     Target::new(TargetKind::LogDir {
                         file_name: Some("eko.log".to_string()),
                     }),
-                    Target::new(TargetKind::Webview),
                 ])
                 .build(),
         )
@@ -474,6 +481,7 @@ fn command_builder() -> Builder<tauri::Wry> {
             disconnect_device,
             set_device_sharing,
             get_core_proof_status,
+            get_audio_capture_status,
             find_nearby_hosts,
             start_native_receiver,
             stop_native_receiver,

@@ -254,6 +254,11 @@ impl SessionStore {
         self.snapshot()
     }
 
+    pub fn push_event(&mut self, level: &str, message: &str) -> RoomSession {
+        self.session.events.push(event(level, message));
+        self.snapshot()
+    }
+
     fn is_valid_join(&self, request: &JoinRequest) -> bool {
         self.session.room_id.as_ref() == Some(&request.room_id)
             && self.session.token.as_ref() == Some(&request.token)

@@ -1,6 +1,7 @@
 import { commands } from "../bindings/tauri";
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  AudioProofStatus,
   CoreProofStatus,
   DevEvent,
   DiscoveredHost,
@@ -183,6 +184,18 @@ export function getCoreProofStatus(): Promise<CoreProofStatus> {
     });
   }
   return commands.getCoreProofStatus();
+}
+
+export function getAudioCaptureStatus(): Promise<AudioProofStatus> {
+  if (!isTauriRuntime()) {
+    return Promise.resolve({
+      backend: "browser preview",
+      defaultOutputDevice: null,
+      captureReady: false,
+      note: "Open the Tauri app for native audio capture.",
+    });
+  }
+  return commands.getAudioCaptureStatus();
 }
 
 export function findNearbyHosts(): Promise<DiscoveredHost[]> {

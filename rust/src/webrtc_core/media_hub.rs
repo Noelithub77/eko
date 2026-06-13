@@ -38,10 +38,15 @@ pub struct MediaHub {
     track: Arc<TrackLocalStaticSample>,
     peers: Mutex<HashMap<String, Arc<RTCPeerConnection>>>,
     audio_task: StdMutex<Option<tauri::async_runtime::JoinHandle<()>>>,
+    session: Option<crate::signaling::SharedSession>,
+    app: Option<tauri::AppHandle>,
 }
 
 impl MediaHub {
-    pub fn start() -> Result<SharedMediaHub, String> {
+    pub fn start(
+        session: Option<crate::signaling::SharedSession>,
+        app: Option<tauri::AppHandle>,
+    ) -> Result<SharedMediaHub, String> {
         let track = Arc::new(TrackLocalStaticSample::new(
             RTCRtpCodecCapability {
                 mime_type: MIME_TYPE_OPUS.to_string(),
@@ -59,6 +64,8 @@ impl MediaHub {
             track,
             peers: Mutex::new(HashMap::new()),
             audio_task: StdMutex::new(None),
+            session,
+            app,
         });
 
         MediaHub::start_audio_loop(&hub)?;
@@ -110,9 +117,26 @@ impl MediaHub {
             })
         }));
 
-        peer.add_track(Arc::clone(&self.track) as Arc<dyn TrackLocal + Send + Sync>)
+        let _sender = peer
+            .add_track(Arc::clone(&self.track) as Arc<dyn TrackLocal + Send + Sync>)
             .await
             .map_err(|error| error.to_string())?;
+        log::info!("Track added for device {device_id}");
+
+        peer.on_peer_connection_state_change(Box::new({
+            let device_id = device_id.clone();
+            move |state| {
+                log::info!("Peer connection state for {device_id}: {state:?}");
+                Box::pin(async {})
+            }
+        }));
+        peer.on_ice_connection_state_change(Box::new({
+            let device_id = device_id.clone();
+            move |state| {
+                log::info!("ICE connection state for {device_id}: {state:?}");
+                Box::pin(async {})
+            }
+        }));
 
         let offer = peer
             .create_offer(None)
@@ -146,9 +170,15 @@ impl MediaHub {
             .ok_or_else(|| "No WebRTC peer for this device.".to_string())?;
         let answer =
             RTCSessionDescription::answer(description.sdp).map_err(|error| error.to_string())?;
+        log::info!(
+            "Setting remote description for device {} (sdp type=answer)",
+            description.device_id
+        );
         peer.set_remote_description(answer)
             .await
-            .map_err(|error| error.to_string())
+            .map_err(|error| error.to_string())?;
+        log::info!("Remote description set successfully for device {}", description.device_id);
+        Ok(())
     }
 
     pub async fn add_ice_candidate(&self, candidate: IceCandidateMessage) -> Result<(), String> {
@@ -176,26 +206,51 @@ impl MediaHub {
         let (sender, mut receiver) = mpsc::channel::<AudioFrame>(8);
         let _capture_thread = start_system_audio_source(sender)?;
         let track = Arc::clone(&hub.track);
+        let session = hub.session.clone();
+        let app = hub.app.clone();
         let task = tauri::async_runtime::spawn(async move {
             let mut encoder = match OpusAudioEncoder::new() {
                 Ok(encoder) => encoder,
                 Err(error) => {
                     log::error!("Opus encoder failed: {error}");
+                    if let Some(session) = &session {
+                        if let Ok(mut store) = session.lock() {
+                            let session = store.push_event("error", &format!("Audio encoder failed: {error}"));
+                            if let Some(app) = &app {
+                                crate::signaling::emit_room_session(app, session);
+                            }
+                        }
+                    }
                     return;
                 }
             };
 
+            let mut frame_count = 0u64;
+            let mut success_count = 0u64;
             while let Some(frame) = receiver.recv().await {
                 let Ok(encoded) = encoder.encode(frame) else {
                     continue;
                 };
+                frame_count += 1;
                 let sample = Sample {
                     data: Bytes::from(encoded.data),
                     duration: Duration::from_millis(encoded.duration_ms),
                     ..Default::default()
                 };
                 let _sent_at_ms = encoded.created_at_ms;
-                let _ = track.write_sample(&sample).await;
+                match track.write_sample(&sample).await {
+                    Ok(()) => {
+                        success_count += 1;
+                        if success_count % 100 == 0 {
+                            log::info!("Audio loop: {success_count} samples written (frame_count={frame_count})");
+                        }
+                    }
+                    Err(error) => {
+                        if frame_count % 100 == 0 {
+                            log::error!("Audio loop: write_sample error: {error}");
+                        }
+                    }
+                }
             }
         });
 

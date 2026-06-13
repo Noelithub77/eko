@@ -2,6 +2,7 @@ use serde::Serialize;
 use specta::Type;
 
 pub mod frame;
+pub mod linux_capture;
 pub mod opus_codec;
 pub mod silence;
 pub mod windows_capture;
@@ -26,8 +27,8 @@ pub fn proof_status() -> AudioProofStatus {
     AudioProofStatus {
         backend: backend_name().to_string(),
         default_output_device,
-        capture_ready: cfg!(windows),
-        note: proof_note().to_string(),
+    capture_ready: cfg!(any(windows, target_os = "linux")),
+    note: proof_note().to_string(),
     }
 }
 
@@ -58,5 +59,5 @@ fn proof_note() -> &'static str {
 
 #[cfg(not(any(windows, target_os = "android")))]
 fn proof_note() -> &'static str {
-    "This target is not part of v1 audio capture."
+    "Linux system-audio capture uses cpal with PulseAudio/PipeWire monitor sources."
 }
