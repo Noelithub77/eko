@@ -306,18 +306,7 @@ async fn handle_client_message(
         Ok(SignalClientMessage::ReceiverReady { device_id }) => {
             log::info!("Signaling ReceiverReady from {}", device_id);
             let response = receiver_ready_response(session, app, device_id);
-            if send_json(socket, &response).await.is_err() {
-                return false;
-            }
-            send_json(
-                socket,
-                &SignalServerMessage::PlaybackSchedule {
-                    play_at_server_ms: next_playback_start_ms(),
-                    jitter_buffer_target_ms: PLAYBACK_JITTER_BUFFER_TARGET_MS,
-                },
-            )
-            .await
-            .is_ok()
+            send_json(socket, &response).await.is_ok()
         }
         Ok(SignalClientMessage::Answer { description }) => {
             log::info!(
@@ -328,7 +317,18 @@ async fn handle_client_message(
             match media.accept_answer(description).await {
                 Ok(()) => {
                     push_session_event(session, app, "info", "WebRTC answer accepted");
-                    send_signal_ack(socket).await.is_ok()
+                    if send_signal_ack(socket).await.is_err() {
+                        return false;
+                    }
+                    send_json(
+                        socket,
+                        &SignalServerMessage::PlaybackSchedule {
+                            play_at_server_ms: next_playback_start_ms(),
+                            jitter_buffer_target_ms: PLAYBACK_JITTER_BUFFER_TARGET_MS,
+                        },
+                    )
+                    .await
+                    .is_ok()
                 }
                 Err(message) => {
                     log::warn!("Signaling accept_answer failed: {message}");
