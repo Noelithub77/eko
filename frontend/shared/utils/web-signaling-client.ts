@@ -380,7 +380,7 @@ function clearPlaybackSync(state: PlaybackSyncState): void {
 }
 
 function createRequestId(): string {
-  if ("randomUUID" in crypto) {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
   }
   return `clock-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
