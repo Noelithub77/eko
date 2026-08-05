@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::net::TcpListener as StdTcpListener;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use futures_util::{SinkExt, StreamExt};
 use serde::Serialize;
@@ -24,6 +24,9 @@ pub const ROOM_SESSION_EVENT: &str = "room-session-updated";
 pub const PAIRING_PORT: u16 = 13370;
 
 const LOG_DEDUP_WINDOW_MS: u64 = 5_000;
+const PLAYBACK_JITTER_BUFFER_TARGET_MS: u16 = 60;
+const PLAYBACK_SCHEDULE_LEAD_MS: f64 = 250.0;
+const PLAYBACK_SCHEDULE_QUANTUM_MS: f64 = 500.0;
 
 fn log_dedup(key: &str) -> bool {
     use std::sync::OnceLock;
@@ -303,7 +306,18 @@ async fn handle_client_message(
         Ok(SignalClientMessage::ReceiverReady { device_id }) => {
             log::info!("Signaling ReceiverReady from {}", device_id);
             let response = receiver_ready_response(session, app, device_id);
-            send_json(socket, &response).await.is_ok()
+            if send_json(socket, &response).await.is_err() {
+                return false;
+            }
+            send_json(
+                socket,
+                &SignalServerMessage::PlaybackSchedule {
+                    play_at_server_ms: next_playback_start_ms(),
+                    jitter_buffer_target_ms: PLAYBACK_JITTER_BUFFER_TARGET_MS,
+                },
+            )
+            .await
+            .is_ok()
         }
         Ok(SignalClientMessage::Answer { description }) => {
             log::info!(
@@ -347,6 +361,19 @@ async fn handle_client_message(
                         .is_ok()
                 }
             }
+        }
+        Ok(SignalClientMessage::ClockSyncRequest {
+            request_id,
+            client_sent_at_ms,
+        }) => {
+            let server_received_at_ms = unix_time_ms();
+            let response = SignalServerMessage::ClockSyncResponse {
+                request_id,
+                client_sent_at_ms,
+                server_received_at_ms,
+                server_sent_at_ms: unix_time_ms(),
+            };
+            send_json(socket, &response).await.is_ok()
         }
         Ok(SignalClientMessage::ProfilerSample { sample }) => {
             if let Err(error) = crate::profiler::append_typed_sample(sample) {
@@ -507,6 +534,18 @@ async fn forward_media_signals(
     }
 
     Ok(())
+}
+
+fn next_playback_start_ms() -> f64 {
+    let earliest = unix_time_ms() + PLAYBACK_SCHEDULE_LEAD_MS;
+    (earliest / PLAYBACK_SCHEDULE_QUANTUM_MS).ceil() * PLAYBACK_SCHEDULE_QUANTUM_MS
+}
+
+fn unix_time_ms() -> f64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs_f64() * 1_000.0)
+        .unwrap_or(0.0)
 }
 
 async fn send_signal_ack(
