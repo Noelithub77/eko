@@ -58,6 +58,10 @@ pub enum SignalClientMessage {
     IceCandidate {
         candidate: IceCandidateMessage,
     },
+    ClockSyncRequest {
+        request_id: String,
+        client_sent_at_ms: f64,
+    },
     ProfilerSample {
         sample: StreamProfilerSample,
     },
@@ -97,6 +101,16 @@ pub enum SignalServerMessage {
     },
     HostState {
         session: RoomSession,
+    },
+    ClockSyncResponse {
+        request_id: String,
+        client_sent_at_ms: f64,
+        server_received_at_ms: f64,
+        server_sent_at_ms: f64,
+    },
+    PlaybackSchedule {
+        play_at_server_ms: f64,
+        jitter_buffer_target_ms: u16,
     },
     SignalAck {
         message: String,
