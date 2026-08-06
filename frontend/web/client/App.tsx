@@ -28,6 +28,7 @@ function App() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
+  const [hasJoined, setHasJoined] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -99,6 +100,7 @@ function App() {
 
     const savedName = finalReceiverName("web");
     const request = createJoinRequest(deviceId, savedName);
+    setHasJoined(true);
     try {
       const session = await startWebReceiver(payload, request, {
         onStatus: () => {},
@@ -152,6 +154,7 @@ function App() {
     setStream(null);
     streamRef.current = null;
     setIsPlaying(false);
+    setHasJoined(false);
     setStatus(payload ? "ready" : "failed");
   }, [payload]);
 
@@ -172,7 +175,7 @@ function App() {
 
   const isConnected = status === "connected";
   const isWaiting = status === "waiting";
-  const canEditName = !isConnected && !isWaiting;
+  const canEditName = hasJoined;
 
   useWebBackgroundPlayback({
     audioRef,
@@ -202,13 +205,15 @@ function App() {
                   id="web-receiver-name"
                   value={deviceName}
                   onBlur={() => {
-                    finalReceiverName("web");
+                    const next = finalReceiverName("web");
+                    sessionRef.current?.updateReceiverName(next);
                     setIsEditingName(false);
                   }}
                   onChange={(event) => setReceiverName("web", event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
-                      finalReceiverName("web");
+                      const next = finalReceiverName("web");
+                      sessionRef.current?.updateReceiverName(next);
                       setIsEditingName(false);
                     }
                     if (event.key === "Escape") {

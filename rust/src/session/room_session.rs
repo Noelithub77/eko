@@ -231,6 +231,23 @@ impl SessionStore {
         self.snapshot()
     }
 
+    pub fn update_device_name(&mut self, device_id: String, name: String) -> RoomSession {
+        let cleaned = receiver_name(name);
+        let mut changed = false;
+        self.update_device(&device_id, |device| {
+            if device.device_name != cleaned {
+                device.device_name = cleaned.clone();
+                changed = true;
+            }
+        });
+        if changed {
+            self.session
+                .events
+                .push(event("info", "Receiver name updated"));
+        }
+        self.snapshot()
+    }
+
     pub fn push_event(&mut self, level: &str, message: &str) -> RoomSession {
         self.push_limited_event(level, message);
         self.snapshot()

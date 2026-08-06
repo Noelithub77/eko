@@ -52,7 +52,6 @@ impl OpusAudioEncoder {
         Ok(EncodedAudioFrame {
             data: output,
             duration_ms: FRAME_MS,
-            created_at_ms: frame.created_at_ms,
         })
     }
 }
