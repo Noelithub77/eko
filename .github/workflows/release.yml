@@ -67,11 +67,6 @@ jobs:
         with:
           node-version: 22
 
-      - name: Enable pnpm
-        run: |
-          corepack enable
-          corepack prepare "pnpm@${PNPM_VERSION}" --activate
-
       - name: Patch bump app version
         if: inputs.bump_patch
         run: |
@@ -153,11 +148,6 @@ jobs:
           node-version: 22
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-
-      - name: Enable pnpm
-        run: |
-          corepack enable
-          corepack prepare "pnpm@${PNPM_VERSION}" --activate
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -281,11 +271,6 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
-      - name: Enable pnpm
-        run: |
-          corepack enable
-          corepack prepare "pnpm@${PNPM_VERSION}" --activate
-
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -395,11 +380,6 @@ jobs:
           node-version: 22
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-
-      - name: Enable pnpm
-        run: |
-          corepack enable
-          corepack prepare "pnpm@${PNPM_VERSION}" --activate
 
       - name: Setup Java
         uses: actions/setup-java@v4
