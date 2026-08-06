@@ -6,6 +6,30 @@ import type {
 } from "@shared/bindings/tauri";
 import type { PairingLinkPayload } from "@shared/types/pairing-link";
 
+const CLOCK_SYNC_SAMPLE_COUNT = 3;
+const CLOCK_SYNC_TIMEOUT_MS = 500;
+const DEFAULT_JITTER_BUFFER_TARGET_MS = 60;
+const FALLBACK_START_DELAY_MS = 250;
+
+type ClockSample = {
+  offsetMs: number;
+  roundTripMs: number;
+};
+
+type PendingClockRequest = {
+  timeoutId: number;
+  resolve: (sample: ClockSample | null) => void;
+};
+
+type PlaybackSyncState = {
+  serverOffsetMs: number;
+  hasServerOffset: boolean;
+  pendingClockRequests: Map<string, PendingClockRequest>;
+  pendingStream: MediaStream | null;
+  playAtLocalMs: number | null;
+  playbackTimerId: number | null;
+};
+
 type WebReceiverHandlers = {
   onStatus: (message: string) => void;
   onStream: (stream: MediaStream) => void;
@@ -26,16 +50,18 @@ export async function startWebReceiver(
   const peer = new RTCPeerConnection();
   let isClosed = false;
   let hasOpened = false;
+  const playbackSync = createPlaybackSyncState();
 
   peer.ontrack = (event: RTCTrackEvent) => {
     console.log(
       `[eko] ontrack: kind=${event.track.kind} id=${event.track.id} streams=${event.streams.length}`,
     );
-    tuneAudioReceivers(peer);
+    tuneAudioReceivers(peer, DEFAULT_JITTER_BUFFER_TARGET_MS);
     const [stream] = event.streams;
     if (stream) {
       console.log(`[eko] stream received: id=${stream.id} tracks=${stream.getTracks().length}`);
-      handlers.onStream(stream);
+      playbackSync.pendingStream = stream;
+      scheduleStreamDelivery(playbackSync, handlers);
     }
   };
 
@@ -83,12 +109,25 @@ export async function startWebReceiver(
 
   socket.addEventListener("open", () => {
     hasOpened = true;
-    handlers.onStatus("Asking desktop.");
-    send(socket, { kind: "joinRequest", request });
+    handlers.onStatus("Synchronizing playback.");
+    void calibrateClock(socket, playbackSync).finally(() => {
+      if (socket.readyState !== WebSocket.OPEN) {
+        return;
+      }
+      handlers.onStatus("Asking desktop.");
+      send(socket, { kind: "joinRequest", request });
+    });
   });
 
   socket.addEventListener("message", (event: MessageEvent<string>) => {
-    void handleServerMessage(socket, peer, request.deviceId, event.data, handlers);
+    void handleServerMessage(
+      socket,
+      peer,
+      request.deviceId,
+      event.data,
+      handlers,
+      playbackSync,
+    );
   });
 
   socket.addEventListener("close", () => {
@@ -108,6 +147,7 @@ export async function startWebReceiver(
     close: () => {
       isClosed = true;
       clearInterval(statsInterval);
+      clearPlaybackSync(playbackSync);
       socket.close();
       peer.close();
     },
@@ -120,9 +160,24 @@ async function handleServerMessage(
   deviceId: string,
   text: string,
   handlers: WebReceiverHandlers,
+  playbackSync: PlaybackSyncState,
 ): Promise<void> {
   const message = parseServerMessage(text);
   if (!message) {
+    return;
+  }
+
+  if (message.kind === "clockSyncResponse") {
+    resolveClockSample(playbackSync, message, Date.now());
+    return;
+  }
+
+  if (message.kind === "playbackSchedule") {
+    playbackSync.playAtLocalMs = playbackSync.hasServerOffset
+      ? message.playAtServerMs - playbackSync.serverOffsetMs
+      : Date.now() + FALLBACK_START_DELAY_MS;
+    tuneAudioReceivers(peer, message.jitterBufferTargetMs);
+    scheduleStreamDelivery(playbackSync, handlers);
     return;
   }
 
@@ -217,7 +272,121 @@ function isIceCandidateInit(value: unknown): value is RTCIceCandidateInit {
   return typeof candidate === "string";
 }
 
-function tuneAudioReceivers(peer: RTCPeerConnection): void {
+function createPlaybackSyncState(): PlaybackSyncState {
+  return {
+    serverOffsetMs: 0,
+    hasServerOffset: false,
+    pendingClockRequests: new Map(),
+    pendingStream: null,
+    playAtLocalMs: null,
+    playbackTimerId: null,
+  };
+}
+
+async function calibrateClock(socket: WebSocket, state: PlaybackSyncState): Promise<void> {
+  const samples: ClockSample[] = [];
+
+  for (let index = 0; index < CLOCK_SYNC_SAMPLE_COUNT; index += 1) {
+    const sample = await measureClock(socket, state);
+    if (sample) {
+      samples.push(sample);
+    }
+  }
+
+  const best = samples.sort((left, right) => left.roundTripMs - right.roundTripMs)[0];
+  if (!best) {
+    return;
+  }
+
+  state.serverOffsetMs = best.offsetMs;
+  state.hasServerOffset = true;
+}
+
+function measureClock(socket: WebSocket, state: PlaybackSyncState): Promise<ClockSample | null> {
+  return new Promise((resolve) => {
+    const requestId = createRequestId();
+    const clientSentAtMs = Date.now();
+    const timeoutId = window.setTimeout(() => {
+      state.pendingClockRequests.delete(requestId);
+      resolve(null);
+    }, CLOCK_SYNC_TIMEOUT_MS);
+
+    state.pendingClockRequests.set(requestId, { timeoutId, resolve });
+    send(socket, { kind: "clockSyncRequest", requestId, clientSentAtMs });
+  });
+}
+
+function resolveClockSample(
+  state: PlaybackSyncState,
+  message: Extract<SignalServerMessage, { kind: "clockSyncResponse" }>,
+  clientReceivedAtMs: number,
+): void {
+  const pending = state.pendingClockRequests.get(message.requestId);
+  if (!pending) {
+    return;
+  }
+
+  window.clearTimeout(pending.timeoutId);
+  state.pendingClockRequests.delete(message.requestId);
+  const serverProcessingMs = message.serverSentAtMs - message.serverReceivedAtMs;
+  const roundTripMs = Math.max(
+    0,
+    clientReceivedAtMs - message.clientSentAtMs - serverProcessingMs,
+  );
+  const offsetMs =
+    (message.serverReceivedAtMs - message.clientSentAtMs +
+      (message.serverSentAtMs - clientReceivedAtMs)) /
+    2;
+  pending.resolve({ offsetMs, roundTripMs });
+}
+
+function scheduleStreamDelivery(
+  state: PlaybackSyncState,
+  handlers: WebReceiverHandlers,
+): void {
+  if (!state.pendingStream) {
+    return;
+  }
+
+  if (state.playbackTimerId !== null) {
+    window.clearTimeout(state.playbackTimerId);
+  }
+
+  const delayMs =
+    state.playAtLocalMs === null
+      ? FALLBACK_START_DELAY_MS
+      : Math.max(0, state.playAtLocalMs - Date.now());
+  state.playbackTimerId = window.setTimeout(() => {
+    const stream = state.pendingStream;
+    state.pendingStream = null;
+    state.playbackTimerId = null;
+    if (stream) {
+      handlers.onStream(stream);
+    }
+  }, delayMs);
+}
+
+function clearPlaybackSync(state: PlaybackSyncState): void {
+  if (state.playbackTimerId !== null) {
+    window.clearTimeout(state.playbackTimerId);
+    state.playbackTimerId = null;
+  }
+  for (const pending of state.pendingClockRequests.values()) {
+    window.clearTimeout(pending.timeoutId);
+    pending.resolve(null);
+  }
+  state.pendingClockRequests.clear();
+  state.pendingStream = null;
+}
+
+function createRequestId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `clock-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+function tuneAudioReceivers(peer: RTCPeerConnection, targetMs: number): void {
   for (const receiver of peer.getReceivers()) {
     if (receiver.track.kind !== "audio" || !("jitterBufferTarget" in receiver)) {
       continue;
@@ -226,6 +395,6 @@ function tuneAudioReceivers(peer: RTCPeerConnection): void {
     const audioReceiver = receiver as RTCRtpReceiver & {
       jitterBufferTarget: number | null;
     };
-    audioReceiver.jitterBufferTarget = 80;
+    audioReceiver.jitterBufferTarget = targetMs;
   }
 }
