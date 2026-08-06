@@ -375,6 +375,44 @@ async fn handle_client_message(
             };
             send_json(socket, &response).await.is_ok()
         }
+        Ok(SignalClientMessage::UpdateReceiverName {
+            device_id: requested_device_id,
+            name,
+        }) => {
+            let Some(connected_device_id) = device_id.as_deref() else {
+                return send_json(
+                    socket,
+                    &SignalServerMessage::Error {
+                        message: "Receiver must join before updating its name.".to_string(),
+                    },
+                )
+                .await
+                .is_ok();
+            };
+            if connected_device_id != requested_device_id.as_str() {
+                return send_json(
+                    socket,
+                    &SignalServerMessage::Error {
+                        message: "Receiver name update does not match this connection.".to_string(),
+                    },
+                )
+                .await
+                .is_ok();
+            }
+            log::info!(
+                "Signaling UpdateReceiverName from {} -> {}",
+                connected_device_id,
+                name
+            );
+            let session_snapshot = {
+                let Ok(mut store) = session.lock() else {
+                    return false;
+                };
+                store.update_device_name(connected_device_id.to_string(), name)
+            };
+            emit_room_session(app, session_snapshot);
+            send_signal_ack(socket).await.is_ok()
+        }
         Ok(SignalClientMessage::ProfilerSample { sample }) => {
             if let Err(error) = crate::profiler::append_typed_sample(sample) {
                 log::warn!("Live profiler sample ignored: {error}");

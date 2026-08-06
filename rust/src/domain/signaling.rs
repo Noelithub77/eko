@@ -62,6 +62,10 @@ pub enum SignalClientMessage {
         request_id: String,
         client_sent_at_ms: f64,
     },
+    UpdateReceiverName {
+        device_id: String,
+        name: String,
+    },
     ProfilerSample {
         sample: StreamProfilerSample,
     },
