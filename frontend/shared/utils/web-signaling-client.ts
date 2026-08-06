@@ -3,6 +3,7 @@ import type {
   JoinRequest,
   SignalClientMessage,
   SignalServerMessage,
+  WebNowPlayingState,
 } from "@shared/bindings/tauri";
 import type { PairingLinkPayload } from "@shared/types/pairing-link";
 
@@ -33,10 +34,21 @@ type PlaybackSyncState = {
 type WebReceiverHandlers = {
   onStatus: (message: string) => void;
   onStream: (stream: MediaStream) => void;
+  onNowPlaying: (media: WebNowPlayingState | null) => void;
+  onConnectionLost: () => void;
+};
+
+type ValidClockSyncResponse = {
+  kind: "clockSyncResponse";
+  requestId: string;
+  clientSentAtMs: number;
+  serverReceivedAtMs: number;
+  serverSentAtMs: number;
 };
 
 export type WebReceiverSession = {
   peer: RTCPeerConnection;
+  needsReconnect: () => boolean;
   updateReceiverName: (name: string) => void;
   close: () => void;
 };
@@ -68,6 +80,9 @@ export async function startWebReceiver(
 
   peer.onconnectionstatechange = () => {
     console.log(`[eko] browser connection state: ${peer.connectionState}`);
+    if (!isClosed && (peer.connectionState === "failed" || peer.connectionState === "closed")) {
+      handlers.onConnectionLost();
+    }
   };
   peer.oniceconnectionstatechange = () => {
     console.log(`[eko] browser ICE state: ${peer.iceConnectionState}`);
@@ -121,14 +136,7 @@ export async function startWebReceiver(
   });
 
   socket.addEventListener("message", (event: MessageEvent<string>) => {
-    void handleServerMessage(
-      socket,
-      peer,
-      request.deviceId,
-      event.data,
-      handlers,
-      playbackSync,
-    );
+    void handleServerMessage(socket, peer, request.deviceId, event.data, handlers, playbackSync);
   });
 
   socket.addEventListener("close", () => {
@@ -136,15 +144,22 @@ export async function startWebReceiver(
       handlers.onStatus(
         hasOpened ? "Desktop connection closed." : "Could not open desktop connection.",
       );
+      handlers.onConnectionLost();
     }
   });
 
   socket.addEventListener("error", () => {
     handlers.onStatus(`Could not reach desktop at ${payload.host}:${payload.port}.`);
+    handlers.onConnectionLost();
   });
 
   return {
     peer,
+    needsReconnect: () =>
+      !isClosed &&
+      (socket.readyState !== WebSocket.OPEN ||
+        peer.connectionState === "failed" ||
+        peer.connectionState === "closed"),
     updateReceiverName: (name) => {
       send(socket, { kind: "updateReceiverName", deviceId: request.deviceId, name });
     },
@@ -172,16 +187,42 @@ async function handleServerMessage(
   }
 
   if (message.kind === "clockSyncResponse") {
-    resolveClockSample(playbackSync, message, Date.now());
+    if (
+      message.clientSentAtMs === null ||
+      message.serverReceivedAtMs === null ||
+      message.serverSentAtMs === null
+    ) {
+      return;
+    }
+
+    resolveClockSample(
+      playbackSync,
+      {
+        ...message,
+        clientSentAtMs: message.clientSentAtMs,
+        serverReceivedAtMs: message.serverReceivedAtMs,
+        serverSentAtMs: message.serverSentAtMs,
+      },
+      Date.now(),
+    );
     return;
   }
 
   if (message.kind === "playbackSchedule") {
+    if (message.playAtServerMs === null) {
+      return;
+    }
+
     playbackSync.playAtLocalMs = playbackSync.hasServerOffset
       ? message.playAtServerMs - playbackSync.serverOffsetMs
       : Date.now() + FALLBACK_START_DELAY_MS;
     tuneAudioReceivers(peer, message.jitterBufferTargetMs);
     scheduleStreamDelivery(playbackSync, handlers);
+    return;
+  }
+
+  if (message.kind === "nowPlaying") {
+    handlers.onNowPlaying(message.media);
     return;
   }
 
@@ -322,7 +363,7 @@ function measureClock(socket: WebSocket, state: PlaybackSyncState): Promise<Cloc
 
 function resolveClockSample(
   state: PlaybackSyncState,
-  message: Extract<SignalServerMessage, { kind: "clockSyncResponse" }>,
+  message: ValidClockSyncResponse,
   clientReceivedAtMs: number,
 ): void {
   const pending = state.pendingClockRequests.get(message.requestId);
@@ -333,21 +374,16 @@ function resolveClockSample(
   window.clearTimeout(pending.timeoutId);
   state.pendingClockRequests.delete(message.requestId);
   const serverProcessingMs = message.serverSentAtMs - message.serverReceivedAtMs;
-  const roundTripMs = Math.max(
-    0,
-    clientReceivedAtMs - message.clientSentAtMs - serverProcessingMs,
-  );
+  const roundTripMs = Math.max(0, clientReceivedAtMs - message.clientSentAtMs - serverProcessingMs);
   const offsetMs =
-    (message.serverReceivedAtMs - message.clientSentAtMs +
+    (message.serverReceivedAtMs -
+      message.clientSentAtMs +
       (message.serverSentAtMs - clientReceivedAtMs)) /
     2;
   pending.resolve({ offsetMs, roundTripMs });
 }
 
-function scheduleStreamDelivery(
-  state: PlaybackSyncState,
-  handlers: WebReceiverHandlers,
-): void {
+function scheduleStreamDelivery(state: PlaybackSyncState, handlers: WebReceiverHandlers): void {
   if (!state.pendingStream) {
     return;
   }

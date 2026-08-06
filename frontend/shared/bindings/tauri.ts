@@ -144,9 +144,9 @@ export type SessionDescriptionMessage = {
 
 export type SharingState = "enabled" | "disabled";
 
-export type SignalClientMessage = { kind: "joinRequest"; request: JoinRequest } | { kind: "receiverReady"; deviceId: string } | { kind: "offer"; description: SessionDescriptionMessage } | { kind: "answer"; description: SessionDescriptionMessage } | { kind: "iceCandidate"; candidate: IceCandidateMessage } | { kind: "clockSyncRequest"; requestId: string; clientSentAtMs: number } | { kind: "updateReceiverName"; deviceId: string; name: string } | { kind: "profilerSample"; sample: StreamProfilerSample };
+export type SignalClientMessage = { kind: "joinRequest"; request: JoinRequest } | { kind: "receiverReady"; deviceId: string } | { kind: "offer"; description: SessionDescriptionMessage } | { kind: "answer"; description: SessionDescriptionMessage } | { kind: "iceCandidate"; candidate: IceCandidateMessage } | { kind: "clockSyncRequest"; requestId: string; clientSentAtMs: number | null } | { kind: "updateReceiverName"; deviceId: string; name: string } | { kind: "profilerSample"; sample: StreamProfilerSample };
 
-export type SignalServerMessage = { kind: "approvalWaiting"; deviceId: string; session: RoomSession } | { kind: "joinRejected"; reason: string } | { kind: "permissionChanged"; deviceId: string; state: DeviceConnectionState; sharing: SharingState; session: RoomSession } | { kind: "webRtcReady"; deviceId: string } | { kind: "hostOffer"; description: SessionDescriptionMessage } | { kind: "hostIceCandidate"; candidate: IceCandidateMessage } | { kind: "audioReady"; deviceId: string } | { kind: "hostState"; session: RoomSession } | { kind: "clockSyncResponse"; requestId: string; clientSentAtMs: number; serverReceivedAtMs: number; serverSentAtMs: number } | { kind: "playbackSchedule"; playAtServerMs: number; jitterBufferTargetMs: number } | { kind: "signalAck"; message: string } | { kind: "error"; message: string };
+export type SignalServerMessage = { kind: "approvalWaiting"; deviceId: string; session: RoomSession } | { kind: "joinRejected"; reason: string } | { kind: "permissionChanged"; deviceId: string; state: DeviceConnectionState; sharing: SharingState; session: RoomSession } | { kind: "webRtcReady"; deviceId: string } | { kind: "hostOffer"; description: SessionDescriptionMessage } | { kind: "hostIceCandidate"; candidate: IceCandidateMessage } | { kind: "audioReady"; deviceId: string } | { kind: "hostState"; session: RoomSession } | { kind: "clockSyncResponse"; requestId: string; clientSentAtMs: number | null; serverReceivedAtMs: number | null; serverSentAtMs: number | null } | { kind: "playbackSchedule"; playAtServerMs: number | null; jitterBufferTargetMs: number } | { kind: "nowPlaying"; media: WebNowPlayingState | null } | { kind: "signalAck"; message: string } | { kind: "error"; message: string };
 
 export type SignalingProofStatus = {
 	transport: string,
@@ -178,9 +178,18 @@ export type StreamProfilerSample = {
 
 export type StreamStatus = "idle" | "starting" | "running" | "stopping" | "failed";
 
+export type WebNowPlayingState = {
+	title: string | null,
+	artist: string | null,
+	album: string | null,
+	appName: string | null,
+	isPlaying: boolean,
+};
+
 export type WebRtcProofStatus = {
 	mediaTransport: string,
 	codec: string,
 	libraryReady: boolean,
 	note: string,
 };
+

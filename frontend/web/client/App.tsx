@@ -13,8 +13,12 @@ import { ConnectionQualityPanel } from "./features/playback/ConnectionQualityPan
 import type { ConnectionQuality } from "./features/playback/connection-quality";
 import { createLiveProfiler, type LiveProfiler } from "./features/playback/live-profiler";
 import { useWebBackgroundPlayback } from "./features/playback/web-background-playback";
+import type { WebNowPlayingState } from "@shared/bindings/tauri";
 
 type ConnectionState = "ready" | "waiting" | "connected" | "failed";
+
+const AUTO_RECONNECT_STORAGE_KEY = "eko-web-auto-reconnect";
+const RECOVERY_COOLDOWN_MS = 3_000;
 
 function App() {
   const payload = useMemo(() => parsePairingSource(window.location.href), []);
@@ -26,6 +30,7 @@ function App() {
   const [peer, setPeer] = useState<RTCPeerConnection | null>(null);
   const [profiler, setProfiler] = useState<LiveProfiler | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [desktopMedia, setDesktopMedia] = useState<WebNowPlayingState | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
@@ -33,6 +38,10 @@ function App() {
   const nameInputRef = useRef<HTMLInputElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const sessionRef = useRef<WebReceiverSession | null>(null);
+  const shouldRecoverRef = useRef(false);
+  const reconnectInFlightRef = useRef(false);
+  const lastRecoveryAtRef = useRef(0);
+  const recoverConnectionRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     if (isEditingName) {
@@ -87,16 +96,22 @@ function App() {
   }, []);
 
   const connect = useCallback(async () => {
-    if (!payload) {
+    if (!payload || reconnectInFlightRef.current) {
       return;
     }
 
+    reconnectInFlightRef.current = true;
+    pauseCurrentStream();
+    streamRef.current = null;
     setStatus("waiting");
     setStream(null);
+    setDesktopMedia(null);
     setIsPlaying(false);
     sessionRef.current?.close();
     setPeer(null);
     setProfiler(null);
+    shouldRecoverRef.current = false;
+    localStorage.setItem(AUTO_RECONNECT_STORAGE_KEY, "true");
 
     const savedName = finalReceiverName("web");
     const request = createJoinRequest(deviceId, savedName);
@@ -104,6 +119,15 @@ function App() {
     try {
       const session = await startWebReceiver(payload, request, {
         onStatus: () => {},
+        onNowPlaying: (media) => {
+          setDesktopMedia(media);
+        },
+        onConnectionLost: () => {
+          shouldRecoverRef.current = true;
+          if (document.visibilityState === "visible") {
+            window.setTimeout(() => recoverConnectionRef.current(), 0);
+          }
+        },
         onStream: (nextStream) => {
           for (const track of nextStream.getTracks()) {
             track.addEventListener("mute", () => console.log(`[eko] App: track ${track.id} MUTED`));
@@ -139,17 +163,52 @@ function App() {
     } catch (error) {
       setStatus("failed");
       console.error(`[eko] App: connect failed:`, error);
+    } finally {
+      reconnectInFlightRef.current = false;
     }
-  }, [deviceId, finalReceiverName, payload, playCurrentStream]);
+  }, [deviceId, finalReceiverName, payload, pauseCurrentStream, playCurrentStream]);
+
+  const recoverConnection = useCallback(() => {
+    const session = sessionRef.current;
+    const now = Date.now();
+    const wantsReconnect = localStorage.getItem(AUTO_RECONNECT_STORAGE_KEY) === "true";
+    if (
+      reconnectInFlightRef.current ||
+      now - lastRecoveryAtRef.current < RECOVERY_COOLDOWN_MS ||
+      (!session && !shouldRecoverRef.current && !wantsReconnect) ||
+      (!shouldRecoverRef.current && session && !session.needsReconnect())
+    ) {
+      return;
+    }
+
+    lastRecoveryAtRef.current = now;
+    void connect();
+  }, [connect]);
+  recoverConnectionRef.current = recoverConnection;
+
+  useEffect(() => {
+    if (!payload || localStorage.getItem(AUTO_RECONNECT_STORAGE_KEY) !== "true") {
+      return;
+    }
+
+    void connect();
+  }, [connect, payload]);
 
   const disconnect = useCallback(() => {
     sessionRef.current?.close();
     sessionRef.current = null;
+    shouldRecoverRef.current = false;
+    reconnectInFlightRef.current = false;
+    localStorage.removeItem(AUTO_RECONNECT_STORAGE_KEY);
     setPeer(null);
     setProfiler(null);
+    setDesktopMedia(null);
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.srcObject = null;
+    }
+    for (const track of streamRef.current?.getTracks() ?? []) {
+      track.stop();
     }
     setStream(null);
     streamRef.current = null;
@@ -181,10 +240,11 @@ function App() {
     audioRef,
     isConnected,
     isPlaying,
-    receiverName: deviceName,
+    desktopMedia,
     onPause: pauseCurrentStream,
     onPlay: playCurrentStream,
     onStop: disconnect,
+    onRecover: recoverConnection,
   });
 
   return (

@@ -1,4 +1,5 @@
 import { useEffect, useRef, type RefObject } from "react";
+import type { WebNowPlayingState } from "@shared/bindings/tauri";
 
 type PlaybackAction = () => void;
 
@@ -6,10 +7,11 @@ type WebBackgroundPlaybackInput = {
   audioRef: RefObject<HTMLAudioElement | null>;
   isConnected: boolean;
   isPlaying: boolean;
-  receiverName: string;
+  desktopMedia: WebNowPlayingState | null;
   onPlay: PlaybackAction;
   onPause: PlaybackAction;
   onStop: PlaybackAction;
+  onRecover: PlaybackAction;
 };
 
 type EkoAudioSession = {
@@ -20,20 +22,8 @@ type EkoNavigatorWithAudioSession = Navigator & {
   audioSession?: EkoAudioSession;
 };
 
-type EkoWakeLockSentinel = EventTarget & {
-  readonly released: boolean;
-  release: () => Promise<void>;
-};
-
-type EkoNavigatorWithWakeLock = Navigator & {
-  wakeLock?: {
-    request: (type: "screen") => Promise<EkoWakeLockSentinel>;
-  };
-};
-
 export function useWebBackgroundPlayback(input: WebBackgroundPlaybackInput): void {
   const latestInputRef = useRef(input);
-  const wakeLockRef = useRef<EkoWakeLockSentinel | null>(null);
 
   useEffect(() => {
     latestInputRef.current = input;
@@ -51,11 +41,24 @@ export function useWebBackgroundPlayback(input: WebBackgroundPlaybackInput): voi
     }
 
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: "Eko",
-      artist: input.receiverName,
-      album: "Desktop audio relay",
+      title: input.desktopMedia?.title ?? "Eko is streaming audio from this device",
+      artist: input.desktopMedia?.artist ?? "Eko",
+      album:
+        input.desktopMedia?.album ??
+        (input.desktopMedia?.appName
+          ? `From ${input.desktopMedia.appName}`
+          : "Desktop audio relay"),
     });
-    navigator.mediaSession.playbackState = input.isPlaying ? "playing" : "paused";
+    navigator.mediaSession.playbackState = input.isConnected
+      ? input.isPlaying
+        ? "playing"
+        : "paused"
+      : "none";
+
+    const pageTitle = input.desktopMedia?.title
+      ? `${input.desktopMedia.title} • Eko`
+      : "Eko • Streaming from this device";
+    document.title = pageTitle;
 
     setMediaActionHandler("play", () => latestInputRef.current.onPlay());
     setMediaActionHandler("pause", () => latestInputRef.current.onPause());
@@ -63,56 +66,39 @@ export function useWebBackgroundPlayback(input: WebBackgroundPlaybackInput): voi
 
     return () => {
       navigator.mediaSession.playbackState = "none";
+      document.title = "Eko Client";
       setMediaActionHandler("play", null);
       setMediaActionHandler("pause", null);
       setMediaActionHandler("stop", null);
     };
-  }, [input.isPlaying, input.receiverName]);
+  }, [input.desktopMedia, input.isConnected, input.isPlaying]);
 
   useEffect(() => {
-    const resumeIfNeeded = (): void => {
+    const recoverIfNeeded = (): void => {
       const latestInput = latestInputRef.current;
-      if (!latestInput.isConnected || !latestInput.isPlaying) {
+      if (document.visibilityState !== "visible") {
         return;
       }
 
-      void latestInput.audioRef.current?.play().catch((error: unknown) => {
-        console.warn("[eko] web background resume failed:", error);
-      });
+      if (latestInput.isConnected && latestInput.isPlaying) {
+        void latestInput.audioRef.current?.play().catch((error: unknown) => {
+          console.warn("[eko] web background resume failed:", error);
+        });
+      }
+
+      latestInput.onRecover();
     };
 
-    document.addEventListener("visibilitychange", resumeIfNeeded);
-    window.addEventListener("focus", resumeIfNeeded);
-    window.addEventListener("pageshow", resumeIfNeeded);
+    document.addEventListener("visibilitychange", recoverIfNeeded);
+    window.addEventListener("focus", recoverIfNeeded);
+    window.addEventListener("pageshow", recoverIfNeeded);
 
     return () => {
-      document.removeEventListener("visibilitychange", resumeIfNeeded);
-      window.removeEventListener("focus", resumeIfNeeded);
-      window.removeEventListener("pageshow", resumeIfNeeded);
+      document.removeEventListener("visibilitychange", recoverIfNeeded);
+      window.removeEventListener("focus", recoverIfNeeded);
+      window.removeEventListener("pageshow", recoverIfNeeded);
     };
   }, []);
-
-  useEffect(() => {
-    if (!input.isPlaying) {
-      void releaseWakeLock(wakeLockRef);
-      return;
-    }
-
-    void requestWakeLock(wakeLockRef);
-
-    const requestAgainWhenVisible = (): void => {
-      if (document.visibilityState === "visible" && latestInputRef.current.isPlaying) {
-        void requestWakeLock(wakeLockRef);
-      }
-    };
-
-    document.addEventListener("visibilitychange", requestAgainWhenVisible);
-
-    return () => {
-      document.removeEventListener("visibilitychange", requestAgainWhenVisible);
-      void releaseWakeLock(wakeLockRef);
-    };
-  }, [input.isPlaying]);
 }
 
 function setAudioSessionType(type: EkoAudioSession["type"]): void {
@@ -134,35 +120,4 @@ function setMediaActionHandler(
   } catch {
     // Some browsers expose Media Session but not every action.
   }
-}
-
-async function requestWakeLock(wakeLockRef: RefObject<EkoWakeLockSentinel | null>): Promise<void> {
-  const wakeLockNavigator = navigator as EkoNavigatorWithWakeLock;
-
-  if (!wakeLockNavigator.wakeLock || wakeLockRef.current) {
-    return;
-  }
-
-  try {
-    const wakeLock = await wakeLockNavigator.wakeLock.request("screen");
-    wakeLockRef.current = wakeLock;
-    wakeLock.addEventListener("release", () => {
-      wakeLockRef.current = null;
-    });
-  } catch (error: unknown) {
-    console.warn("[eko] screen wake lock unavailable:", error);
-  }
-}
-
-async function releaseWakeLock(wakeLockRef: RefObject<EkoWakeLockSentinel | null>): Promise<void> {
-  const wakeLock = wakeLockRef.current;
-  wakeLockRef.current = null;
-
-  if (!wakeLock || wakeLock.released) {
-    return;
-  }
-
-  await wakeLock.release().catch(() => {
-    /* The browser may already have released it. */
-  });
 }
