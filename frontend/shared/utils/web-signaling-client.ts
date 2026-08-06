@@ -37,6 +37,7 @@ type WebReceiverHandlers = {
 
 export type WebReceiverSession = {
   peer: RTCPeerConnection;
+  updateReceiverName: (name: string) => void;
   close: () => void;
 };
 
@@ -144,6 +145,9 @@ export async function startWebReceiver(
 
   return {
     peer,
+    updateReceiverName: (name) => {
+      send(socket, { kind: "updateReceiverName", deviceId: request.deviceId, name });
+    },
     close: () => {
       isClosed = true;
       clearInterval(statsInterval);
