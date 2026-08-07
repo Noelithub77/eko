@@ -160,7 +160,12 @@ function App() {
             hosts={nearbyHosts}
             isSearching={isSearching}
             onFind={findHosts}
-            onSelect={(host) => requestApproval(host, "discovery")}
+            onSelect={(host) =>
+              requestApproval(
+                { version: 1, local: { host: host.host, port: host.port }, hosted: null },
+                "discovery",
+              )
+            }
           />
           <ConnectionStatus status={status} />
           <Button
@@ -186,7 +191,7 @@ export default App;
 function hostFromPayload(payload: QrPairingPayload): ConnectedHost {
   return {
     name: "Eko Desktop",
-    address: `${payload.host}:${payload.port}`,
+    address: `${payload.local.host}:${payload.local.port}`,
   };
 }
 

@@ -29,7 +29,9 @@ export function createLiveProfiler(context: LiveProfilerContext): LiveProfiler {
           createdAtMs: Date.now(),
           connectionId: context.connectionId,
           deviceId: context.deviceId,
-          roomId: `${context.payload.host}:${context.payload.port}`,
+          roomId:
+            context.payload.hosted?.roomId ??
+            `${context.payload.local.host}:${context.payload.local.port}`,
           sampleIndex,
           latencyMs: quality.latencyMs,
           jitterMs: quality.jitterMs,
