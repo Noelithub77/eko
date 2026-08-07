@@ -1,4 +1,13 @@
 export type PairingLinkPayload = {
-  host: string;
-  port: number;
+  version: number;
+  local: {
+    host: string;
+    port: number;
+  };
+  hosted: {
+    roomId: string;
+    joinToken: string;
+    socketUrl: string;
+    clientUrl: string;
+  } | null;
 };

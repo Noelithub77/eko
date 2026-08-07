@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 
+mod app_setup;
 mod audio;
 mod core_proof;
 mod discovery;
@@ -16,19 +17,12 @@ mod web_client;
 mod webrtc_core;
 
 use discovery::{DiscoveredHost, DiscoveryAdvertiser};
-use domain::{
-    IceCandidateMessage, JoinMethod, JoinRequest, NativeReceiverEvent, QrPairingPayload,
-    RoomSession, SessionDescriptionMessage, SignalClientMessage, SignalServerMessage,
-    StartStreamResult, StreamProfilerSample,
-};
+use domain::{JoinMethod, JoinRequest, QrPairingPayload, RoomSession, StartStreamResult};
 use mobile_receiver::NativeReceiverManager;
 use session::SessionStore;
-use signaling::{emit_room_session, SharedSession, SignalingServer};
-#[cfg(any(test, all(debug_assertions, not(mobile))))]
-use specta_typescript::Typescript;
+use signaling::{emit_room_session, HostedSignaling, SharedSession, SignalingServer};
 use tauri_plugin_log::fern::colors::{Color, ColoredLevelConfig};
 use tauri_plugin_log::{Target, TargetKind};
-use tauri_specta::{collect_commands, Builder, ErrorHandlingMode};
 use webrtc_core::media_hub::{MediaHub, SharedMediaHub};
 
 struct AppState {
@@ -36,6 +30,7 @@ struct AppState {
     media: Mutex<Option<SharedMediaHub>>,
     receiver: NativeReceiverManager,
     signaling: Mutex<Option<SignalingServer>>,
+    hosted_signaling: Mutex<Option<HostedSignaling>>,
     discovery: Mutex<Option<DiscoveryAdvertiser>>,
 }
 
@@ -46,6 +41,7 @@ impl Default for AppState {
             media: Mutex::new(None),
             receiver: NativeReceiverManager::default(),
             signaling: Mutex::new(None),
+            hosted_signaling: Mutex::new(None),
             discovery: Mutex::new(None),
         }
     }
@@ -59,7 +55,7 @@ fn greet(name: &str) -> String {
 
 #[tauri::command]
 #[specta::specta]
-fn start_stream(
+async fn start_stream(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<StartStreamResult, String> {
@@ -67,17 +63,26 @@ fn start_stream(
     stop_signaling(&state)?;
     stop_media(&state)?;
 
+    let host = network_host::pairing_host()?;
+    log::info!("Selected LAN pairing address {host}");
     let media = MediaHub::start(Some(Arc::clone(&state.session)), Some(app.clone()))?;
     let server =
         SignalingServer::start(Arc::clone(&state.session), Arc::clone(&media), app.clone())?;
     let port = server.port();
     log::info!("Signaling server started on port {port}");
-    let host = network_host::pairing_host()?;
+    let hosted_room = match HostedSignaling::create().await {
+        Ok(room) => Some(room),
+        Err(error) => {
+            log::warn!("{error}");
+            None
+        }
+    };
+    let hosted_details = hosted_room.as_ref().map(|(details, _)| details.clone());
     let mut result = state
         .session
         .lock()
         .map_err(|error| error.to_string())?
-        .start_stream(host, port)?;
+        .start_stream(host, port, hosted_details)?;
     let advertiser = DiscoveryAdvertiser::start(&result.qr_payload)?;
     result.session = state
         .session
@@ -86,6 +91,17 @@ fn start_stream(
         .set_lan_discovery(true)?;
 
     *state.signaling.lock().map_err(|error| error.to_string())? = Some(server);
+    if let Some((_, room)) = hosted_room {
+        *state
+            .hosted_signaling
+            .lock()
+            .map_err(|error| error.to_string())? = Some(HostedSignaling::start(
+            room,
+            Arc::clone(&state.session),
+            Arc::clone(&media),
+            app.clone(),
+        ));
+    }
     *state.media.lock().map_err(|error| error.to_string())? = Some(media);
     *state.discovery.lock().map_err(|error| error.to_string())? = Some(advertiser);
 
@@ -380,6 +396,15 @@ fn stop_signaling(state: &tauri::State<'_, AppState>) -> Result<(), String> {
         server.stop();
     }
 
+    if let Some(mut hosted) = state
+        .hosted_signaling
+        .lock()
+        .map_err(|error| error.to_string())?
+        .take()
+    {
+        hosted.stop();
+    }
+
     Ok(())
 }
 
@@ -411,11 +436,11 @@ fn stop_discovery(state: &tauri::State<'_, AppState>) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    install_panic_logger();
-    let builder = command_builder();
+    app_setup::install_panic_logger();
+    let builder = app_setup::command_builder();
 
     #[cfg(all(debug_assertions, not(mobile)))]
-    export_bindings(&builder);
+    app_setup::export_bindings(&builder);
 
     tauri::Builder::default()
         .plugin({
@@ -432,7 +457,11 @@ pub fn run() {
                 .level_for("webrtc_ice", log::LevelFilter::Warn)
                 .level_for("mdns_sd", log::LevelFilter::Warn)
                 .format(move |out, message, _record| {
-                    out.finish(format_args!("{} {}", colors.color(_record.level()), message))
+                    out.finish(format_args!(
+                        "{} {}",
+                        colors.color(_record.level()),
+                        message
+                    ))
                 })
                 .targets([
                     Target::new(TargetKind::Stdout),
@@ -460,88 +489,4 @@ pub fn run() {
             log::error!("Tauri runtime failed: {error}");
             eprintln!("Tauri runtime failed: {error}");
         });
-}
-
-fn install_panic_logger() {
-    std::panic::set_hook(Box::new(|panic_info| {
-        let location = panic_info
-            .location()
-            .map(|location| format!("{}:{}", location.file(), location.line()))
-            .unwrap_or_else(|| "unknown location".to_string());
-        let message = panic_info
-            .payload()
-            .downcast_ref::<&str>()
-            .map(|message| (*message).to_string())
-            .or_else(|| {
-                panic_info
-                    .payload()
-                    .downcast_ref::<String>()
-                    .map(ToString::to_string)
-            })
-            .unwrap_or_else(|| "unknown panic".to_string());
-
-        log::error!("Unexpected panic at {location}: {message}");
-        eprintln!("Unexpected panic at {location}: {message}");
-    }));
-}
-
-fn command_builder() -> Builder<tauri::Wry> {
-    Builder::<tauri::Wry>::new()
-        .error_handling(ErrorHandlingMode::Throw)
-        .typ::<IceCandidateMessage>()
-        .typ::<SessionDescriptionMessage>()
-        .typ::<SignalClientMessage>()
-        .typ::<SignalServerMessage>()
-        .typ::<NativeReceiverEvent>()
-        .typ::<StreamProfilerSample>()
-        .typ::<media::MediaState>()
-        .commands(collect_commands![
-            greet,
-            start_stream,
-            stop_stream,
-            get_room_session,
-            set_lan_discovery,
-            submit_join_request,
-            add_dev_join_request,
-            allow_device,
-            deny_device,
-            unblock_device,
-            disconnect_device,
-            set_device_sharing,
-            clear_session_events,
-            get_core_proof_status,
-            get_audio_capture_status,
-            find_nearby_hosts,
-            start_native_receiver,
-            stop_native_receiver,
-            start_android_media_session,
-            stop_android_media_session,
-            media_play,
-            media_pause,
-            media_toggle,
-            media_next,
-            media_previous,
-            media_get_state
-        ])
-}
-
-#[cfg(any(test, all(debug_assertions, not(mobile))))]
-fn export_bindings(builder: &Builder<tauri::Wry>) {
-    builder
-        .export(
-            Typescript::default(),
-            "../frontend/shared/bindings/tauri.ts",
-        )
-        .expect("failed to export Tauri bindings");
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{command_builder, export_bindings};
-
-    #[test]
-    fn export_typescript_bindings() {
-        let builder = command_builder();
-        export_bindings(&builder);
-    }
 }

@@ -30,9 +30,9 @@ impl DiscoveryAdvertiser {
             SERVICE_TYPE,
             instance_name,
             host_name,
-            payload.host.as_str(),
-            payload.port,
-            [("host", payload.host.as_str())].as_slice(),
+            payload.local.host.as_str(),
+            payload.local.port,
+            [("host", payload.local.host.as_str())].as_slice(),
         )
         .map_err(|error| error.to_string())?
         .enable_addr_auto();

@@ -16,8 +16,25 @@ pub enum StreamStatus {
 #[derive(Clone, Debug, Deserialize, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct QrPairingPayload {
+    pub version: u8,
+    pub local: LocalPairingDetails,
+    pub hosted: Option<HostedPairingDetails>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalPairingDetails {
     pub host: String,
     pub port: u16,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct HostedPairingDetails {
+    pub room_id: String,
+    pub join_token: String,
+    pub socket_url: String,
+    pub client_url: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Type)]

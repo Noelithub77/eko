@@ -3,14 +3,18 @@ import type {
   JoinRequest,
   SignalClientMessage,
   SignalServerMessage,
-  WebNowPlayingState,
 } from "@shared/bindings/tauri";
 import type { PairingLinkPayload } from "@shared/types/pairing-link";
+import type { WebNowPlayingState } from "@shared/types/web-now-playing";
+import { logAudioStats } from "@shared/utils/web-rtc-stats";
 
 const CLOCK_SYNC_SAMPLE_COUNT = 3;
 const CLOCK_SYNC_TIMEOUT_MS = 500;
 const DEFAULT_JITTER_BUFFER_TARGET_MS = 60;
 const FALLBACK_START_DELAY_MS = 250;
+const DIRECT_CONNECTION_ERROR =
+  "Couldn’t make a direct connection. This network may block peer-to-peer connections. Try another Wi-Fi network or a phone hotspot.";
+const STUN_URLS = ["stun:stun.cloudflare.com:3478", "stun:stun.cloudflare.com:53"];
 
 type ClockSample = {
   offsetMs: number;
@@ -46,6 +50,20 @@ type ValidClockSyncResponse = {
   serverSentAtMs: number;
 };
 
+type RelayServerMessage =
+  | { type: "ready"; role: "host" | "receiver" }
+  | { type: "signal"; deviceId: string; payload: unknown }
+  | { type: "hostReconnecting" }
+  | { type: "hostConnected" }
+  | { type: "roomClosed" }
+  | { type: "error"; message: string };
+
+type SignalTransport = {
+  socket: WebSocket;
+  hosted: boolean;
+  send: (message: SignalClientMessage) => void;
+};
+
 export type WebReceiverSession = {
   peer: RTCPeerConnection;
   needsReconnect: () => boolean;
@@ -58,21 +76,21 @@ export async function startWebReceiver(
   request: JoinRequest,
   handlers: WebReceiverHandlers,
 ): Promise<WebReceiverSession> {
-  const wsHost = window.location.host;
-  const socket = new WebSocket(`ws://${wsHost}/eko`);
-  const peer = new RTCPeerConnection();
+  const transport = createTransport(payload);
+  const { socket } = transport;
+  const peer = new RTCPeerConnection({
+    iceServers: [{ urls: STUN_URLS }],
+    iceTransportPolicy: "all",
+  });
   let isClosed = false;
   let hasOpened = false;
+  let hasJoined = false;
   const playbackSync = createPlaybackSyncState();
 
   peer.ontrack = (event: RTCTrackEvent) => {
-    console.log(
-      `[eko] ontrack: kind=${event.track.kind} id=${event.track.id} streams=${event.streams.length}`,
-    );
     tuneAudioReceivers(peer, DEFAULT_JITTER_BUFFER_TARGET_MS);
     const [stream] = event.streams;
     if (stream) {
-      console.log(`[eko] stream received: id=${stream.id} tracks=${stream.getTracks().length}`);
       playbackSync.pendingStream = stream;
       scheduleStreamDelivery(playbackSync, handlers);
     }
@@ -81,40 +99,26 @@ export async function startWebReceiver(
   peer.onconnectionstatechange = () => {
     console.log(`[eko] browser connection state: ${peer.connectionState}`);
     if (!isClosed && (peer.connectionState === "failed" || peer.connectionState === "closed")) {
+      if (peer.connectionState === "failed") {
+        handlers.onStatus(DIRECT_CONNECTION_ERROR);
+      }
       handlers.onConnectionLost();
     }
   };
   peer.oniceconnectionstatechange = () => {
     console.log(`[eko] browser ICE state: ${peer.iceConnectionState}`);
+    if (!isClosed && peer.iceConnectionState === "failed") {
+      handlers.onStatus(DIRECT_CONNECTION_ERROR);
+    }
   };
 
-  const statsInterval = setInterval(() => {
-    peer
-      .getStats()
-      .then((stats) => {
-        let audioBytes = 0;
-        let audioPackets = 0;
-        stats.forEach((raw) => {
-          const report = raw as Record<string, unknown>;
-          if (report.type === "inbound-rtp" && report.kind === "audio") {
-            audioBytes += (report.bytesReceived as number) ?? 0;
-            audioPackets += (report.packetsReceived as number) ?? 0;
-          }
-        });
-        if (audioBytes > 0 || audioPackets > 0) {
-          console.log(`[eko] inbound audio: packets=${audioPackets} bytes=${audioBytes}`);
-        }
-      })
-      .catch(() => {
-        /* ignore stats errors */
-      });
-  }, 2000);
+  const statsInterval = window.setInterval(() => logAudioStats(peer), 2000);
 
   peer.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
     if (!event.candidate) {
       return;
     }
-    send(socket, {
+    transport.send({
       kind: "iceCandidate",
       candidate: {
         deviceId: request.deviceId,
@@ -123,34 +127,75 @@ export async function startWebReceiver(
     });
   };
 
+  const beginJoin = async (): Promise<void> => {
+    if (hasJoined || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    hasJoined = true;
+    handlers.onStatus("Synchronizing playback.");
+    await calibrateClock(transport, playbackSync);
+    if (socket.readyState === WebSocket.OPEN) {
+      handlers.onStatus("Asking desktop.");
+      transport.send({ kind: "joinRequest", request });
+    }
+  };
+
   socket.addEventListener("open", () => {
     hasOpened = true;
-    handlers.onStatus("Synchronizing playback.");
-    void calibrateClock(socket, playbackSync).finally(() => {
-      if (socket.readyState !== WebSocket.OPEN) {
-        return;
-      }
-      handlers.onStatus("Asking desktop.");
-      send(socket, { kind: "joinRequest", request });
-    });
+    if (transport.hosted && payload.hosted) {
+      socket.send(
+        JSON.stringify({
+          type: "hello",
+          role: "receiver",
+          token: payload.hosted.joinToken,
+          deviceId: request.deviceId,
+        }),
+      );
+      return;
+    }
+    void beginJoin();
   });
 
   socket.addEventListener("message", (event: MessageEvent<string>) => {
-    void handleServerMessage(socket, peer, request.deviceId, event.data, handlers, playbackSync);
+    const relay = transport.hosted ? parseRelayMessage(event.data) : null;
+    if (relay?.type === "ready") {
+      void beginJoin();
+      return;
+    }
+    if (relay?.type === "hostReconnecting") {
+      handlers.onStatus("Desktop is reconnecting.");
+      return;
+    }
+    if (relay?.type === "hostConnected") {
+      handlers.onStatus("Desktop reconnected.");
+      return;
+    }
+    if (relay?.type === "roomClosed") {
+      handlers.onStatus("This stream has ended.");
+      handlers.onConnectionLost();
+      return;
+    }
+    if (relay?.type === "error") {
+      handlers.onStatus(relay.message);
+      return;
+    }
+    const text = relay?.type === "signal" ? JSON.stringify(relay.payload) : event.data;
+    void handleServerMessage(transport, peer, request.deviceId, text, handlers, playbackSync);
   });
 
   socket.addEventListener("close", () => {
     if (!isClosed) {
-      handlers.onStatus(
-        hasOpened ? "Desktop connection closed." : "Could not open desktop connection.",
-      );
+      handlers.onStatus(hasOpened ? "Signaling connection closed." : "Could not open signaling.");
       handlers.onConnectionLost();
     }
   });
 
   socket.addEventListener("error", () => {
-    handlers.onStatus(`Could not reach desktop at ${payload.host}:${payload.port}.`);
-    handlers.onConnectionLost();
+    handlers.onStatus(
+      transport.hosted
+        ? "Hosted pairing is unavailable."
+        : "Could not reach desktop on this network.",
+    );
   });
 
   return {
@@ -161,11 +206,11 @@ export async function startWebReceiver(
         peer.connectionState === "failed" ||
         peer.connectionState === "closed"),
     updateReceiverName: (name) => {
-      send(socket, { kind: "updateReceiverName", deviceId: request.deviceId, name });
+      transport.send({ kind: "updateReceiverName", deviceId: request.deviceId, name });
     },
     close: () => {
       isClosed = true;
-      clearInterval(statsInterval);
+      window.clearInterval(statsInterval);
       clearPlaybackSync(playbackSync);
       socket.close();
       peer.close();
@@ -173,8 +218,25 @@ export async function startWebReceiver(
   };
 }
 
+function createTransport(payload: PairingLinkPayload): SignalTransport {
+  const hosted = payload.hosted !== null;
+  const socketUrl =
+    payload.hosted?.socketUrl ?? `ws://${payload.local.host}:${payload.local.port}/eko`;
+  const socket = new WebSocket(socketUrl);
+  return {
+    socket,
+    hosted,
+    send: (message) => {
+      if (socket.readyState !== WebSocket.OPEN) {
+        return;
+      }
+      socket.send(JSON.stringify(hosted ? { type: "signal", payload: message } : message));
+    },
+  };
+}
+
 async function handleServerMessage(
-  socket: WebSocket,
+  transport: SignalTransport,
   peer: RTCPeerConnection,
   deviceId: string,
   text: string,
@@ -188,41 +250,32 @@ async function handleServerMessage(
 
   if (message.kind === "clockSyncResponse") {
     if (
-      message.clientSentAtMs === null ||
-      message.serverReceivedAtMs === null ||
-      message.serverSentAtMs === null
+      message.clientSentAtMs !== null &&
+      message.serverReceivedAtMs !== null &&
+      message.serverSentAtMs !== null
     ) {
-      return;
+      resolveClockSample(
+        playbackSync,
+        {
+          ...message,
+          clientSentAtMs: message.clientSentAtMs,
+          serverReceivedAtMs: message.serverReceivedAtMs,
+          serverSentAtMs: message.serverSentAtMs,
+        },
+        Date.now(),
+      );
     }
-
-    resolveClockSample(
-      playbackSync,
-      {
-        ...message,
-        clientSentAtMs: message.clientSentAtMs,
-        serverReceivedAtMs: message.serverReceivedAtMs,
-        serverSentAtMs: message.serverSentAtMs,
-      },
-      Date.now(),
-    );
     return;
   }
 
   if (message.kind === "playbackSchedule") {
-    if (message.playAtServerMs === null) {
-      return;
+    if (message.playAtServerMs !== null) {
+      playbackSync.playAtLocalMs = playbackSync.hasServerOffset
+        ? message.playAtServerMs - playbackSync.serverOffsetMs
+        : Date.now() + FALLBACK_START_DELAY_MS;
+      tuneAudioReceivers(peer, message.jitterBufferTargetMs);
+      scheduleStreamDelivery(playbackSync, handlers);
     }
-
-    playbackSync.playAtLocalMs = playbackSync.hasServerOffset
-      ? message.playAtServerMs - playbackSync.serverOffsetMs
-      : Date.now() + FALLBACK_START_DELAY_MS;
-    tuneAudioReceivers(peer, message.jitterBufferTargetMs);
-    scheduleStreamDelivery(playbackSync, handlers);
-    return;
-  }
-
-  if (message.kind === "nowPlaying") {
-    handlers.onNowPlaying(message.media);
     return;
   }
 
@@ -230,58 +283,46 @@ async function handleServerMessage(
     handlers.onStatus("Waiting for desktop approval.");
     return;
   }
-
   if (message.kind === "joinRejected") {
     handlers.onStatus(message.reason);
     return;
   }
-
   if (message.kind === "permissionChanged") {
     if (message.state === "connecting") {
       handlers.onStatus("Connecting audio.");
-      send(socket, { kind: "receiverReady", deviceId });
-    }
-    if (message.state === "denied") {
+      transport.send({ kind: "receiverReady", deviceId });
+    } else if (message.state === "denied") {
       handlers.onStatus("Desktop denied this device.");
     }
     return;
   }
-
   if (message.kind === "hostOffer") {
-    await answerOffer(socket, peer, message.description);
+    await answerOffer(transport, peer, message.description);
     return;
   }
-
   if (message.kind === "hostIceCandidate") {
     await addHostCandidate(peer, message.candidate);
     return;
   }
-
   if (message.kind === "error") {
     handlers.onStatus(message.message);
   }
 }
 
 async function answerOffer(
-  socket: WebSocket,
+  transport: SignalTransport,
   peer: RTCPeerConnection,
   description: { deviceId: string; sdp: string },
 ): Promise<void> {
   await peer.setRemoteDescription({ type: "offer", sdp: description.sdp });
   const answer = await peer.createAnswer();
   await peer.setLocalDescription(answer);
-
-  if (!answer.sdp) {
-    return;
+  if (answer.sdp) {
+    transport.send({
+      kind: "answer",
+      description: { deviceId: description.deviceId, sdp: answer.sdp },
+    });
   }
-
-  send(socket, {
-    kind: "answer",
-    description: {
-      deviceId: description.deviceId,
-      sdp: answer.sdp,
-    },
-  });
 }
 
 async function addHostCandidate(
@@ -289,15 +330,8 @@ async function addHostCandidate(
   candidate: IceCandidateMessage,
 ): Promise<void> {
   const parsed: unknown = JSON.parse(candidate.candidate);
-  if (!isIceCandidateInit(parsed)) {
-    return;
-  }
-  await peer.addIceCandidate(parsed);
-}
-
-function send(socket: WebSocket, message: SignalClientMessage): void {
-  if (socket.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify(message));
+  if (isIceCandidateInit(parsed)) {
+    await peer.addIceCandidate(parsed);
   }
 }
 
@@ -309,12 +343,42 @@ function parseServerMessage(text: string): SignalServerMessage | null {
   }
 }
 
-function isIceCandidateInit(value: unknown): value is RTCIceCandidateInit {
-  if (typeof value !== "object" || value === null) {
-    return false;
+function parseRelayMessage(text: string): RelayServerMessage | null {
+  try {
+    const value: unknown = JSON.parse(text);
+    if (typeof value !== "object" || value === null || !("type" in value)) {
+      return null;
+    }
+    const message = value as Record<string, unknown>;
+    if (message.type === "signal" && typeof message.deviceId === "string") {
+      return { type: "signal", deviceId: message.deviceId, payload: message.payload };
+    }
+    if (message.type === "ready" && (message.role === "host" || message.role === "receiver")) {
+      return { type: "ready", role: message.role };
+    }
+    if (
+      message.type === "hostReconnecting" ||
+      message.type === "hostConnected" ||
+      message.type === "roomClosed"
+    ) {
+      return { type: message.type };
+    }
+    if (message.type === "error" && typeof message.message === "string") {
+      return { type: "error", message: message.message };
+    }
+    return null;
+  } catch {
+    return null;
   }
-  const candidate = (value as { candidate?: unknown }).candidate;
-  return typeof candidate === "string";
+}
+
+function isIceCandidateInit(value: unknown): value is RTCIceCandidateInit {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "candidate" in value &&
+    typeof value.candidate === "string"
+  );
 }
 
 function createPlaybackSyncState(): PlaybackSyncState {
@@ -328,26 +392,25 @@ function createPlaybackSyncState(): PlaybackSyncState {
   };
 }
 
-async function calibrateClock(socket: WebSocket, state: PlaybackSyncState): Promise<void> {
+async function calibrateClock(transport: SignalTransport, state: PlaybackSyncState): Promise<void> {
   const samples: ClockSample[] = [];
-
   for (let index = 0; index < CLOCK_SYNC_SAMPLE_COUNT; index += 1) {
-    const sample = await measureClock(socket, state);
+    const sample = await measureClock(transport, state);
     if (sample) {
       samples.push(sample);
     }
   }
-
   const best = samples.sort((left, right) => left.roundTripMs - right.roundTripMs)[0];
-  if (!best) {
-    return;
+  if (best) {
+    state.serverOffsetMs = best.offsetMs;
+    state.hasServerOffset = true;
   }
-
-  state.serverOffsetMs = best.offsetMs;
-  state.hasServerOffset = true;
 }
 
-function measureClock(socket: WebSocket, state: PlaybackSyncState): Promise<ClockSample | null> {
+function measureClock(
+  transport: SignalTransport,
+  state: PlaybackSyncState,
+): Promise<ClockSample | null> {
   return new Promise((resolve) => {
     const requestId = createRequestId();
     const clientSentAtMs = Date.now();
@@ -355,9 +418,8 @@ function measureClock(socket: WebSocket, state: PlaybackSyncState): Promise<Cloc
       state.pendingClockRequests.delete(requestId);
       resolve(null);
     }, CLOCK_SYNC_TIMEOUT_MS);
-
     state.pendingClockRequests.set(requestId, { timeoutId, resolve });
-    send(socket, { kind: "clockSyncRequest", requestId, clientSentAtMs });
+    transport.send({ kind: "clockSyncRequest", requestId, clientSentAtMs });
   });
 }
 
@@ -370,7 +432,6 @@ function resolveClockSample(
   if (!pending) {
     return;
   }
-
   window.clearTimeout(pending.timeoutId);
   state.pendingClockRequests.delete(message.requestId);
   const serverProcessingMs = message.serverSentAtMs - message.serverReceivedAtMs;
@@ -378,7 +439,8 @@ function resolveClockSample(
   const offsetMs =
     (message.serverReceivedAtMs -
       message.clientSentAtMs +
-      (message.serverSentAtMs - clientReceivedAtMs)) /
+      message.serverSentAtMs -
+      clientReceivedAtMs) /
     2;
   pending.resolve({ offsetMs, roundTripMs });
 }
@@ -387,11 +449,9 @@ function scheduleStreamDelivery(state: PlaybackSyncState, handlers: WebReceiverH
   if (!state.pendingStream) {
     return;
   }
-
   if (state.playbackTimerId !== null) {
     window.clearTimeout(state.playbackTimerId);
   }
-
   const delayMs =
     state.playAtLocalMs === null
       ? FALLBACK_START_DELAY_MS
@@ -420,21 +480,16 @@ function clearPlaybackSync(state: PlaybackSyncState): void {
 }
 
 function createRequestId(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return `clock-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `clock-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
 function tuneAudioReceivers(peer: RTCPeerConnection, targetMs: number): void {
   for (const receiver of peer.getReceivers()) {
-    if (receiver.track.kind !== "audio" || !("jitterBufferTarget" in receiver)) {
-      continue;
+    if (receiver.track.kind === "audio" && "jitterBufferTarget" in receiver) {
+      const audioReceiver = receiver as RTCRtpReceiver & { jitterBufferTarget: number | null };
+      audioReceiver.jitterBufferTarget = targetMs;
     }
-
-    const audioReceiver = receiver as RTCRtpReceiver & {
-      jitterBufferTarget: number | null;
-    };
-    audioReceiver.jitterBufferTarget = targetMs;
   }
 }
