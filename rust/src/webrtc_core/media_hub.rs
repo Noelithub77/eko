@@ -7,6 +7,7 @@ use tokio::sync::{mpsc, Mutex};
 use webrtc::api::media_engine::{MediaEngine, MIME_TYPE_OPUS};
 use webrtc::api::APIBuilder;
 use webrtc::ice_transport::ice_candidate::RTCIceCandidateInit;
+use webrtc::ice_transport::ice_server::RTCIceServer;
 use webrtc::media::Sample;
 use webrtc::peer_connection::configuration::RTCConfiguration;
 use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
@@ -19,6 +20,7 @@ use crate::audio::frame::{AudioFrame, SAMPLE_RATE};
 use crate::audio::opus_codec::OpusAudioEncoder;
 use crate::audio::windows_capture::start_system_audio_source;
 use crate::domain::{IceCandidateMessage, SessionDescriptionMessage};
+use crate::webrtc_core::candidate_path::log_selected_candidate;
 
 pub type SharedMediaHub = Arc<MediaHub>;
 
@@ -94,7 +96,7 @@ impl MediaHub {
 
         let api = webrtc_api_with_default_codecs()?;
         let peer = Arc::new(
-            api.new_peer_connection(RTCConfiguration::default())
+            api.new_peer_connection(direct_ice_configuration())
                 .await
                 .map_err(|error| error.to_string())?,
         );
@@ -132,9 +134,18 @@ impl MediaHub {
         }));
         peer.on_ice_connection_state_change(Box::new({
             let device_id = device_id.clone();
+            let stats_peer = Arc::clone(&peer);
             move |state| {
                 log::info!("ICE connection state for {device_id}: {state:?}");
-                Box::pin(async {})
+                let device_id = device_id.clone();
+                let stats_peer = Arc::clone(&stats_peer);
+                Box::pin(async move {
+                    if state
+                        == webrtc::ice_transport::ice_connection_state::RTCIceConnectionState::Connected
+                    {
+                        log_selected_candidate(&stats_peer, &device_id).await;
+                    }
+                })
             }
         }));
 
@@ -177,7 +188,10 @@ impl MediaHub {
         peer.set_remote_description(answer)
             .await
             .map_err(|error| error.to_string())?;
-        log::info!("Remote description set successfully for device {}", description.device_id);
+        log::info!(
+            "Remote description set successfully for device {}",
+            description.device_id
+        );
         Ok(())
     }
 
@@ -215,7 +229,8 @@ impl MediaHub {
                     log::error!("Opus encoder failed: {error}");
                     if let Some(session) = &session {
                         if let Ok(mut store) = session.lock() {
-                            let session = store.push_event("error", &format!("Audio encoder failed: {error}"));
+                            let session = store
+                                .push_event("error", &format!("Audio encoder failed: {error}"));
                             if let Some(app) = &app {
                                 crate::signaling::emit_room_session(app, session);
                             }
@@ -252,4 +267,17 @@ fn webrtc_api_with_default_codecs() -> Result<webrtc::api::API, String> {
         .register_default_codecs()
         .map_err(|error| error.to_string())?;
     Ok(APIBuilder::new().with_media_engine(media_engine).build())
+}
+
+fn direct_ice_configuration() -> RTCConfiguration {
+    RTCConfiguration {
+        ice_servers: vec![RTCIceServer {
+            urls: vec![
+                "stun:stun.cloudflare.com:3478".to_string(),
+                "stun:stun.cloudflare.com:53".to_string(),
+            ],
+            ..Default::default()
+        }],
+        ..Default::default()
+    }
 }

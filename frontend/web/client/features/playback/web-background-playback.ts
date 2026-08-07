@@ -1,5 +1,6 @@
 import { useEffect, useRef, type RefObject } from "react";
-import type { WebNowPlayingState } from "@shared/bindings/tauri";
+import type { WebNowPlayingState } from "@shared/types/web-now-playing";
+import ekoLogoUrl from "../../../../../rust/icons/icon.png";
 
 type PlaybackAction = () => void;
 
@@ -41,13 +42,20 @@ export function useWebBackgroundPlayback(input: WebBackgroundPlaybackInput): voi
     }
 
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: input.desktopMedia?.title ?? "Eko is streaming audio from this device",
+      title: input.desktopMedia?.title ?? "Eko audio stream",
       artist: input.desktopMedia?.artist ?? "Eko",
       album:
         input.desktopMedia?.album ??
         (input.desktopMedia?.appName
           ? `From ${input.desktopMedia.appName}`
           : "Desktop audio relay"),
+      artwork: [
+        {
+          src: ekoLogoUrl,
+          sizes: "512x512",
+          type: "image/png",
+        },
+      ],
     });
     navigator.mediaSession.playbackState = input.isConnected
       ? input.isPlaying

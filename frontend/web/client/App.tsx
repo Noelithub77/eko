@@ -13,7 +13,7 @@ import { ConnectionQualityPanel } from "./features/playback/ConnectionQualityPan
 import type { ConnectionQuality } from "./features/playback/connection-quality";
 import { createLiveProfiler, type LiveProfiler } from "./features/playback/live-profiler";
 import { useWebBackgroundPlayback } from "./features/playback/web-background-playback";
-import type { WebNowPlayingState } from "@shared/bindings/tauri";
+import type { WebNowPlayingState } from "@shared/types/web-now-playing";
 
 type ConnectionState = "ready" | "waiting" | "connected" | "failed";
 
@@ -52,7 +52,10 @@ function App() {
 
   useEffect(() => {
     if (payload) {
-      localStorage.setItem("eko-web-desktop-address", `${payload.host}:${payload.port}`);
+      localStorage.setItem(
+        "eko-web-desktop-address",
+        `${payload.local.host}:${payload.local.port}`,
+      );
     }
   }, [payload]);
 

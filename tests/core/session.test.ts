@@ -45,7 +45,7 @@ assert.equal(isValidJoinRequest(runningSession, validJoin), true);
 assert.equal(isValidJoinRequest(runningSession, { ...validJoin, deviceName: "" }), false);
 
 const qrPayload = parseQrPayload(JSON.stringify({ host: "192.168.1.10", port: 4444 }));
-assert.equal(qrPayload?.host, "192.168.1.10");
+assert.equal(qrPayload?.local.host, "192.168.1.10");
 assert.equal(parseQrPayload(JSON.stringify({ host: "missing-port" })), null);
 
 const allowedDevices = allowDevice([pendingDevice], "phone-1");
