@@ -1,10 +1,18 @@
 import type { PairingLinkPayload } from "@shared/types/pairing-link";
 
 const CLIENT_PATH = "/client";
+const PAIRING_VERSION = "1";
 
 export function createPairingLink(payload: PairingLinkPayload): string {
   if (payload.hosted) {
-    return `${payload.hosted.clientUrl}#payload=${encodePayload(payload)}`;
+    const hash = new URLSearchParams({
+      v: PAIRING_VERSION,
+      h: payload.local.host,
+      p: String(payload.local.port),
+      r: payload.hosted.roomId,
+      t: payload.hosted.joinToken,
+    });
+    return `${payload.hosted.clientUrl}#${hash.toString()}`;
   }
   return `http://${payload.local.host}:${payload.local.port}${CLIENT_PATH}`;
 }
@@ -21,7 +29,13 @@ export function parsePairingSource(text: string): PairingLinkPayload | null {
 export function parsePairingLink(text: string): PairingLinkPayload | null {
   try {
     const url = new URL(text);
-    const encoded = new URLSearchParams(url.hash.slice(1)).get("payload");
+    const hash = new URLSearchParams(url.hash.slice(1));
+    const compact = readCompactPayload(hash, url);
+    if (compact) {
+      return compact;
+    }
+
+    const encoded = hash.get("payload");
     if (encoded) {
       return readPayload(JSON.parse(decodePayload(encoded)));
     }
@@ -29,6 +43,41 @@ export function parsePairingLink(text: string): PairingLinkPayload | null {
   } catch {
     return null;
   }
+}
+
+function readCompactPayload(params: URLSearchParams, url: URL): PairingLinkPayload | null {
+  if (params.get("v") !== PAIRING_VERSION) {
+    return null;
+  }
+
+  const host = params.get("h");
+  const portText = params.get("p");
+  const roomId = params.get("r");
+  const joinToken = params.get("t");
+  const port = portText === null ? Number.NaN : Number(portText);
+
+  if (
+    host === null ||
+    roomId === null ||
+    joinToken === null ||
+    !Number.isInteger(port) ||
+    port < 1 ||
+    port > 65535
+  ) {
+    return null;
+  }
+
+  const socketOrigin = url.origin.replace(/^http/, "ws");
+  return {
+    version: 1,
+    local: { host, port },
+    hosted: {
+      roomId,
+      joinToken,
+      socketUrl: `${socketOrigin}/v1/rooms/${encodeURIComponent(roomId)}/socket`,
+      clientUrl: `${url.origin}${url.pathname}`,
+    },
+  };
 }
 
 function parseLegacyJsonPayload(text: string): PairingLinkPayload | null {
@@ -94,13 +143,6 @@ function readHosted(value: unknown): PairingLinkPayload["hosted"] | null {
     return null;
   }
   return { roomId, joinToken, socketUrl, clientUrl };
-}
-
-function encodePayload(payload: PairingLinkPayload): string {
-  const bytes = new TextEncoder().encode(JSON.stringify(payload));
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
 function decodePayload(value: string): string {

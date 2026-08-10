@@ -5,50 +5,23 @@ import type {
   SignalServerMessage,
 } from "@shared/bindings/tauri";
 import type { PairingLinkPayload } from "@shared/types/pairing-link";
-import type { WebNowPlayingState } from "@shared/types/web-now-playing";
 import { logAudioStats } from "@shared/utils/web-rtc-stats";
+import {
+  calibrateClock,
+  clearPlaybackSync,
+  createPlaybackSyncState,
+  fallbackPlaybackTime,
+  type PlaybackHandlers,
+  type PlaybackSyncState,
+  resolveClockSample,
+  scheduleStreamDelivery,
+  tuneAudioReceivers,
+} from "@shared/utils/web-playback-sync";
 
-const CLOCK_SYNC_SAMPLE_COUNT = 3;
-const CLOCK_SYNC_TIMEOUT_MS = 500;
 const DEFAULT_JITTER_BUFFER_TARGET_MS = 60;
-const FALLBACK_START_DELAY_MS = 250;
 const DIRECT_CONNECTION_ERROR =
   "Couldn’t make a direct connection. This network may block peer-to-peer connections. Try another Wi-Fi network or a phone hotspot.";
 const STUN_URLS = ["stun:stun.cloudflare.com:3478", "stun:stun.cloudflare.com:53"];
-
-type ClockSample = {
-  offsetMs: number;
-  roundTripMs: number;
-};
-
-type PendingClockRequest = {
-  timeoutId: number;
-  resolve: (sample: ClockSample | null) => void;
-};
-
-type PlaybackSyncState = {
-  serverOffsetMs: number;
-  hasServerOffset: boolean;
-  pendingClockRequests: Map<string, PendingClockRequest>;
-  pendingStream: MediaStream | null;
-  playAtLocalMs: number | null;
-  playbackTimerId: number | null;
-};
-
-type WebReceiverHandlers = {
-  onStatus: (message: string) => void;
-  onStream: (stream: MediaStream) => void;
-  onNowPlaying: (media: WebNowPlayingState | null) => void;
-  onConnectionLost: () => void;
-};
-
-type ValidClockSyncResponse = {
-  kind: "clockSyncResponse";
-  requestId: string;
-  clientSentAtMs: number;
-  serverReceivedAtMs: number;
-  serverSentAtMs: number;
-};
 
 type RelayServerMessage =
   | { type: "ready"; role: "host" | "receiver" }
@@ -74,7 +47,7 @@ export type WebReceiverSession = {
 export async function startWebReceiver(
   payload: PairingLinkPayload,
   request: JoinRequest,
-  handlers: WebReceiverHandlers,
+  handlers: PlaybackHandlers,
 ): Promise<WebReceiverSession> {
   const transport = createTransport(payload);
   const { socket } = transport;
@@ -85,6 +58,11 @@ export async function startWebReceiver(
   let isClosed = false;
   let hasOpened = false;
   let hasJoined = false;
+  let joinInFlight = false;
+  let canSendCandidates = false;
+  let messageQueue = Promise.resolve();
+  const pendingLocalCandidates: RTCIceCandidateInit[] = [];
+  const pendingHostCandidates: IceCandidateMessage[] = [];
   const playbackSync = createPlaybackSyncState();
 
   peer.ontrack = (event: RTCTrackEvent) => {
@@ -118,26 +96,27 @@ export async function startWebReceiver(
     if (!event.candidate) {
       return;
     }
-    transport.send({
-      kind: "iceCandidate",
-      candidate: {
-        deviceId: request.deviceId,
-        candidate: JSON.stringify(event.candidate.toJSON()),
-      },
-    });
+    const candidate = event.candidate.toJSON();
+    if (!canSendCandidates) {
+      pendingLocalCandidates.push(candidate);
+      return;
+    }
+    sendLocalCandidate(transport, request.deviceId, candidate);
   };
 
   const beginJoin = async (): Promise<void> => {
-    if (hasJoined || socket.readyState !== WebSocket.OPEN) {
+    if (hasJoined || joinInFlight || socket.readyState !== WebSocket.OPEN) {
       return;
     }
-    hasJoined = true;
+    joinInFlight = true;
     handlers.onStatus("Synchronizing playback.");
-    await calibrateClock(transport, playbackSync);
+    await calibrateClock(transport.send, playbackSync);
     if (socket.readyState === WebSocket.OPEN) {
+      hasJoined = true;
       handlers.onStatus("Asking desktop.");
       transport.send({ kind: "joinRequest", request });
     }
+    joinInFlight = false;
   };
 
   socket.addEventListener("open", () => {
@@ -163,11 +142,14 @@ export async function startWebReceiver(
       return;
     }
     if (relay?.type === "hostReconnecting") {
+      hasJoined = false;
       handlers.onStatus("Desktop is reconnecting.");
       return;
     }
     if (relay?.type === "hostConnected") {
+      hasJoined = false;
       handlers.onStatus("Desktop reconnected.");
+      void beginJoin();
       return;
     }
     if (relay?.type === "roomClosed") {
@@ -180,7 +162,27 @@ export async function startWebReceiver(
       return;
     }
     const text = relay?.type === "signal" ? JSON.stringify(relay.payload) : event.data;
-    void handleServerMessage(transport, peer, request.deviceId, text, handlers, playbackSync);
+    messageQueue = messageQueue
+      .then(() =>
+        handleServerMessage(
+          transport,
+          peer,
+          request.deviceId,
+          text,
+          handlers,
+          playbackSync,
+          pendingHostCandidates,
+          pendingLocalCandidates,
+          () => {
+            canSendCandidates = true;
+          },
+        ),
+      )
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`[eko] signaling message failed: ${message}`);
+        handlers.onStatus("Could not finish the direct connection.");
+      });
   });
 
   socket.addEventListener("close", () => {
@@ -240,8 +242,11 @@ async function handleServerMessage(
   peer: RTCPeerConnection,
   deviceId: string,
   text: string,
-  handlers: WebReceiverHandlers,
+  handlers: PlaybackHandlers,
   playbackSync: PlaybackSyncState,
+  pendingHostCandidates: IceCandidateMessage[],
+  pendingLocalCandidates: RTCIceCandidateInit[],
+  markAnswerSent: () => void,
 ): Promise<void> {
   const message = parseServerMessage(text);
   if (!message) {
@@ -270,9 +275,7 @@ async function handleServerMessage(
 
   if (message.kind === "playbackSchedule") {
     if (message.playAtServerMs !== null) {
-      playbackSync.playAtLocalMs = playbackSync.hasServerOffset
-        ? message.playAtServerMs - playbackSync.serverOffsetMs
-        : Date.now() + FALLBACK_START_DELAY_MS;
+      playbackSync.playAtLocalMs = fallbackPlaybackTime(playbackSync, message.playAtServerMs);
       tuneAudioReceivers(peer, message.jitterBufferTargetMs);
       scheduleStreamDelivery(playbackSync, handlers);
     }
@@ -297,11 +300,22 @@ async function handleServerMessage(
     return;
   }
   if (message.kind === "hostOffer") {
-    await answerOffer(transport, peer, message.description);
+    await answerOffer(
+      transport,
+      peer,
+      message.description,
+      pendingHostCandidates,
+      pendingLocalCandidates,
+      markAnswerSent,
+    );
     return;
   }
   if (message.kind === "hostIceCandidate") {
-    await addHostCandidate(peer, message.candidate);
+    if (!peer.remoteDescription) {
+      pendingHostCandidates.push(message.candidate);
+    } else {
+      await addHostCandidate(peer, message.candidate);
+    }
     return;
   }
   if (message.kind === "error") {
@@ -313,16 +327,38 @@ async function answerOffer(
   transport: SignalTransport,
   peer: RTCPeerConnection,
   description: { deviceId: string; sdp: string },
+  pendingHostCandidates: IceCandidateMessage[],
+  pendingLocalCandidates: RTCIceCandidateInit[],
+  markAnswerSent: () => void,
 ): Promise<void> {
   await peer.setRemoteDescription({ type: "offer", sdp: description.sdp });
+  for (const candidate of pendingHostCandidates.splice(0)) {
+    await addHostCandidate(peer, candidate);
+  }
   const answer = await peer.createAnswer();
   await peer.setLocalDescription(answer);
-  if (answer.sdp) {
+  const localDescription = peer.localDescription;
+  if (localDescription?.sdp) {
     transport.send({
       kind: "answer",
-      description: { deviceId: description.deviceId, sdp: answer.sdp },
+      description: { deviceId: description.deviceId, sdp: localDescription.sdp },
     });
+    markAnswerSent();
+    for (const candidate of pendingLocalCandidates.splice(0)) {
+      sendLocalCandidate(transport, description.deviceId, candidate);
+    }
   }
+}
+
+function sendLocalCandidate(
+  transport: SignalTransport,
+  deviceId: string,
+  candidate: RTCIceCandidateInit,
+): void {
+  transport.send({
+    kind: "iceCandidate",
+    candidate: { deviceId, candidate: JSON.stringify(candidate) },
+  });
 }
 
 async function addHostCandidate(
@@ -379,117 +415,4 @@ function isIceCandidateInit(value: unknown): value is RTCIceCandidateInit {
     "candidate" in value &&
     typeof value.candidate === "string"
   );
-}
-
-function createPlaybackSyncState(): PlaybackSyncState {
-  return {
-    serverOffsetMs: 0,
-    hasServerOffset: false,
-    pendingClockRequests: new Map(),
-    pendingStream: null,
-    playAtLocalMs: null,
-    playbackTimerId: null,
-  };
-}
-
-async function calibrateClock(transport: SignalTransport, state: PlaybackSyncState): Promise<void> {
-  const samples: ClockSample[] = [];
-  for (let index = 0; index < CLOCK_SYNC_SAMPLE_COUNT; index += 1) {
-    const sample = await measureClock(transport, state);
-    if (sample) {
-      samples.push(sample);
-    }
-  }
-  const best = samples.sort((left, right) => left.roundTripMs - right.roundTripMs)[0];
-  if (best) {
-    state.serverOffsetMs = best.offsetMs;
-    state.hasServerOffset = true;
-  }
-}
-
-function measureClock(
-  transport: SignalTransport,
-  state: PlaybackSyncState,
-): Promise<ClockSample | null> {
-  return new Promise((resolve) => {
-    const requestId = createRequestId();
-    const clientSentAtMs = Date.now();
-    const timeoutId = window.setTimeout(() => {
-      state.pendingClockRequests.delete(requestId);
-      resolve(null);
-    }, CLOCK_SYNC_TIMEOUT_MS);
-    state.pendingClockRequests.set(requestId, { timeoutId, resolve });
-    transport.send({ kind: "clockSyncRequest", requestId, clientSentAtMs });
-  });
-}
-
-function resolveClockSample(
-  state: PlaybackSyncState,
-  message: ValidClockSyncResponse,
-  clientReceivedAtMs: number,
-): void {
-  const pending = state.pendingClockRequests.get(message.requestId);
-  if (!pending) {
-    return;
-  }
-  window.clearTimeout(pending.timeoutId);
-  state.pendingClockRequests.delete(message.requestId);
-  const serverProcessingMs = message.serverSentAtMs - message.serverReceivedAtMs;
-  const roundTripMs = Math.max(0, clientReceivedAtMs - message.clientSentAtMs - serverProcessingMs);
-  const offsetMs =
-    (message.serverReceivedAtMs -
-      message.clientSentAtMs +
-      message.serverSentAtMs -
-      clientReceivedAtMs) /
-    2;
-  pending.resolve({ offsetMs, roundTripMs });
-}
-
-function scheduleStreamDelivery(state: PlaybackSyncState, handlers: WebReceiverHandlers): void {
-  if (!state.pendingStream) {
-    return;
-  }
-  if (state.playbackTimerId !== null) {
-    window.clearTimeout(state.playbackTimerId);
-  }
-  const delayMs =
-    state.playAtLocalMs === null
-      ? FALLBACK_START_DELAY_MS
-      : Math.max(0, state.playAtLocalMs - Date.now());
-  state.playbackTimerId = window.setTimeout(() => {
-    const stream = state.pendingStream;
-    state.pendingStream = null;
-    state.playbackTimerId = null;
-    if (stream) {
-      handlers.onStream(stream);
-    }
-  }, delayMs);
-}
-
-function clearPlaybackSync(state: PlaybackSyncState): void {
-  if (state.playbackTimerId !== null) {
-    window.clearTimeout(state.playbackTimerId);
-    state.playbackTimerId = null;
-  }
-  for (const pending of state.pendingClockRequests.values()) {
-    window.clearTimeout(pending.timeoutId);
-    pending.resolve(null);
-  }
-  state.pendingClockRequests.clear();
-  state.pendingStream = null;
-}
-
-function createRequestId(): string {
-  return typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : `clock-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-}
-
-function tuneAudioReceivers(peer: RTCPeerConnection, targetMs: number): void {
-  for (const receiver of peer.getReceivers()) {
-    if (receiver.track.kind === "audio" && "jitterBufferTarget" in receiver) {
-      const audioReceiver = receiver as RTCRtpReceiver & { jitterBufferTarget: number | null };
-      audioReceiver.jitterBufferTarget = targetMs;
-    }
-  }
 }

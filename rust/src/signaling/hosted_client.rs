@@ -29,7 +29,11 @@ pub(crate) struct HostedRoomResponse {
 }
 
 #[derive(Serialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 enum RelayHostMessage<'a> {
     Hello {
         role: &'static str,
@@ -43,7 +47,11 @@ enum RelayHostMessage<'a> {
 }
 
 #[derive(Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 enum RelayServerMessage {
     Ready {
         role: String,
@@ -411,4 +419,38 @@ where
         .send(Message::Text(text.into()))
         .await
         .map_err(|error| error.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{RelayHostMessage, RelayServerMessage};
+    use crate::domain::SignalServerMessage;
+
+    #[test]
+    fn reads_worker_device_id() {
+        let message = serde_json::from_str::<RelayServerMessage>(
+            r#"{"type":"signal","deviceId":"phone-1","payload":{"kind":"clockSyncRequest","requestId":"clock-1","clientSentAtMs":1}}"#,
+        )
+        .expect("Worker signal should deserialize");
+
+        match message {
+            RelayServerMessage::Signal { device_id, .. } => assert_eq!(device_id, "phone-1"),
+            _ => panic!("Expected a Worker signal"),
+        }
+    }
+
+    #[test]
+    fn writes_worker_device_id() {
+        let payload = SignalServerMessage::SignalAck {
+            message: "ok".to_string(),
+        };
+        let value = serde_json::to_value(RelayHostMessage::Signal {
+            device_id: "phone-1",
+            payload: &payload,
+        })
+        .expect("Host signal should serialize");
+
+        assert_eq!(value["deviceId"], "phone-1");
+        assert!(value.get("device_id").is_none());
+    }
 }
