@@ -56,6 +56,7 @@ mod android {
     use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
     use webrtc::peer_connection::RTCPeerConnection;
 
+    use super::local_candidate_queue::LocalCandidateQueue;
     use super::playback::NativeAudioPlayer;
     use super::signaling_transport::connect_signaling;
     use crate::domain::{
@@ -114,7 +115,14 @@ mod android {
             })?;
         let (sender, mut outgoing) = mpsc::unbounded_channel::<SignalClientMessage>();
         let device_id = request.device_id.clone();
-        let peer = create_peer(app.clone(), device_id.clone(), sender.clone()).await?;
+        let candidate_queue = Arc::new(LocalCandidateQueue::default());
+        let peer = create_peer(
+            app.clone(),
+            device_id.clone(),
+            sender.clone(),
+            Arc::clone(&candidate_queue),
+        )
+        .await?;
 
         sender
             .send(SignalClientMessage::JoinRequest { request })
@@ -129,7 +137,15 @@ mod android {
         });
 
         while let Some(server_message) = reader.next().await? {
-            handle_server_message(&app, &peer, &sender, &device_id, server_message).await?;
+            handle_server_message(
+                &app,
+                &peer,
+                &sender,
+                &candidate_queue,
+                &device_id,
+                server_message,
+            )
+            .await?;
         }
 
         writer_task.abort();
@@ -146,6 +162,7 @@ mod android {
         app: AppHandle,
         device_id: String,
         sender: mpsc::UnboundedSender<SignalClientMessage>,
+        candidate_queue: Arc<LocalCandidateQueue>,
     ) -> Result<Arc<RTCPeerConnection>, String> {
         let mut media_engine = MediaEngine::default();
         media_engine
@@ -166,17 +183,21 @@ mod android {
         peer.on_ice_candidate(Box::new(move |candidate| {
             let sender = ice_sender.clone();
             let device_id = ice_device_id.clone();
+            let candidate_queue = Arc::clone(&candidate_queue);
             Box::pin(async move {
                 let Some(candidate) = candidate else {
                     return;
                 };
                 if let Ok(candidate) = candidate.to_json() {
-                    let _ = sender.send(SignalClientMessage::IceCandidate {
-                        candidate: IceCandidateMessage {
-                            device_id,
-                            candidate: serde_json::to_string(&candidate).unwrap_or_default(),
-                        },
-                    });
+                    candidate_queue
+                        .send_or_queue(
+                            &sender,
+                            IceCandidateMessage {
+                                device_id,
+                                candidate: serde_json::to_string(&candidate).unwrap_or_default(),
+                            },
+                        )
+                        .await;
                 }
             })
         }));
@@ -286,6 +307,7 @@ mod android {
         app: &AppHandle,
         peer: &Arc<RTCPeerConnection>,
         sender: &mpsc::UnboundedSender<SignalClientMessage>,
+        candidate_queue: &Arc<LocalCandidateQueue>,
         device_id: &str,
         message: SignalServerMessage,
     ) -> Result<(), String> {
@@ -317,7 +339,7 @@ mod android {
                 }
             }
             SignalServerMessage::HostOffer { description } => {
-                answer_offer(peer, sender, device_id, description).await?;
+                answer_offer(peer, sender, candidate_queue, device_id, description).await?;
             }
             SignalServerMessage::HostIceCandidate { candidate } => {
                 add_host_candidate(peer, candidate).await?;
@@ -333,6 +355,7 @@ mod android {
     async fn answer_offer(
         peer: &Arc<RTCPeerConnection>,
         sender: &mpsc::UnboundedSender<SignalClientMessage>,
+        candidate_queue: &Arc<LocalCandidateQueue>,
         device_id: &str,
         description: SessionDescriptionMessage,
     ) -> Result<(), String> {
@@ -355,7 +378,9 @@ mod android {
                     sdp: answer.sdp,
                 },
             })
-            .map_err(|error| error.to_string())
+            .map_err(|error| error.to_string())?;
+        candidate_queue.flush_after_answer(sender).await;
+        Ok(())
     }
 
     async fn add_host_candidate(
@@ -457,7 +482,10 @@ mod android {
     }
 }
 
+#[cfg(any(target_os = "android", test))]
+mod local_candidate_queue;
 #[cfg(target_os = "android")]
 mod playback;
-#[cfg(target_os = "android")]
+#[cfg(any(target_os = "android", test))]
+#[cfg_attr(test, allow(dead_code))]
 mod signaling_transport;

@@ -61,11 +61,16 @@ async fn start_stream(
 ) -> Result<StartStreamResult, String> {
     stop_discovery(&state)?;
     stop_signaling(&state)?;
-    stop_media(&state)?;
+    stop_media(&state).await?;
 
     let host = network_host::pairing_host()?;
     log::info!("Selected LAN pairing address {host}");
-    let media = MediaHub::start(Some(Arc::clone(&state.session)), Some(app.clone()))?;
+    let preferred_host = host.parse().map_err(|error| format!("Invalid LAN address: {error}"))?;
+    let media = MediaHub::start(
+        Some(Arc::clone(&state.session)),
+        Some(app.clone()),
+        preferred_host,
+    )?;
     let server =
         SignalingServer::start(Arc::clone(&state.session), Arc::clone(&media), app.clone())?;
     let port = server.port();
@@ -111,13 +116,13 @@ async fn start_stream(
 
 #[tauri::command]
 #[specta::specta]
-fn stop_stream(
+async fn stop_stream(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<RoomSession, String> {
     stop_discovery(&state)?;
     stop_signaling(&state)?;
-    stop_media(&state)?;
+    stop_media(&state).await?;
     let session = state
         .session
         .lock()
@@ -408,14 +413,16 @@ fn stop_signaling(state: &tauri::State<'_, AppState>) -> Result<(), String> {
     Ok(())
 }
 
-fn stop_media(state: &tauri::State<'_, AppState>) -> Result<(), String> {
-    if let Some(media) = state
-        .media
-        .lock()
-        .map_err(|error| error.to_string())?
-        .take()
-    {
-        tauri::async_runtime::block_on(media.stop());
+async fn stop_media(state: &tauri::State<'_, AppState>) -> Result<(), String> {
+    let media = {
+        state
+            .media
+            .lock()
+            .map_err(|error| error.to_string())?
+            .take()
+    };
+    if let Some(media) = media {
+        media.stop().await;
     }
 
     Ok(())
