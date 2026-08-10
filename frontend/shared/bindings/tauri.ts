@@ -95,6 +95,13 @@ export type DiscoveryProofStatus = {
 	note: string,
 };
 
+export type HostedPairingDetails = {
+	roomId: string,
+	joinToken: string,
+	socketUrl: string,
+	clientUrl: string,
+};
+
 export type IceCandidateMessage = {
 	deviceId: string,
 	candidate: string,
@@ -106,6 +113,11 @@ export type JoinRequest = {
 	deviceId: string,
 	deviceName: string,
 	method: JoinMethod,
+};
+
+export type LocalPairingDetails = {
+	host: string,
+	port: number,
 };
 
 export type MediaState = {
@@ -124,18 +136,6 @@ export type QrPairingPayload = {
 	version: number,
 	local: LocalPairingDetails,
 	hosted: HostedPairingDetails | null,
-};
-
-export type LocalPairingDetails = {
-	host: string,
-	port: number,
-};
-
-export type HostedPairingDetails = {
-	roomId: string,
-	joinToken: string,
-	socketUrl: string,
-	clientUrl: string,
 };
 
 export type RoomSession = {
@@ -197,3 +197,4 @@ export type WebRtcProofStatus = {
 	libraryReady: boolean,
 	note: string,
 };
+

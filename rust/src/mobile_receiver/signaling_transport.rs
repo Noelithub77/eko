@@ -1,6 +1,7 @@
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
@@ -8,9 +9,14 @@ use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use crate::domain::{QrPairingPayload, SignalClientMessage, SignalServerMessage};
 
 type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
+const LAN_PREFERENCE_WINDOW: Duration = Duration::from_millis(600);
 
 #[derive(Serialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 enum RelayReceiverMessage<'a> {
     Hello {
         role: &'static str,
@@ -23,7 +29,11 @@ enum RelayReceiverMessage<'a> {
 }
 
 #[derive(Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 enum RelayServerMessage {
     Ready {
         role: String,
@@ -71,13 +81,36 @@ pub(super) async fn connect_signaling(
 
     tokio::select! {
         local_result = &mut local => match local_result {
-            Ok(connection) => Ok(connection),
-            Err(local_error) => cloud.await.map_err(|cloud_error| {
-                format!("Local signaling failed: {local_error}. Hosted signaling failed: {cloud_error}")
-            }),
+            Ok(connection) => {
+                log::info!("Receiver selected direct LAN signaling");
+                Ok(connection)
+            }
+            Err(local_error) => cloud.await
+                .map(|connection| {
+                    log::info!("Receiver selected hosted signaling after LAN failed");
+                    connection
+                })
+                .map_err(|cloud_error| {
+                    format!("Local signaling failed: {local_error}. Hosted signaling failed: {cloud_error}")
+                }),
         },
         cloud_result = &mut cloud => match cloud_result {
-            Ok(connection) => Ok(connection),
+            Ok(cloud_connection) => {
+                match tokio::time::timeout(LAN_PREFERENCE_WINDOW, &mut local).await {
+                    Ok(Ok(local_connection)) => {
+                        log::info!("Receiver selected direct LAN signaling");
+                        Ok(local_connection)
+                    }
+                    Ok(Err(local_error)) => {
+                        log::info!("Receiver selected hosted signaling because LAN failed: {local_error}");
+                        Ok(cloud_connection)
+                    }
+                    Err(_) => {
+                        log::info!("Receiver selected hosted signaling after LAN preference window");
+                        Ok(cloud_connection)
+                    }
+                }
+            }
             Err(cloud_error) => local.await.map_err(|local_error| {
                 format!("Hosted signaling failed: {cloud_error}. Local signaling failed: {local_error}")
             }),
@@ -186,4 +219,35 @@ async fn send_json<T: Serialize>(
         .send(Message::Text(json.into()))
         .await
         .map_err(|error| error.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{RelayReceiverMessage, RelayServerMessage};
+
+    #[test]
+    fn writes_worker_device_id() {
+        let value = serde_json::to_value(RelayReceiverMessage::Hello {
+            role: "receiver",
+            token: "test-token",
+            device_id: "phone-1",
+        })
+        .expect("Receiver hello should serialize");
+
+        assert_eq!(value["deviceId"], "phone-1");
+        assert!(value.get("device_id").is_none());
+    }
+
+    #[test]
+    fn reads_worker_device_id() {
+        let message = serde_json::from_str::<RelayServerMessage>(
+            r#"{"type":"signal","deviceId":"phone-1","payload":{"kind":"signalAck","message":"ok"}}"#,
+        )
+        .expect("Worker signal should deserialize");
+
+        match message {
+            RelayServerMessage::Signal { device_id, .. } => assert_eq!(device_id, "phone-1"),
+            _ => panic!("Expected a Worker signal"),
+        }
+    }
 }
