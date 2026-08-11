@@ -1,15 +1,15 @@
 {
   "version": "0.2.0",
   "notes": "",
-  "pub_date": "2026-08-06T11:03:10.119Z",
+  "pub_date": "2026-08-11T10:04:35.500Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURkdQdzRlRWxvZE9jYkRxdWxpZTNBKy9adExaUXhwbGhqbHRwZTFLU0N5TXNlY0pZWWdnMXUwMEhSdldrZlM5aVpCZGlsaWJsRlpGcXdlaHlDQ0dzeXphVnlwVkpYVlFRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDE0MTg2CWZpbGU6ZWtvXzAuMi4wX3g2NC1zZXR1cC5leGUKZ3VweTVRS2R4TENocVdWa2M5dmxON0lON3RhKzUzWTh0cUpYbjY3aVRZODNjWVhZaDl4YnhvZGwzVXAyaS9oblQ0OFltcHVjY1VyQjZNbFRaUFlzRHc9PQo=",
-      "url": "https://rider-vader.github.io/eko/updates/windows/eko_0.2.0_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURkdQdzRlRWxvZEovUFBuK25KeTMxRDdLTWgrWWEwZG5NeVNYMVkwT2FFbnpmeHlJbjBPNWVZMTlDeTF5eENSc1JjSG5kM0dSVGVhcGtxTW5meUtCTDhqY1Z6SkcyZmc0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2NDQyNjczCWZpbGU6ZWtvXzAuMi4wX3g2NC1zZXR1cC5leGUKb0drQU5qWDExU1RnZGFGNDlxQVBURFBmSDNGUEwyMkcxcGE3S01tcWp4N1UvOFhaZGs4RkdqTmxYZXNpWld4Q1ZQemliYVBORE42KzdmWmRRYmR1QUE9PQo=",
+      "url": "https://noelithub77.github.io/eko/updates/windows/eko_0.2.0_x64-setup.exe"
     },
     "windows-x86_64-nsis": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURkdQdzRlRWxvZE9jYkRxdWxpZTNBKy9adExaUXhwbGhqbHRwZTFLU0N5TXNlY0pZWWdnMXUwMEhSdldrZlM5aVpCZGlsaWJsRlpGcXdlaHlDQ0dzeXphVnlwVkpYVlFRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDE0MTg2CWZpbGU6ZWtvXzAuMi4wX3g2NC1zZXR1cC5leGUKZ3VweTVRS2R4TENocVdWa2M5dmxON0lON3RhKzUzWTh0cUpYbjY3aVRZODNjWVhZaDl4YnhvZGwzVXAyaS9oblQ0OFltcHVjY1VyQjZNbFRaUFlzRHc9PQo=",
-      "url": "https://rider-vader.github.io/eko/updates/windows/eko_0.2.0_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVURkdQdzRlRWxvZEovUFBuK25KeTMxRDdLTWgrWWEwZG5NeVNYMVkwT2FFbnpmeHlJbjBPNWVZMTlDeTF5eENSc1JjSG5kM0dSVGVhcGtxTW5meUtCTDhqY1Z6SkcyZmc0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2NDQyNjczCWZpbGU6ZWtvXzAuMi4wX3g2NC1zZXR1cC5leGUKb0drQU5qWDExU1RnZGFGNDlxQVBURFBmSDNGUEwyMkcxcGE3S01tcWp4N1UvOFhaZGs4RkdqTmxYZXNpWld4Q1ZQemliYVBORE42KzdmWmRRYmR1QUE9PQo=",
+      "url": "https://noelithub77.github.io/eko/updates/windows/eko_0.2.0_x64-setup.exe"
     }
   }
 }
