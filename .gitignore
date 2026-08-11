@@ -15,6 +15,11 @@ releases/*
 !releases/.gitkeep
 *.local
 
+# Local release secrets
+actions.env
+actions.env.*
+!actions.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
