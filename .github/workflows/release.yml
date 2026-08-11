@@ -22,6 +22,7 @@ permissions:
   contents: write
 
 env:
+  PUBLIC_UPDATE_BASE_URL: ${{ vars.PUBLIC_UPDATE_BASE_URL }}
   PNPM_VERSION: 11.5.0
   CMAKE_POLICY_VERSION_MINIMUM: "3.5"
   ANDROID_PLATFORM_PACKAGE: platforms;android-36
@@ -43,18 +44,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Load release env
-        run: |
-          while IFS='=' read -r name value; do
-            if [ -z "$name" ] || [[ "$name" == \#* ]]; then
-              continue
-            fi
-            if [[ "$name" == *KEY* || "$name" == *PASSWORD* ]]; then
-              echo "::add-mask::$value"
-            fi
-            echo "$name=$value" >> "$GITHUB_ENV"
-          done < actions.env
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -123,19 +112,6 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.release_sha }}
 
-      - name: Load release env
-        shell: bash
-        run: |
-          while IFS='=' read -r name value; do
-            if [ -z "$name" ] || [[ "$name" == \#* ]]; then
-              continue
-            fi
-            if [[ "$name" == *KEY* || "$name" == *PASSWORD* ]]; then
-              echo "::add-mask::$value"
-            fi
-            echo "$name=$value" >> "$GITHUB_ENV"
-          done < actions.env
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -171,6 +147,7 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         with:
           projectPath: .
           releaseId: ${{ needs.prepare.outputs.release_id }}
@@ -241,18 +218,6 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.release_sha }}
 
-      - name: Load release env
-        run: |
-          while IFS='=' read -r name value; do
-            if [ -z "$name" ] || [[ "$name" == \#* ]]; then
-              continue
-            fi
-            if [[ "$name" == *KEY* || "$name" == *PASSWORD* ]]; then
-              echo "::add-mask::$value"
-            fi
-            echo "$name=$value" >> "$GITHUB_ENV"
-          done < actions.env
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -292,6 +257,7 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         with:
           projectPath: .
           releaseId: ${{ needs.prepare.outputs.release_id }}
@@ -350,23 +316,15 @@ jobs:
     needs: prepare
     if: inputs.target == 'android-apk' || inputs.target == 'android-aab'
     runs-on: ubuntu-22.04
+    env:
+      ANDROID_KEY_ALIAS: ${{ vars.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.prepare.outputs.release_sha }}
-
-      - name: Load release env
-        run: |
-          while IFS='=' read -r name value; do
-            if [ -z "$name" ] || [[ "$name" == \#* ]]; then
-              continue
-            fi
-            if [[ "$name" == *KEY* || "$name" == *PASSWORD* ]]; then
-              echo "::add-mask::$value"
-            fi
-            echo "$name=$value" >> "$GITHUB_ENV"
-          done < actions.env
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
