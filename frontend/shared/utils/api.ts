@@ -34,16 +34,17 @@ export function startStream(): Promise<StartStreamResult> {
     const roomId = `room-${createId()}`;
     const token = createId();
     const qrPayload: QrPairingPayload = {
-      host: "127.0.0.1",
-      port: 44000,
+      version: 1,
+      local: { host: "127.0.0.1", port: 44000 },
+      hosted: null,
     };
     browserMock.session = {
       ...emptySession(),
       status: "running",
       roomId,
       token,
-      host: qrPayload.host,
-      port: qrPayload.port,
+      host: qrPayload.local.host,
+      port: qrPayload.local.port,
       lanDiscoveryEnabled: true,
       events: [event("info", "Browser preview stream started")],
     };

@@ -13,11 +13,10 @@ import { ConnectionQualityPanel } from "./features/playback/ConnectionQualityPan
 import type { ConnectionQuality } from "./features/playback/connection-quality";
 import { createLiveProfiler, type LiveProfiler } from "./features/playback/live-profiler";
 import { useWebBackgroundPlayback } from "./features/playback/web-background-playback";
-import type { WebNowPlayingState } from "@shared/bindings/tauri";
+import type { WebNowPlayingState } from "@shared/types/web-now-playing";
 
 type ConnectionState = "ready" | "waiting" | "connected" | "failed";
 
-const AUTO_RECONNECT_STORAGE_KEY = "eko-web-auto-reconnect";
 const RECOVERY_COOLDOWN_MS = 3_000;
 
 function App() {
@@ -39,6 +38,7 @@ function App() {
   const streamRef = useRef<MediaStream | null>(null);
   const sessionRef = useRef<WebReceiverSession | null>(null);
   const shouldRecoverRef = useRef(false);
+  const hasAskedRef = useRef(false);
   const reconnectInFlightRef = useRef(false);
   const lastRecoveryAtRef = useRef(0);
   const recoverConnectionRef = useRef<() => void>(() => {});
@@ -52,7 +52,10 @@ function App() {
 
   useEffect(() => {
     if (payload) {
-      localStorage.setItem("eko-web-desktop-address", `${payload.host}:${payload.port}`);
+      localStorage.setItem(
+        "eko-web-desktop-address",
+        `${payload.local.host}:${payload.local.port}`,
+      );
     }
   }, [payload]);
 
@@ -62,7 +65,10 @@ function App() {
     }
 
     audioRef.current.srcObject = streamRef.current;
+    audioRef.current.autoplay = true;
+    audioRef.current.defaultMuted = false;
     audioRef.current.muted = false;
+    audioRef.current.volume = 1;
 
     const track = streamRef.current.getAudioTracks()[0];
     if (track) {
@@ -111,7 +117,7 @@ function App() {
     setPeer(null);
     setProfiler(null);
     shouldRecoverRef.current = false;
-    localStorage.setItem(AUTO_RECONNECT_STORAGE_KEY, "true");
+    hasAskedRef.current = true;
 
     const savedName = finalReceiverName("web");
     const request = createJoinRequest(deviceId, savedName);
@@ -171,11 +177,11 @@ function App() {
   const recoverConnection = useCallback(() => {
     const session = sessionRef.current;
     const now = Date.now();
-    const wantsReconnect = localStorage.getItem(AUTO_RECONNECT_STORAGE_KEY) === "true";
     if (
+      !hasAskedRef.current ||
       reconnectInFlightRef.current ||
       now - lastRecoveryAtRef.current < RECOVERY_COOLDOWN_MS ||
-      (!session && !shouldRecoverRef.current && !wantsReconnect) ||
+      (!session && !shouldRecoverRef.current) ||
       (!shouldRecoverRef.current && session && !session.needsReconnect())
     ) {
       return;
@@ -186,20 +192,12 @@ function App() {
   }, [connect]);
   recoverConnectionRef.current = recoverConnection;
 
-  useEffect(() => {
-    if (!payload || localStorage.getItem(AUTO_RECONNECT_STORAGE_KEY) !== "true") {
-      return;
-    }
-
-    void connect();
-  }, [connect, payload]);
-
   const disconnect = useCallback(() => {
     sessionRef.current?.close();
     sessionRef.current = null;
     shouldRecoverRef.current = false;
+    hasAskedRef.current = false;
     reconnectInFlightRef.current = false;
-    localStorage.removeItem(AUTO_RECONNECT_STORAGE_KEY);
     setPeer(null);
     setProfiler(null);
     setDesktopMedia(null);
@@ -302,7 +300,14 @@ function App() {
                 </button>
               )}
             </div>
-            <audio ref={audioRef} className="hidden" playsInline preload="auto">
+            <audio
+              ref={audioRef}
+              className="hidden"
+              playsInline
+              preload="auto"
+              autoPlay
+              muted={false}
+            >
               <track kind="captions" label="No captions available" />
             </audio>
 

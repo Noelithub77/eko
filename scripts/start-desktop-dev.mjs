@@ -5,16 +5,50 @@ import os from "node:os";
 const rootPath = resolve(import.meta.dirname, "..");
 const targetDir = join(rootPath, "rust", "target", "desktop-dev");
 
+function isPrivateLanAddress(address) {
+  const parts = address.split(".").map(Number);
+  if (
+    parts.length !== 4 ||
+    parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)
+  ) {
+    return false;
+  }
+
+  const isPrivate =
+    parts[0] === 10 ||
+    (parts[0] === 192 && parts[1] === 168) ||
+    (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31);
+  const isVirtualHostOnly =
+    (parts[0] === 192 && parts[1] === 168 && parts[2] === 56) ||
+    (parts[0] === 172 && (parts[1] === 17 || parts[1] === 18));
+
+  return isPrivate && !isVirtualHostOnly && !address.startsWith("169.254.");
+}
+
 function getLanIp() {
-  const interfaces = os.networkInterfaces();
-  for (const addrs of Object.values(interfaces)) {
+  const blockedPattern = /loopback|virtual|vmware|virtualbox|hyper-v|wsl|docker|tailscale|wireguard|zerotier|vpn|tun|tap|utun|veth|br-/i;
+  const preferredPattern = /wi-?fi|wlan|ethernet|lan/i;
+  const candidates = [];
+
+  for (const [name, addrs] of Object.entries(os.networkInterfaces())) {
+    if (blockedPattern.test(name)) {
+      continue;
+    }
     for (const addr of addrs || []) {
-      if (addr.family === "IPv4" && !addr.internal) {
-        return addr.address;
+      if (
+        (addr.family === "IPv4" || addr.family === 4) &&
+        !addr.internal &&
+        isPrivateLanAddress(addr.address)
+      ) {
+        candidates.push({ address: addr.address, score: preferredPattern.test(name) ? 100 : 0 });
       }
     }
   }
-  return "127.0.0.1";
+
+  candidates.sort((first, second) => second.score - first.score);
+  const selected = candidates[0]?.address ?? "127.0.0.1";
+  console.log(`[eko] selected LAN dev address: ${selected}`);
+  return selected;
 }
 
 const lanIp = getLanIp();

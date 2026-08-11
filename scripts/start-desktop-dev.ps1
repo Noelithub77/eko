@@ -4,15 +4,66 @@ $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $env:CARGO_TARGET_DIR = Join-Path $projectRoot "rust\target\desktop-dev"
 $env:EKO_WEB_CLIENT_DEV_URL = "http://localhost:5174"
 
-function Get-LanIp {
-  $address = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
-    Where-Object { -not $_.IPAddress.StartsWith("127.") -and $_.PrefixOrigin -ne "WellKnown" } |
-    Select-Object -First 1 -ExpandProperty IPAddress
+function Test-PrivateLanAddress {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Address
+  )
 
-  if ($address) {
-    return $address
+  $bytes = [System.Net.IPAddress]::Parse($Address).GetAddressBytes()
+  $isPrivate =
+    ($bytes[0] -eq 10) -or
+    ($bytes[0] -eq 192 -and $bytes[1] -eq 168) -or
+    ($bytes[0] -eq 172 -and $bytes[1] -ge 16 -and $bytes[1] -le 31)
+
+  if (-not $isPrivate) {
+    return $false
   }
 
+  $isVirtualHostOnly =
+    ($bytes[0] -eq 192 -and $bytes[1] -eq 168 -and $bytes[2] -eq 56) -or
+    ($bytes[0] -eq 172 -and $bytes[1] -eq 17) -or
+    ($bytes[0] -eq 172 -and $bytes[1] -eq 18)
+
+  return -not $isVirtualHostOnly
+}
+
+function Get-LanIp {
+  $blockedPattern = "(?i)loopback|virtual|vmware|virtualbox|hyper-v|wsl|docker|tailscale|wireguard|zerotier|vpn|tun|tap|utun|veth|br-"
+  $preferredPattern = "(?i)wi-?fi|wlan|ethernet|lan"
+  $candidates = @(
+    Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+      Where-Object {
+        $_.AddressState -eq "Preferred" -and
+        $_.PrefixOrigin -ne "WellKnown" -and
+        -not $_.SkipAsSource -and
+        $_.IPAddress -notlike "127.*" -and
+        $_.IPAddress -notlike "169.254.*"
+      } |
+      ForEach-Object {
+        if ($_.InterfaceAlias -match $blockedPattern) {
+          return
+        }
+        if (-not (Test-PrivateLanAddress -Address $_.IPAddress)) {
+          return
+        }
+
+        $score = if ($_.InterfaceAlias -match $preferredPattern) { 100 } else { 0 }
+        [PSCustomObject]@{
+          Address = $_.IPAddress
+          InterfaceAlias = $_.InterfaceAlias
+          Score = $score
+        }
+      }
+  )
+
+  $selected = $candidates | Sort-Object -Property Score, InterfaceAlias -Descending | Select-Object -First 1
+  if ($selected) {
+    Write-Host "Selected LAN address $($selected.Address) on $($selected.InterfaceAlias)."
+    return $selected.Address
+  }
+
+  Write-Warning "No physical private LAN address found. Using 127.0.0.1; phone pairing will not work until a LAN is available."
   return "127.0.0.1"
 }
 
@@ -65,7 +116,7 @@ $webClientErrorLog = Join-Path $logFolder "web-client-vite-error.log"
 Remove-Item -LiteralPath $webClientLog, $webClientErrorLog -Force -ErrorAction SilentlyContinue
 $webClientProcess = Start-Process -FilePath "npm.cmd" -ArgumentList @("run", "dev:web:client") -WorkingDirectory $projectRoot -WindowStyle Hidden -RedirectStandardOutput $webClientLog -RedirectStandardError $webClientErrorLog -PassThru
 Wait-ForPort -Port 5174 -Process $webClientProcess -LogPath $webClientLog -ErrorLogPath $webClientErrorLog
-Write-Host "Web client Vite server is listening on http://localhost:5174."
+Write-Host "Web client Vite server is listening on http://$env:WEB_CLIENT_DEV_HOST`:5174 and http://localhost:5174."
 if (Test-Path -LiteralPath $webClientLog) {
   Get-Content -LiteralPath $webClientLog -Tail 12
 }
