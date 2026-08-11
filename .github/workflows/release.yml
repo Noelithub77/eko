@@ -132,7 +132,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: ./rust -> target
-          cache-on-failure: true
+          prefix-key: v1-rust
+          cache-on-failure: false
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
@@ -143,18 +144,55 @@ jobs:
           mkdir -p "$RUNNER_TEMP/old-updater"
           curl -fsSL "${PUBLIC_UPDATE_BASE_URL}/latest.json" -o "$RUNNER_TEMP/old-updater/latest.json" || true
 
-      - name: Build and upload Windows EXE
-        uses: tauri-apps/tauri-action@v0
+      - name: Build Windows EXE
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-        with:
-          projectPath: .
-          releaseId: ${{ needs.prepare.outputs.release_id }}
-          tauriScript: pnpm tauri
-          args: --bundles nsis --ci
-          uploadUpdaterJson: true
-          uploadUpdaterSignatures: true
+        run: pnpm tauri build --bundles nsis --ci
+
+      - name: Generate Windows updater metadata
+        shell: pwsh
+        env:
+          APP_VERSION: ${{ needs.prepare.outputs.app_version }}
+          PUBLIC_UPDATE_BASE_URL: ${{ env.PUBLIC_UPDATE_BASE_URL }}
+        run: |
+          $setupName = "eko_$env:APP_VERSION`_x64-setup.exe"
+          $setupPath = Join-Path "rust/target/release/bundle/nsis" $setupName
+          $releaseAssetsPath = Join-Path $env:RUNNER_TEMP "release-assets"
+          $signature = (Get-Content -LiteralPath "$setupPath.sig" -Raw).Trim()
+          $publicSetupUrl = "$env:PUBLIC_UPDATE_BASE_URL/updates/windows/$setupName"
+
+          New-Item -ItemType Directory -Force -Path $releaseAssetsPath | Out-Null
+
+          $platform = [ordered]@{
+            signature = $signature
+            url = $publicSetupUrl
+          }
+          $metadata = [ordered]@{
+            version = $env:APP_VERSION
+            notes = ""
+            pub_date = [DateTime]::UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'")
+            platforms = [ordered]@{
+              "windows-x86_64" = $platform
+              "windows-x86_64-nsis" = $platform
+            }
+          }
+
+          $metadata | ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8NoBOM -LiteralPath "$releaseAssetsPath/latest.json"
+
+      - name: Upload Windows Tauri assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APP_VERSION: ${{ needs.prepare.outputs.app_version }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+        run: |
+          SETUP_PATH="rust/target/release/bundle/nsis/eko_${APP_VERSION}_x64-setup.exe"
+          gh release upload "$RELEASE_TAG" \
+            "$SETUP_PATH" \
+            "${SETUP_PATH}.sig" \
+            "$RUNNER_TEMP/release-assets/latest.json" \
+            --clobber
 
       - name: Upload Windows portable EXE
         shell: bash
@@ -243,7 +281,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: ./rust -> target
-          cache-on-failure: true
+          prefix-key: v1-rust
+          cache-on-failure: false
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
@@ -366,7 +405,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: ./rust -> target
-          cache-on-failure: true
+          prefix-key: v1-rust
+          cache-on-failure: false
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
