@@ -38,7 +38,14 @@ export function QrPairingCard({ payload }: QrPairingCardProps) {
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="text-xl">QR Pairing</CardTitle>
-          <NetworkBadge label="Same network" />
+          <NetworkBadge
+            label={payload?.hosted ? "Direct audio" : "Same network"}
+            tooltip={
+              payload?.hosted
+                ? "Pairing uses Eko’s hosted service. Audio still travels directly between your devices and is never relayed."
+                : undefined
+            }
+          />
         </div>
       </CardHeader>
       <CardContent className="flex flex-1 min-h-0 px-4 pb-4">
@@ -47,7 +54,7 @@ export function QrPairingCard({ payload }: QrPairingCardProps) {
             <StyledPairingQr value={qrValue} />
           ) : (
             <span className="absolute inset-0 flex items-center justify-center text-base text-muted-foreground">
-              Preparing QR code
+              Preparing secure pairing
             </span>
           )}
           {payload ? (

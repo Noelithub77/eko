@@ -1,12 +1,15 @@
 use std::collections::HashMap;
+use std::net::IpAddr;
 use std::sync::{Arc, Mutex as StdMutex};
 use std::time::Duration;
 
 use bytes::Bytes;
 use tokio::sync::{mpsc, Mutex};
 use webrtc::api::media_engine::{MediaEngine, MIME_TYPE_OPUS};
+use webrtc::api::setting_engine::SettingEngine;
 use webrtc::api::APIBuilder;
 use webrtc::ice_transport::ice_candidate::RTCIceCandidateInit;
+use webrtc::ice_transport::ice_server::RTCIceServer;
 use webrtc::media::Sample;
 use webrtc::peer_connection::configuration::RTCConfiguration;
 use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
@@ -19,6 +22,7 @@ use crate::audio::frame::{AudioFrame, SAMPLE_RATE};
 use crate::audio::opus_codec::OpusAudioEncoder;
 use crate::audio::windows_capture::start_system_audio_source;
 use crate::domain::{IceCandidateMessage, SessionDescriptionMessage};
+use crate::webrtc_core::candidate_path::log_selected_candidate;
 
 pub type SharedMediaHub = Arc<MediaHub>;
 
@@ -36,16 +40,30 @@ pub struct MediaPeerOffer {
 #[derive(Debug)]
 pub struct MediaHub {
     track: Arc<TrackLocalStaticSample>,
-    peers: Mutex<HashMap<String, Arc<RTCPeerConnection>>>,
+    peers: Mutex<HashMap<String, Arc<MediaPeer>>>,
+    preferred_host: IpAddr,
     audio_task: StdMutex<Option<tauri::async_runtime::JoinHandle<()>>>,
     session: Option<crate::signaling::SharedSession>,
     app: Option<tauri::AppHandle>,
+}
+
+#[derive(Debug)]
+struct MediaPeer {
+    connection: Arc<RTCPeerConnection>,
+    remote_signal: Mutex<RemoteSignalState>,
+}
+
+#[derive(Debug, Default)]
+struct RemoteSignalState {
+    remote_description_ready: bool,
+    pending_candidates: Vec<RTCIceCandidateInit>,
 }
 
 impl MediaHub {
     pub fn start(
         session: Option<crate::signaling::SharedSession>,
         app: Option<tauri::AppHandle>,
+        preferred_host: IpAddr,
     ) -> Result<SharedMediaHub, String> {
         let track = Arc::new(TrackLocalStaticSample::new(
             RTCRtpCodecCapability {
@@ -63,6 +81,7 @@ impl MediaHub {
         let hub = Arc::new(Self {
             track,
             peers: Mutex::new(HashMap::new()),
+            preferred_host,
             audio_task: StdMutex::new(None),
             session,
             app,
@@ -84,7 +103,7 @@ impl MediaHub {
         }
         let mut peers = self.peers.lock().await;
         for peer in peers.values() {
-            let _ = peer.close().await;
+            let _ = peer.connection.close().await;
         }
         peers.clear();
     }
@@ -92,9 +111,9 @@ impl MediaHub {
     pub async fn create_sender_offer(&self, device_id: String) -> Result<MediaPeerOffer, String> {
         self.close_peer(&device_id).await;
 
-        let api = webrtc_api_with_default_codecs()?;
+        let api = webrtc_api_with_default_codecs(self.preferred_host)?;
         let peer = Arc::new(
-            api.new_peer_connection(RTCConfiguration::default())
+            api.new_peer_connection(direct_ice_configuration())
                 .await
                 .map_err(|error| error.to_string())?,
         );
@@ -132,9 +151,18 @@ impl MediaHub {
         }));
         peer.on_ice_connection_state_change(Box::new({
             let device_id = device_id.clone();
+            let stats_peer = Arc::clone(&peer);
             move |state| {
                 log::info!("ICE connection state for {device_id}: {state:?}");
-                Box::pin(async {})
+                let device_id = device_id.clone();
+                let stats_peer = Arc::clone(&stats_peer);
+                Box::pin(async move {
+                    if state
+                        == webrtc::ice_transport::ice_connection_state::RTCIceConnectionState::Connected
+                    {
+                        log_selected_candidate(&stats_peer, &device_id).await;
+                    }
+                })
             }
         }));
 
@@ -146,7 +174,13 @@ impl MediaHub {
             .await
             .map_err(|error| error.to_string())?;
 
-        self.peers.lock().await.insert(device_id.clone(), peer);
+        self.peers.lock().await.insert(
+            device_id.clone(),
+            Arc::new(MediaPeer {
+                connection: peer,
+                remote_signal: Mutex::new(RemoteSignalState::default()),
+            }),
+        );
 
         Ok(MediaPeerOffer {
             description: SessionDescriptionMessage {
@@ -174,10 +208,25 @@ impl MediaHub {
             "Setting remote description for device {} (sdp type=answer)",
             description.device_id
         );
-        peer.set_remote_description(answer)
+        peer.connection
+            .set_remote_description(answer)
             .await
             .map_err(|error| error.to_string())?;
-        log::info!("Remote description set successfully for device {}", description.device_id);
+        let pending_candidates = {
+            let mut signal = peer.remote_signal.lock().await;
+            signal.remote_description_ready = true;
+            std::mem::take(&mut signal.pending_candidates)
+        };
+        for candidate in pending_candidates {
+            peer.connection
+                .add_ice_candidate(candidate)
+                .await
+                .map_err(|error| error.to_string())?;
+        }
+        log::info!(
+            "Remote description set successfully for device {}",
+            description.device_id
+        );
         Ok(())
     }
 
@@ -191,14 +240,26 @@ impl MediaHub {
             .ok_or_else(|| "No WebRTC peer for this device.".to_string())?;
         let parsed = serde_json::from_str::<RTCIceCandidateInit>(&candidate.candidate)
             .map_err(|error| error.to_string())?;
-        peer.add_ice_candidate(parsed)
+        {
+            let mut signal = peer.remote_signal.lock().await;
+            if !signal.remote_description_ready {
+                signal.pending_candidates.push(parsed);
+                log::debug!(
+                    "Queued ICE candidate for {} until its answer is ready",
+                    candidate.device_id
+                );
+                return Ok(());
+            }
+        }
+        peer.connection
+            .add_ice_candidate(parsed)
             .await
             .map_err(|error| error.to_string())
     }
 
     pub async fn close_peer(&self, device_id: &str) {
         if let Some(peer) = self.peers.lock().await.remove(device_id) {
-            let _ = peer.close().await;
+            let _ = peer.connection.close().await;
         }
     }
 
@@ -215,7 +276,8 @@ impl MediaHub {
                     log::error!("Opus encoder failed: {error}");
                     if let Some(session) = &session {
                         if let Ok(mut store) = session.lock() {
-                            let session = store.push_event("error", &format!("Audio encoder failed: {error}"));
+                            let session = store
+                                .push_event("error", &format!("Audio encoder failed: {error}"));
                             if let Some(app) = &app {
                                 crate::signaling::emit_room_session(app, session);
                             }
@@ -246,10 +308,28 @@ impl MediaHub {
     }
 }
 
-fn webrtc_api_with_default_codecs() -> Result<webrtc::api::API, String> {
+fn webrtc_api_with_default_codecs(preferred_host: IpAddr) -> Result<webrtc::api::API, String> {
     let mut media_engine = MediaEngine::default();
     media_engine
         .register_default_codecs()
         .map_err(|error| error.to_string())?;
-    Ok(APIBuilder::new().with_media_engine(media_engine).build())
+    let mut setting_engine = SettingEngine::default();
+    setting_engine.set_ip_filter(Box::new(move |candidate| candidate == preferred_host));
+    Ok(APIBuilder::new()
+        .with_media_engine(media_engine)
+        .with_setting_engine(setting_engine)
+        .build())
+}
+
+fn direct_ice_configuration() -> RTCConfiguration {
+    RTCConfiguration {
+        ice_servers: vec![RTCIceServer {
+            urls: vec![
+                "stun:stun.cloudflare.com:3478".to_string(),
+                "stun:stun.cloudflare.com:53".to_string(),
+            ],
+            ..Default::default()
+        }],
+        ..Default::default()
+    }
 }

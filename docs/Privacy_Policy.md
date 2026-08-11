@@ -62,7 +62,7 @@ When you initiate a stream, the App generates a QR code containing a local netwo
 
 ### Update Checks
 
-The App can optionally check for updates by making a request to `github.com/rider-vader/eko/releases`. This is only performed when you explicitly click "Check for Updates" in the UI. The request reveals only standard HTTP information (your IP address, user agent) to GitHub's servers for the sole purpose of determining if a newer version is available.
+The App can optionally check for updates by making a request to `github.com/Noelithub77/eko/releases`. This is only performed when you explicitly click "Check for Updates" in the UI. The request reveals only standard HTTP information (your IP address, user agent) to GitHub's servers for the sole purpose of determining if a newer version is available.
 
 ### Cookies
 
@@ -93,8 +93,8 @@ For questions about this privacy policy or the App's data practices:
 
 - **Developer:** Codialo
 - **App identifier:** com.codialo.eko
-- **Project website:** https://github.com/rider-vader/eko
-- **Issues & inquiries:** https://github.com/rider-vader/eko/issues
+- **Project website:** https://github.com/Noelithub77/eko
+- **Issues & inquiries:** https://github.com/Noelithub77/eko/issues
 
 ## Microsoft Store Compliance
 

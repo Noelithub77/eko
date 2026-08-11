@@ -1,8 +1,9 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::domain::{
-    DevEvent, DevMetric, Device, DeviceConnectionState, JoinMethod, JoinRequest, QrPairingPayload,
-    RoomSession, SharingState, StartStreamResult, StreamStatus,
+    DevEvent, DevMetric, Device, DeviceConnectionState, HostedPairingDetails, JoinMethod,
+    JoinRequest, LocalPairingDetails, QrPairingPayload, RoomSession, SharingState,
+    StartStreamResult, StreamStatus,
 };
 
 const MAX_SESSION_EVENTS: usize = 200;
@@ -10,12 +11,14 @@ const MAX_SESSION_EVENTS: usize = 200;
 #[derive(Debug)]
 pub struct SessionStore {
     session: RoomSession,
+    pairing_payload: Option<QrPairingPayload>,
 }
 
 impl Default for SessionStore {
     fn default() -> Self {
         Self {
             session: empty_session(),
+            pairing_payload: None,
         }
     }
 }
@@ -25,7 +28,12 @@ impl SessionStore {
         self.session.clone()
     }
 
-    pub fn start_stream(&mut self, host: String, port: u16) -> Result<StartStreamResult, String> {
+    pub fn start_stream(
+        &mut self,
+        host: String,
+        port: u16,
+        hosted: Option<HostedPairingDetails>,
+    ) -> Result<StartStreamResult, String> {
         let room_id = format!("room-{}", uuid::Uuid::new_v4());
         let token = uuid::Uuid::new_v4().to_string();
 
@@ -41,32 +49,29 @@ impl SessionStore {
             events: vec![event("info", "Stream started")],
         };
 
+        let qr_payload = QrPairingPayload {
+            version: 1,
+            local: LocalPairingDetails { host, port },
+            hosted,
+        };
+        self.pairing_payload = Some(qr_payload.clone());
+
         Ok(StartStreamResult {
             session: self.snapshot(),
-            qr_payload: QrPairingPayload {
-                host,
-                port,
-            },
+            qr_payload,
         })
     }
 
     pub fn stop_stream(&mut self) -> RoomSession {
         self.session = empty_session();
+        self.pairing_payload = None;
         self.snapshot()
     }
 
     pub fn active_pairing_payload(&self) -> Result<QrPairingPayload, String> {
-        Ok(QrPairingPayload {
-            host: self
-                .session
-                .host
-                .clone()
-                .ok_or_else(|| "Start stream before pairing.".to_string())?,
-            port: self
-                .session
-                .port
-                .ok_or_else(|| "Start stream before pairing.".to_string())?,
-        })
+        self.pairing_payload
+            .clone()
+            .ok_or_else(|| "Start stream before pairing.".to_string())
     }
 
     pub fn set_lan_discovery(&mut self, enabled: bool) -> Result<RoomSession, String> {

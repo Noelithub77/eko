@@ -1,6 +1,7 @@
 use serde::Serialize;
 use specta::Type;
 
+pub mod candidate_path;
 pub mod media_hub;
 
 #[derive(Clone, Debug, Serialize, Type)]
