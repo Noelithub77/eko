@@ -3,15 +3,26 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
-      target:
-        description: Build target
+      windows_exe:
+        description: Build Windows EXE
         required: true
-        type: choice
-        options:
-          - windows-exe
-          - linux-appimage
-          - android-apk
-          - android-aab
+        type: boolean
+        default: false
+      linux_appimage:
+        description: Build Linux AppImage
+        required: true
+        type: boolean
+        default: false
+      android_apk:
+        description: Build Android APK
+        required: true
+        type: boolean
+        default: false
+      android_aab:
+        description: Build Android AAB
+        required: true
+        type: boolean
+        default: false
       bump_minor:
         description: Minor bump package.json before building
         required: true
@@ -54,6 +65,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Validate build targets
+        run: |
+          selected=0
+          if [ "${{ inputs.windows_exe }}" = "true" ]; then selected=$((selected + 1)); fi
+          if [ "${{ inputs.linux_appimage }}" = "true" ]; then selected=$((selected + 1)); fi
+          if [ "${{ inputs.android_apk }}" = "true" ]; then selected=$((selected + 1)); fi
+          if [ "${{ inputs.android_aab }}" = "true" ]; then selected=$((selected + 1)); fi
+
+          if [ "$selected" -eq 0 ]; then
+            echo "Select at least one build target."
+            exit 1
+          fi
 
       - name: Minor bump app version
         if: inputs.bump_minor
@@ -103,7 +127,7 @@ jobs:
   windows-exe:
     name: Build Windows EXE
     needs: prepare
-    if: inputs.target == 'windows-exe'
+    if: inputs.windows_exe == true
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -203,7 +227,7 @@ jobs:
   linux-appimage:
     name: Build Linux AppImage
     needs: prepare
-    if: inputs.target == 'linux-appimage'
+    if: inputs.linux_appimage == true
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
@@ -258,7 +282,7 @@ jobs:
   android:
     name: Build Android
     needs: prepare
-    if: inputs.target == 'android-apk' || inputs.target == 'android-aab'
+    if: inputs.android_apk == true || inputs.android_aab == true
     runs-on: ubuntu-22.04
     env:
       ANDROID_KEY_ALIAS: ${{ vars.ANDROID_KEY_ALIAS }}
@@ -327,33 +351,46 @@ jobs:
           } > rust/gen/android/keystore.properties
 
       - name: Build Android APK
-        if: inputs.target == 'android-apk'
+        if: inputs.android_apk == true
         run: pnpm tauri android build --apk --target aarch64 --ci
 
       - name: Build Android AAB
-        if: inputs.target == 'android-aab'
+        if: inputs.android_aab == true
         run: pnpm tauri android build --aab --target aarch64 --ci
 
-      - name: Collect Android package
+      - name: Collect Android packages
         env:
           APP_VERSION: ${{ needs.prepare.outputs.app_version }}
-          TARGET: ${{ inputs.target }}
+          BUILD_APK: ${{ inputs.android_apk }}
+          BUILD_AAB: ${{ inputs.android_aab }}
         run: |
           mkdir -p "$RUNNER_TEMP/release-assets"
-          if [ "$TARGET" = "android-apk" ]; then
+          package_count=0
+
+          if [ "$BUILD_APK" = "true" ]; then
             PACKAGE_PATH="$(find rust/gen/android/app/build/outputs/apk -name "*.apk" -type f | head -n 1)"
-            PACKAGE_NAME="eko-${APP_VERSION}-android-aarch64.apk"
-          else
-            PACKAGE_PATH="$(find rust/gen/android/app/build/outputs/bundle -name "*.aab" -type f | head -n 1)"
-            PACKAGE_NAME="eko-${APP_VERSION}-android-aarch64.aab"
+            if [ -z "$PACKAGE_PATH" ]; then
+              echo "Could not find Android APK output."
+              exit 1
+            fi
+            cp "$PACKAGE_PATH" "$RUNNER_TEMP/release-assets/eko-${APP_VERSION}-android-aarch64.apk"
+            package_count=$((package_count + 1))
           fi
 
-          if [ -z "$PACKAGE_PATH" ]; then
-            echo "Could not find Android package output."
+          if [ "$BUILD_AAB" = "true" ]; then
+            PACKAGE_PATH="$(find rust/gen/android/app/build/outputs/bundle -name "*.aab" -type f | head -n 1)"
+            if [ -z "$PACKAGE_PATH" ]; then
+              echo "Could not find Android AAB output."
+              exit 1
+            fi
+            cp "$PACKAGE_PATH" "$RUNNER_TEMP/release-assets/eko-${APP_VERSION}-android-aarch64.aab"
+            package_count=$((package_count + 1))
+          fi
+
+          if [ "$package_count" -eq 0 ]; then
+            echo "No Android package was selected."
             exit 1
           fi
-
-          cp "$PACKAGE_PATH" "$RUNNER_TEMP/release-assets/$PACKAGE_NAME"
 
       - name: Upload Android package
         env:
