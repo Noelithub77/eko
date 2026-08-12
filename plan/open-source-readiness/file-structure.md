@@ -3,22 +3,26 @@
 ```text
 eko/
   README.md
+  AGENTS.md
   LICENSE
-  CHANGELOG.md
-  CONTRIBUTING.md
-  CODE_OF_CONDUCT.md
-  SECURITY.md
-  SUPPORT.md
   .github/
+    CHANGELOG.md
+    CODE_OF_CONDUCT.md
+    CONTRIBUTING.md
+    SECURITY.md
+    SETUP.md
+    SUPPORT.md
+    TODO.md
     CODEOWNERS
     pull_request_template.md
     ISSUE_TEMPLATE/
       config.yml
       bug_report.yml
       feature_request.yml
+    FUNDING.yml
   plan/open-source-readiness/
     summary.md
     file-structure.md
 ```
 
-Existing source, setup, privacy, release, and architecture files remain in their current locations.
+Privacy and other planning documents remain in `docs/` and `plan/`.

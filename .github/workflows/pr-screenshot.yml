@@ -1,0 +1,30 @@
+name: Require PR screenshot
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  screenshot:
+    name: Check screenshot attachment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require a GitHub image attachment
+        env:
+          EVENT_FILE: ${{ github.event_path }}
+        shell: bash
+        run: |
+          body="$(jq -r '.pull_request.body // ""' "$EVENT_FILE")"
+
+          if printf '%s' "$body" | grep -Eiq 'https://(github\.com/user-attachments/assets|user-images\.githubusercontent\.com|private-user-images\.githubusercontent\.com)/'; then
+            echo "A GitHub image attachment was found."
+            exit 0
+          fi
+
+          echo "Every pull request must include an attached screenshot."
+          echo "Drag an image into the PR description and submit it before merging."
+          exit 1

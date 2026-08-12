@@ -46,3 +46,10 @@ body:
     attributes:
       label: Redacted logs
       description: Remove credentials, tokens, private keys, pairing links, and personal data.
+  - type: upload
+    id: screenshot
+    attributes:
+      label: Screenshot (required)
+      description: Attach at least one screenshot by dragging it into this field. Show the failure or the relevant app state. Redact secrets, personal data, private IP history, and pairing links.
+    validations:
+      required: true
