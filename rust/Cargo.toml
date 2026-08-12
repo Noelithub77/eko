@@ -7,6 +7,9 @@ authors = ["Eko contributors"]
 edition = "2021"
 default-run = "eko"
 
+[lints.clippy]
+style = "allow"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]

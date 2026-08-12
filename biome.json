@@ -20,17 +20,7 @@
     ]
   },
   "formatter": {
-    "enabled": true,
-    "indentStyle": "space",
-    "indentWidth": 2,
-    "lineWidth": 100
-  },
-  "javascript": {
-    "formatter": {
-      "quoteStyle": "double",
-      "semicolons": "always",
-      "trailingCommas": "all"
-    }
+    "enabled": false
   },
   "css": {
     "parser": {
@@ -40,7 +30,23 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "recommended": false,
+      "correctness": {
+        "recommended": true,
+        "noNodejsModules": "off",
+        "noProcessGlobal": "off",
+        "noGlobalDirnameFilename": "off"
+      },
+      "security": {
+        "recommended": true,
+        "noSecrets": "off"
+      },
+      "suspicious": {
+        "recommended": true,
+        "noConsole": "off",
+        "noDocumentCookie": "off",
+        "noDoubleEquals": "off"
+      }
     }
   },
   "assist": {

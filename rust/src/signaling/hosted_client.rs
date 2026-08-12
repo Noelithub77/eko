@@ -58,7 +58,7 @@ enum RelayServerMessage {
     },
     Signal {
         device_id: String,
-        payload: SignalClientMessage,
+        payload: Box<SignalClientMessage>,
     },
     PeerLeft {
         device_id: String,
@@ -236,7 +236,7 @@ async fn run_connection(
                             &mut writer,
                             &mut receivers,
                             device_id,
-                            payload,
+                            *payload,
                             session,
                             media,
                             app,
