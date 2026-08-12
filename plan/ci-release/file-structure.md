@@ -12,7 +12,6 @@ eko/
           update-check.ts
           UpdatePrompt.tsx
   scripts/
-    merge-updater-json.mjs
     sync-version.mjs
   rust/
     tauri.conf.json
