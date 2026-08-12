@@ -129,7 +129,6 @@ eko/
     open-android-studio.ps1
     build-production.mjs
     sync-version.mjs
-    merge-updater-json.mjs
   plan/
     eko-architecture/
     eko-v1-steps/
