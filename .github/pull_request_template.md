@@ -18,11 +18,10 @@
 - [ ] This change does not add secrets, private data, raw audio, or pairing links.
 - [ ] I considered the effect on approval, session access, and local-network security.
 
-## Screenshot (required)
+## Screenshots
 
-Every pull request must include at least one attached screenshot. For non-visual changes, attach a screenshot of the relevant current behavior, test result, or documentation preview. If a screenshot truly cannot be provided, explain why and wait for maintainer approval.
+Attach screenshots that show the relevant behavior, test result, or documentation preview.
 
-- [ ] I attached at least one screenshot to this pull request.
-- [ ] The `Require PR screenshot` check passes.
+- [ ] I attached screenshots where useful.
 
 <!-- Redact credentials, tokens, private keys, pairing links, IP history, and personal data. -->
