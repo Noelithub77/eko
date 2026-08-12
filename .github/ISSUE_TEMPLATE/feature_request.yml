@@ -29,7 +29,7 @@ body:
   - type: upload
     id: screenshot
     attributes:
-      label: Screenshot or mockup (required)
-      description: Attach at least one screenshot, mockup, or reference image by dragging it into this field. Redact secrets and personal data.
+      label: Screenshots or mockup
+      description: Attach screenshots, a mockup, or a reference image that helps explain the idea. Redact secrets and personal data.
     validations:
       required: true
