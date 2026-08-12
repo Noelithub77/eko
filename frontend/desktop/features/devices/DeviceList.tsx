@@ -6,8 +6,6 @@ import {
   Power,
   ShieldX,
   Smartphone,
-  Volume2,
-  VolumeX,
   X,
 } from "lucide-react";
 import { Button } from "@shared/components/ui/button";
@@ -25,7 +23,6 @@ type DeviceListProps = {
   onDeny: (deviceId: string) => void;
   onUnblock: (deviceId: string) => void;
   onDisconnect: (deviceId: string) => void;
-  onSharingChange: (deviceId: string, enabled: boolean) => void;
 };
 
 export function DeviceList({
@@ -34,7 +31,6 @@ export function DeviceList({
   onDeny,
   onUnblock,
   onDisconnect,
-  onSharingChange,
 }: DeviceListProps) {
   const [previousOpen, setPreviousOpen] = useState(false);
   const connectedDevices = devices.filter((device) => device.state === "connected");
@@ -67,7 +63,6 @@ export function DeviceList({
                   onAllow={onAllow}
                   onDeny={onDeny}
                   onDisconnect={onDisconnect}
-                  onSharingChange={onSharingChange}
                   onUnblock={onUnblock}
                 />
               ))}
@@ -82,7 +77,6 @@ export function DeviceList({
                     onAllow={onAllow}
                     onDeny={onDeny}
                     onDisconnect={onDisconnect}
-                    onSharingChange={onSharingChange}
                     onUnblock={onUnblock}
                   />
                 ))}
@@ -114,7 +108,6 @@ export function DeviceList({
                       onAllow={onAllow}
                       onDeny={onDeny}
                       onDisconnect={onDisconnect}
-                      onSharingChange={onSharingChange}
                       onUnblock={onUnblock}
                     />
                   ))}
@@ -153,7 +146,6 @@ function DeviceRow({
   onDeny,
   onUnblock,
   onDisconnect,
-  onSharingChange,
 }: Omit<DeviceListProps, "devices"> & { device: Device }) {
   const title = device.label ?? device.deviceName;
 
@@ -192,20 +184,10 @@ function DeviceRow({
           </Button>
         ) : null}
         {device.state === "connected" ? (
-          <>
-            <Button
-              onClick={() => onSharingChange(device.deviceId, device.sharing !== "enabled")}
-              size="sm"
-              variant="outline"
-            >
-              {device.sharing === "enabled" ? <VolumeX /> : <Volume2 />}
-              {device.sharing === "enabled" ? "Mute" : "Share"}
-            </Button>
-            <Button onClick={() => onDisconnect(device.deviceId)} size="sm" variant="outline">
-              <Power />
-              Disconnect
-            </Button>
-          </>
+          <Button onClick={() => onDisconnect(device.deviceId)} size="sm" variant="outline">
+            <Power />
+            Disconnect
+          </Button>
         ) : null}
         {device.state === "connecting" ? (
           <Button disabled size="sm" variant="outline">
@@ -240,7 +222,7 @@ function EmptySection({ text }: { text: string }) {
 
 function deviceStatusText(device: Device): string {
   if (device.state === "connected") {
-    return device.sharing === "enabled" ? "Connected and sharing audio" : "Connected but muted";
+    return "Connected and sharing audio";
   }
 
   if (device.state === "pending") {

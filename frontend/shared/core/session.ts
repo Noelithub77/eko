@@ -15,7 +15,6 @@ export function allowDevice(devices: Device[], deviceId: string): Device[] {
       ? {
           ...device,
           state: "connecting",
-          sharing: "enabled",
           connectedAt: new Date().toISOString(),
           webRtcState: "connecting",
           iceState: "checking",
@@ -30,7 +29,6 @@ export function markDeviceConnected(devices: Device[], deviceId: string): Device
       ? {
           ...device,
           state: "connected",
-          sharing: "enabled",
           connectedAt: device.connectedAt ?? new Date().toISOString(),
           webRtcState: "connected",
           iceState: "connected",
@@ -45,7 +43,6 @@ export function denyDevice(devices: Device[], deviceId: string): Device[] {
       ? {
           ...device,
           state: "denied",
-          sharing: "disabled",
           webRtcState: "closed",
           iceState: "closed",
         }
@@ -57,10 +54,6 @@ export function unblockDevice(devices: Device[], deviceId: string): Device[] {
   return devices.filter((device) => device.deviceId !== deviceId);
 }
 
-export function setDeviceSharing(devices: Device[], deviceId: string, enabled: boolean): Device[] {
-  return devices.map((device) =>
-    device.deviceId === deviceId
-      ? { ...device, sharing: enabled ? "enabled" : "disabled" }
-      : device,
-  );
+export function disconnectDevice(devices: Device[], deviceId: string): Device[] {
+  return devices.filter((device) => device.deviceId !== deviceId);
 }

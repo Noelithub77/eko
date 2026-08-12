@@ -176,6 +176,9 @@ async fn handle_client(
                     log::warn!("Signaling media signal forwarding failed: {error}");
                     break;
                 }
+                if last_state.as_ref() == Some(&DeviceConnectionState::Disconnected) {
+                    break;
+                }
             }
         }
     }

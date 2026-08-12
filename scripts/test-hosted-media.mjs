@@ -41,7 +41,6 @@ try {
     kind: "permissionChanged",
     deviceId,
     state: "connecting",
-    sharing: "enabled",
     session: {},
   });
   await inbox.waitForSignal("receiverReady");

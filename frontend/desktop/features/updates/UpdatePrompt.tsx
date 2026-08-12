@@ -1,88 +1,165 @@
 import { relaunch } from "@tauri-apps/plugin-process";
 import type { DownloadEvent, Update } from "@tauri-apps/plugin-updater";
 import { Download, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button } from "@shared/components/ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@shared/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@shared/components/ui/tooltip";
 import { cn } from "@shared/lib/utils";
-import { formatError, logError } from "@shared/utils/logger";
+import { logError } from "@shared/utils/logger";
 import {
   type CachedUpdate,
   checkForDesktopUpdate,
   clearCachedUpdate,
   getDesktopPlatformName,
+  getUpdateCheckErrorMessage,
   isNewerVersion,
   loadCachedUpdate,
   saveCachedUpdate,
 } from "./update-check";
 
 type CheckState = "idle" | "checking";
-type InstallState = "idle" | "downloading" | "failed";
+type InstallState = "idle" | "downloading";
+
+const UPDATE_TOAST_ID = "eko-update";
+const INSTALL_TOAST_ID = "eko-update-install";
 
 export function UpdatePrompt() {
   const [cachedUpdate, setCachedUpdate] = useState<CachedUpdate | null>(null);
   const [liveUpdate, setLiveUpdate] = useState<Update | null>(null);
-  const [open, setOpen] = useState(false);
   const [checkState, setCheckState] = useState<CheckState>("idle");
   const [installState, setInstallState] = useState<InstallState>("idle");
-  const [downloadProgress, setDownloadProgress] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const checkStarted = useRef(false);
   const platformName = getDesktopPlatformName();
 
-  const refreshUpdate = useCallback(async (showError: boolean): Promise<void> => {
-    setCheckState("checking");
-    setErrorMessage(null);
+  const installUpdate = useCallback(async (update: Update): Promise<void> => {
+    setInstallState("downloading");
+    toast.loading("Installing Eko update", {
+      id: INSTALL_TOAST_ID,
+      description: "Downloading the update in the background.",
+      duration: Infinity,
+    });
 
     try {
-      const nextUpdate = await checkForDesktopUpdate();
-      if (!nextUpdate) {
-        setLiveUpdate(null);
-        setCachedUpdate(null);
-        await clearCachedUpdate();
-        return;
-      }
-
-      setLiveUpdate((currentUpdate) =>
-        currentUpdate && !isNewerVersion(nextUpdate.version, currentUpdate.version)
-          ? currentUpdate
-          : nextUpdate,
-      );
-      setCachedUpdate((currentCachedUpdate) => {
-        if (
-          currentCachedUpdate &&
-          !isNewerVersion(nextUpdate.version, currentCachedUpdate.version)
-        ) {
-          return currentCachedUpdate;
+      await update.downloadAndInstall((event: DownloadEvent) => {
+        if (event.event === "Started") {
+          toast.loading("Installing Eko update", {
+            id: INSTALL_TOAST_ID,
+            description: "Starting download.",
+            duration: Infinity,
+          });
+          return;
         }
 
-        return {
-          version: nextUpdate.version,
-          currentVersion: nextUpdate.currentVersion,
-          date: nextUpdate.date,
-          body: nextUpdate.body,
-          checkedAt: new Date().toISOString(),
-        };
+        if (event.event === "Progress") {
+          return;
+        }
+
+        toast.loading("Installing Eko update", {
+          id: INSTALL_TOAST_ID,
+          description: "Installing the update.",
+          duration: Infinity,
+        });
       });
-      await saveCachedUpdate(nextUpdate);
+      await clearCachedUpdate();
+      toast.success("Eko is updated", {
+        id: INSTALL_TOAST_ID,
+        description: "Restarting Eko now.",
+        duration: 2500,
+      });
+      await relaunch();
     } catch (error) {
-      void logError("Update check failed", error);
-      if (showError) {
-        setErrorMessage(formatError(error));
-      }
+      void logError("Update install failed", error);
+      toast.error("Update could not be installed", {
+        id: INSTALL_TOAST_ID,
+        description: "The update was not installed. You can try again.",
+        action: {
+          label: "Retry",
+          onClick: () => void installUpdate(update),
+        },
+        duration: 8000,
+      });
     } finally {
-      setCheckState("idle");
+      setInstallState("idle");
     }
   }, []);
+
+  const refreshUpdate = useCallback(
+    async (showFeedback: boolean): Promise<void> => {
+      setCheckState("checking");
+      if (showFeedback) {
+        toast.loading("Checking for updates", {
+          id: UPDATE_TOAST_ID,
+          description: `Checking for a newer ${platformName} build.`,
+          duration: Infinity,
+        });
+      }
+
+      try {
+        const nextUpdate = await checkForDesktopUpdate();
+        if (!nextUpdate) {
+          setLiveUpdate(null);
+          setCachedUpdate(null);
+          await clearCachedUpdate();
+          if (showFeedback) {
+            toast.info(`No new updates for ${platformName}`, {
+              id: UPDATE_TOAST_ID,
+              description: "You are using the newest available build for this platform.",
+              duration: 4500,
+            });
+          }
+          return;
+        }
+
+        setLiveUpdate((currentUpdate) =>
+          currentUpdate && !isNewerVersion(nextUpdate.version, currentUpdate.version)
+            ? currentUpdate
+            : nextUpdate,
+        );
+        setCachedUpdate((currentCachedUpdate) => {
+          if (
+            currentCachedUpdate &&
+            !isNewerVersion(nextUpdate.version, currentCachedUpdate.version)
+          ) {
+            return currentCachedUpdate;
+          }
+
+          return {
+            version: nextUpdate.version,
+            currentVersion: nextUpdate.currentVersion,
+            date: nextUpdate.date,
+            body: nextUpdate.body,
+            checkedAt: new Date().toISOString(),
+          };
+        });
+        await saveCachedUpdate(nextUpdate);
+        toast.success(`Eko ${nextUpdate.version} is available`, {
+          id: UPDATE_TOAST_ID,
+          description: `A newer ${platformName} build is ready to install.`,
+          action: {
+            label: "Install",
+            onClick: () => void installUpdate(nextUpdate),
+          },
+          duration: Infinity,
+        });
+      } catch (error) {
+        void logError("Update check failed", error);
+        if (showFeedback) {
+          toast.error("Could not check for updates", {
+            id: UPDATE_TOAST_ID,
+            description: getUpdateCheckErrorMessage(error),
+            action: {
+              label: "Try again",
+              onClick: () => void refreshUpdate(true),
+            },
+            duration: 8000,
+          });
+        }
+      } finally {
+        setCheckState("idle");
+      }
+    },
+    [installUpdate, platformName],
+  );
 
   useEffect(() => {
     if (checkStarted.current) {
@@ -98,49 +175,12 @@ export function UpdatePrompt() {
     void refreshUpdate(false);
   }, [refreshUpdate]);
 
-  async function openUpdateDialog(): Promise<void> {
-    setOpen(true);
-    setErrorMessage(null);
-    if (!liveUpdate) {
-      await refreshUpdate(true);
-    } else {
-      void refreshUpdate(true);
-    }
-  }
-
-  async function installUpdate(): Promise<void> {
-    if (!liveUpdate) {
-      await refreshUpdate(true);
+  function checkForUpdates(): void {
+    if (checkState === "checking" || installState === "downloading") {
       return;
     }
 
-    setInstallState("downloading");
-    setErrorMessage(null);
-
-    try {
-      await liveUpdate.downloadAndInstall(handleDownloadEvent);
-      await clearCachedUpdate();
-      await relaunch();
-    } catch (error) {
-      const message = formatError(error);
-      setInstallState("failed");
-      setErrorMessage(message);
-      void logError("Update install failed", error);
-    }
-  }
-
-  function handleDownloadEvent(event: DownloadEvent): void {
-    if (event.event === "Started") {
-      setDownloadProgress("Starting download");
-      return;
-    }
-
-    if (event.event === "Progress") {
-      setDownloadProgress("Downloading update");
-      return;
-    }
-
-    setDownloadProgress("Installing update");
+    void refreshUpdate(true);
   }
 
   const activeUpdate = liveUpdate ?? cachedUpdate;
@@ -149,97 +189,26 @@ export function UpdatePrompt() {
   const isInstalling = installState === "downloading";
 
   return (
-    <>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={() => void openUpdateDialog()}
-            className={cn(
-              "inline-flex items-center justify-center rounded-md p-2 transition-colors",
-              hasUpdate
-                ? "bg-amber-300 text-amber-950 shadow-sm hover:bg-amber-200"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground",
-            )}
-            aria-label={hasUpdate ? "Update available" : "Check for updates"}
-          >
-            {isChecking ? (
-              <RefreshCw className="size-5 animate-spin" />
-            ) : (
-              <Download className="size-5" />
-            )}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>{hasUpdate ? `Update to ${activeUpdate.version}` : "Check for updates"}</p>
-        </TooltipContent>
-      </Tooltip>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="rounded-lg" showCloseButton={!isInstalling}>
-          <DialogHeader>
-            <DialogTitle>{hasUpdate ? "Update available" : "Check for updates"}</DialogTitle>
-            <DialogDescription>
-              {hasUpdate
-                ? `Eko ${activeUpdate.version} is ready. Your current version is ${activeUpdate.currentVersion}.`
-                : "Eko will check GitHub Releases for a newer desktop version."}
-            </DialogDescription>
-          </DialogHeader>
-          {activeUpdate?.body ? (
-            <p className="text-sm text-muted-foreground">{activeUpdate.body}</p>
-          ) : null}
-          {isChecking ? <p className="text-sm text-muted-foreground">Checking updates</p> : null}
-          {downloadProgress ? (
-            <p className="text-sm text-muted-foreground">{downloadProgress}</p>
-          ) : null}
-          {errorMessage ? (
-            <p className="rounded-md border border-destructive/30 p-3 text-sm text-destructive">
-              {errorMessage}
-            </p>
-          ) : null}
-          {!hasUpdate && !isChecking && !errorMessage ? (
-            <p className="text-sm text-muted-foreground">
-              No new updates are available for {platformName}.
-            </p>
-          ) : null}
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" disabled={isInstalling}>
-                Later
-              </Button>
-            </DialogClose>
-            <Button
-              type="button"
-              variant={hasUpdate ? "default" : "outline"}
-              onClick={() => (hasUpdate ? void installUpdate() : void refreshUpdate(true))}
-              disabled={isInstalling || isChecking}
-            >
-              {buttonText(hasUpdate, isChecking, isInstalling, liveUpdate)}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={checkForUpdates}
+          disabled={isChecking || isInstalling}
+          className={cn(
+            "inline-flex items-center justify-center rounded-md p-2 transition-colors disabled:cursor-wait",
+            hasUpdate
+              ? "bg-amber-300 text-amber-950 shadow-sm hover:bg-amber-200"
+              : "text-muted-foreground hover:bg-accent hover:text-foreground",
+          )}
+          aria-label={hasUpdate ? "Update available" : "Check for updates"}
+        >
+          {isChecking ? <RefreshCw className="size-5 animate-spin" /> : <Download className="size-5" />}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent>
+        <p>{hasUpdate ? `Update to ${activeUpdate.version}` : "Check for updates"}</p>
+      </TooltipContent>
+    </Tooltip>
   );
-}
-
-function buttonText(
-  hasUpdate: boolean,
-  isChecking: boolean,
-  isInstalling: boolean,
-  liveUpdate: Update | null,
-): string {
-  if (isInstalling) {
-    return "Updating";
-  }
-  if (isChecking) {
-    return "Checking";
-  }
-  if (!hasUpdate) {
-    return "Check again";
-  }
-  if (!liveUpdate) {
-    return "Refresh update";
-  }
-
-  return "Update now";
 }
