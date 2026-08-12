@@ -1,0 +1,48 @@
+name: Bug report
+description: Report a reproducible problem with Eko.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include secrets, pairing links, personal data, private IP history, or raw audio.
+  - type: input
+    id: version
+    attributes:
+      label: Eko version or commit
+      placeholder: "0.2.0 or commit hash"
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include desktop OS, Android model/version, and whether both devices share a network.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. ...\n2. ...\n3. ..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Redacted logs
+      description: Remove credentials, tokens, private keys, pairing links, and personal data.
