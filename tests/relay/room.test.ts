@@ -1,6 +1,6 @@
 import { env, runDurableObjectAlarm } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { hashSecret } from "./room";
+import { hashSecret } from "../../relay/room";
 
 describe("Eko room", () => {
   it("authenticates and routes opaque messages", async () => {
@@ -43,7 +43,7 @@ describe("Eko room", () => {
   });
 });
 
-async function openSocket(room: DurableObjectStub<import("./room").Room>): Promise<WebSocket> {
+async function openSocket(room: DurableObjectStub<import("../../relay/room").Room>): Promise<WebSocket> {
   const response = await room.fetch("https://relay.test/socket", {
     headers: { Upgrade: "websocket" },
   });

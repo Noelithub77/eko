@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use super::{DeviceConnectionState, JoinRequest, RoomSession, SharingState};
+use super::{DeviceConnectionState, JoinRequest, RoomSession};
 
 #[derive(Clone, Debug, Deserialize, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -88,7 +88,6 @@ pub enum SignalServerMessage {
     PermissionChanged {
         device_id: String,
         state: DeviceConnectionState,
-        sharing: SharingState,
         session: RoomSession,
     },
     WebRtcReady {

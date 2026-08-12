@@ -2,7 +2,7 @@
   "name": "eko",
   "private": true,
   "license": "AGPL-3.0-or-later",
-  "version": "0.3.0",
+  "version": "0.4.1",
   "type": "module",
   "scripts": {
     "dev:web": "cross-env PLATFORM=desktop vite",
@@ -33,6 +33,7 @@
     "test:latency": "tsx tests/latency/latency-regression.ts",
     "relay:dev": "wrangler dev --config relay/wrangler.jsonc",
     "relay:types": "wrangler types relay/env.d.ts --include-runtime false --config relay/wrangler.jsonc",
+    "relay:test:types": "tsc --project relay/tsconfig.json",
     "relay:test": "vitest run --config relay/vitest.config.ts",
     "relay:smoke:hosted": "node scripts/test-hosted-relay.mjs",
     "relay:test:media": "node scripts/test-hosted-media.mjs",

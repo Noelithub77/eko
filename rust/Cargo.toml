@@ -1,6 +1,6 @@
 [package]
 name = "eko"
-version = "0.3.0"
+version = "0.4.1"
 description = "A local desktop-to-device audio relay"
 license = "AGPL-3.0-or-later"
 authors = ["Eko contributors"]

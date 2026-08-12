@@ -15,7 +15,6 @@ export const commands = {
 	denyDevice: (deviceId: string) => __TAURI_INVOKE<RoomSession>("deny_device", { deviceId }),
 	unblockDevice: (deviceId: string) => __TAURI_INVOKE<RoomSession>("unblock_device", { deviceId }),
 	disconnectDevice: (deviceId: string) => __TAURI_INVOKE<RoomSession>("disconnect_device", { deviceId }),
-	setDeviceSharing: (deviceId: string, enabled: boolean) => __TAURI_INVOKE<RoomSession>("set_device_sharing", { deviceId, enabled }),
 	clearSessionEvents: () => __TAURI_INVOKE<RoomSession>("clear_session_events"),
 	getCoreProofStatus: () => __TAURI_INVOKE<CoreProofStatus>("get_core_proof_status"),
 	getAudioCaptureStatus: () => __TAURI_INVOKE<AudioProofStatus>("get_audio_capture_status"),
@@ -76,7 +75,6 @@ export type Device = {
 	label: string | null,
 	state: DeviceConnectionState,
 	joinMethod: JoinMethod,
-	sharing: SharingState,
 	connectedAt: string | null,
 	webRtcState: string,
 	iceState: string,
@@ -155,11 +153,9 @@ export type SessionDescriptionMessage = {
 	sdp: string,
 };
 
-export type SharingState = "enabled" | "disabled";
-
 export type SignalClientMessage = { kind: "joinRequest"; request: JoinRequest } | { kind: "receiverReady"; deviceId: string } | { kind: "offer"; description: SessionDescriptionMessage } | { kind: "answer"; description: SessionDescriptionMessage } | { kind: "iceCandidate"; candidate: IceCandidateMessage } | { kind: "clockSyncRequest"; requestId: string; clientSentAtMs: number | null } | { kind: "updateReceiverName"; deviceId: string; name: string } | { kind: "profilerSample"; sample: StreamProfilerSample };
 
-export type SignalServerMessage = { kind: "approvalWaiting"; deviceId: string; session: RoomSession } | { kind: "joinRejected"; reason: string } | { kind: "permissionChanged"; deviceId: string; state: DeviceConnectionState; sharing: SharingState; session: RoomSession } | { kind: "webRtcReady"; deviceId: string } | { kind: "hostOffer"; description: SessionDescriptionMessage } | { kind: "hostIceCandidate"; candidate: IceCandidateMessage } | { kind: "audioReady"; deviceId: string } | { kind: "hostState"; session: RoomSession } | { kind: "clockSyncResponse"; requestId: string; clientSentAtMs: number | null; serverReceivedAtMs: number | null; serverSentAtMs: number | null } | { kind: "playbackSchedule"; playAtServerMs: number | null; jitterBufferTargetMs: number } | { kind: "signalAck"; message: string } | { kind: "error"; message: string };
+export type SignalServerMessage = { kind: "approvalWaiting"; deviceId: string; session: RoomSession } | { kind: "joinRejected"; reason: string } | { kind: "permissionChanged"; deviceId: string; state: DeviceConnectionState; session: RoomSession } | { kind: "webRtcReady"; deviceId: string } | { kind: "hostOffer"; description: SessionDescriptionMessage } | { kind: "hostIceCandidate"; candidate: IceCandidateMessage } | { kind: "audioReady"; deviceId: string } | { kind: "hostState"; session: RoomSession } | { kind: "clockSyncResponse"; requestId: string; clientSentAtMs: number | null; serverReceivedAtMs: number | null; serverSentAtMs: number | null } | { kind: "playbackSchedule"; playAtServerMs: number | null; jitterBufferTargetMs: number } | { kind: "signalAck"; message: string } | { kind: "error"; message: string };
 
 export type SignalingProofStatus = {
 	transport: string,

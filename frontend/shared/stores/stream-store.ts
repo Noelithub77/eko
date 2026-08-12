@@ -8,7 +8,6 @@ import {
   denyDevice,
   disconnectDevice,
   getRoomSession,
-  setDeviceSharing,
   startStream,
   unblockDevice,
 } from "../utils/api";
@@ -29,7 +28,6 @@ type StreamState = {
   deny: (deviceId: string) => Promise<void>;
   unblock: (deviceId: string) => Promise<void>;
   disconnect: (deviceId: string) => Promise<void>;
-  toggleSharing: (deviceId: string, enabled: boolean) => Promise<void>;
   addTestDevice: (deviceName: string, method: "qr" | "discovery") => Promise<void>;
   clearEvents: () => Promise<void>;
 };
@@ -111,17 +109,6 @@ export const useStreamStore = create<StreamState>()((set) => ({
       });
     } catch (error) {
       void logError("Disconnect device failed", error);
-      set({ errorMessage: formatError(error) });
-    }
-  },
-  toggleSharing: async (deviceId, enabled) => {
-    try {
-      set({
-        session: await runSessionAction(() => setDeviceSharing(deviceId, enabled)),
-        errorMessage: null,
-      });
-    } catch (error) {
-      void logError("Device sharing toggle failed", error);
       set({ errorMessage: formatError(error) });
     }
   },

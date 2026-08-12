@@ -336,6 +336,15 @@ mod android {
                             message: "Connecting native audio.".to_string(),
                         },
                     );
+                } else if state == DeviceConnectionState::Disconnected {
+                    let _ = peer.close().await;
+                    emit(
+                        app,
+                        NativeReceiverEvent::Closed {
+                            message: "Desktop disconnected this device.".to_string(),
+                        },
+                    );
+                    return Err("Desktop disconnected this device.".to_string());
                 }
             }
             SignalServerMessage::HostOffer { description } => {

@@ -51,7 +51,6 @@ pub(super) fn command_builder() -> Builder<tauri::Wry> {
             deny_device,
             unblock_device,
             disconnect_device,
-            set_device_sharing,
             clear_session_events,
             get_core_proof_status,
             get_audio_capture_status,

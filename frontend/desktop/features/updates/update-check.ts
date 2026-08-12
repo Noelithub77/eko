@@ -37,6 +37,22 @@ export function getDesktopPlatformName(): string {
   return "this platform";
 }
 
+export function getUpdateCheckErrorMessage(error: unknown): string {
+  const rawMessage =
+    error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  const message = rawMessage.toLowerCase();
+
+  if (message.includes("error sending request") || message.includes("failed to check")) {
+    return "GitHub Releases could not be reached. Check your connection and try again.";
+  }
+
+  if (message.includes("release json") || message.includes("release not found")) {
+    return "GitHub Releases returned invalid update information.";
+  }
+
+  return "The update check failed. Please try again later.";
+}
+
 export async function loadCachedUpdate(): Promise<CachedUpdate | null> {
   if (!isTauri()) {
     return null;

@@ -350,7 +350,7 @@ where
             .lock()
             .map_err(|error| error.to_string())?
             .device_state(&device_id);
-        if let Some((device_state, sharing)) = current {
+        if let Some(device_state) = current {
             if state.last_state.as_ref() != Some(&device_state) {
                 state.last_state = Some(device_state.clone());
                 let snapshot = session
@@ -363,7 +363,6 @@ where
                     &SignalServerMessage::PermissionChanged {
                         device_id: device_id.clone(),
                         state: device_state.clone(),
-                        sharing,
                         session: snapshot,
                     },
                 )
@@ -381,6 +380,27 @@ where
                     state.media_signals = Some(offer.signals);
                 }
             }
+        } else {
+            if state.last_state.as_ref() == Some(&DeviceConnectionState::Disconnected) {
+                continue;
+            }
+            state.last_state = Some(DeviceConnectionState::Disconnected);
+            let snapshot = session
+                .lock()
+                .map_err(|error| error.to_string())?
+                .snapshot();
+            send_signal(
+                writer,
+                &device_id,
+                &SignalServerMessage::PermissionChanged {
+                    device_id: device_id.clone(),
+                    state: DeviceConnectionState::Disconnected,
+                    session: snapshot,
+                },
+            )
+            .await?;
+            media.close_peer(&device_id).await;
+            continue;
         }
         if let Some(signals) = state.media_signals.as_mut() {
             while let Ok(MediaSignal::IceCandidate(candidate)) = signals.try_recv() {

@@ -261,33 +261,24 @@ fn unblock_device(
 
 #[tauri::command]
 #[specta::specta]
-fn disconnect_device(
+async fn disconnect_device(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     device_id: String,
 ) -> Result<RoomSession, String> {
+    let media = state
+        .media
+        .lock()
+        .map_err(|error| error.to_string())?
+        .clone();
+    if let Some(media) = media {
+        media.close_peer(&device_id).await;
+    }
     let session = state
         .session
         .lock()
         .map_err(|error| error.to_string())?
         .disconnect_device(device_id);
-    emit_room_session(&app, session.clone());
-    Ok(session)
-}
-
-#[tauri::command]
-#[specta::specta]
-fn set_device_sharing(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    device_id: String,
-    enabled: bool,
-) -> Result<RoomSession, String> {
-    let session = state
-        .session
-        .lock()
-        .map_err(|error| error.to_string())?
-        .set_device_sharing(device_id, enabled);
     emit_room_session(&app, session.clone());
     Ok(session)
 }

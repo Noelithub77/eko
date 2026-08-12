@@ -113,15 +113,6 @@ export function disconnectDevice(deviceId: string): Promise<RoomSession> {
   return commands.disconnectDevice(deviceId);
 }
 
-export function setDeviceSharing(deviceId: string, enabled: boolean): Promise<RoomSession> {
-  if (!isTauriRuntime()) {
-    void deviceId;
-    void enabled;
-    return Promise.resolve(browserMock.session);
-  }
-  return commands.setDeviceSharing(deviceId, enabled);
-}
-
 export function clearSessionEvents(): Promise<RoomSession> {
   if (!isTauriRuntime()) {
     browserMock.session = {
@@ -154,7 +145,6 @@ export function addDevJoinRequest(deviceName: string, method: JoinMethod): Promi
           label: null,
           state: "pending",
           joinMethod: method,
-          sharing: "disabled",
           connectedAt: null,
           webRtcState: "waiting",
           iceState: "waiting",

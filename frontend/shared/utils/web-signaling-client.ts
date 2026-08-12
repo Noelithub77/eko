@@ -296,6 +296,9 @@ async function handleServerMessage(
       transport.send({ kind: "receiverReady", deviceId });
     } else if (message.state === "denied") {
       handlers.onStatus("Desktop denied this device.");
+    } else if (message.state === "disconnected") {
+      handlers.onStatus("Desktop disconnected this device.");
+      handlers.onConnectionLost();
     }
     return;
   }

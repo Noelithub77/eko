@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { relayClientMessageSchema } from "./protocol";
+import { relayClientMessageSchema } from "../../relay/protocol";
 
 describe("relay protocol", () => {
   it("accepts opaque Eko signaling payloads", () => {

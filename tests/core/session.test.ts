@@ -2,9 +2,9 @@ import { strict as assert } from "node:assert";
 import {
   allowDevice,
   denyDevice,
+  disconnectDevice,
   isValidJoinRequest,
   markDeviceConnected,
-  setDeviceSharing,
   unblockDevice,
 } from "../../frontend/shared/core/session";
 import type { Device, JoinRequest } from "../../frontend/shared/types/device";
@@ -36,7 +36,6 @@ const pendingDevice: Device = {
   label: null,
   state: "pending",
   joinMethod: "qr",
-  sharing: "disabled",
   connectedAt: null,
   webRtcState: "new",
   iceState: "new",
@@ -67,7 +66,6 @@ assert.deepEqual(parsedHostedPayload, hostedPayload);
 
 const allowedDevices = allowDevice([pendingDevice], "phone-1");
 assert.equal(allowedDevices[0]?.state, "connecting");
-assert.equal(allowedDevices[0]?.sharing, "enabled");
 
 const connectedDevices = markDeviceConnected(allowedDevices, "phone-1");
 assert.equal(connectedDevices[0]?.state, "connected");
@@ -75,12 +73,11 @@ assert.equal(connectedDevices[0]?.webRtcState, "connected");
 
 const deniedDevices = denyDevice([pendingDevice], "phone-1");
 assert.equal(deniedDevices[0]?.state, "denied");
-assert.equal(deniedDevices[0]?.sharing, "disabled");
 
 const unblockedDevices = unblockDevice(deniedDevices, "phone-1");
 assert.equal(unblockedDevices.length, 0);
 
-const mutedDevices = setDeviceSharing(connectedDevices, "phone-1", false);
-assert.equal(mutedDevices[0]?.sharing, "disabled");
+const forgottenDevices = disconnectDevice(connectedDevices, "phone-1");
+assert.equal(forgottenDevices.length, 0);
 
 console.log("session core tests passed");
