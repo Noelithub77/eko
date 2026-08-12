@@ -61,7 +61,8 @@ Pull requests should include:
 - A short problem statement.
 - A summary of the change.
 - Tests that passed and tests that were not run.
-- Screenshots or a short recording for UI changes.
+- At least one screenshot attached to every pull request. For non-visual changes, show the relevant current behavior, test output, or documentation preview; explain any exception.
+- The `Require PR screenshot` check must pass before a pull request can be merged.
 - Device, operating-system, and network details for pairing or streaming changes.
 - Any security or privacy impact.
 
@@ -79,4 +80,4 @@ Use a branch name that describes the work, such as `fix/android-reconnect` or `d
 
 ## License
 
-By contributing, you agree that your contribution is provided under the [GNU Affero General Public License v3.0 or later](LICENSE). Forks and modified versions must preserve the same AGPL license terms.
+By contributing, you agree that your contribution is provided under the [GNU Affero General Public License v3.0 or later](../LICENSE). Forks and modified versions must preserve the same AGPL license terms.

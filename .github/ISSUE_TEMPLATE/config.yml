@@ -4,5 +4,5 @@ contact_links:
     url: https://github.com/Noelithub77/eko/security/advisories/new
     about: Report security problems privately instead of opening a public issue.
   - name: Setup and support
-    url: https://github.com/Noelithub77/eko/blob/main/SUPPORT.md
+    url: https://github.com/Noelithub77/eko/blob/main/.github/SUPPORT.md
     about: Read the support guide before opening a bug report.
