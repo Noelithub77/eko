@@ -1,0 +1,5 @@
+# Default reviewer for project changes.
+* @Noelithub77
+
+# Keep release automation under maintainer review.
+/.github/workflows/ @Noelithub77

@@ -1,8 +1,9 @@
 [package]
 name = "eko"
 version = "0.2.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "A local desktop-to-device audio relay"
+license = "AGPL-3.0-or-later"
+authors = ["Eko contributors"]
 edition = "2021"
 default-run = "eko"
 
