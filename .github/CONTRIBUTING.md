@@ -61,8 +61,7 @@ Pull requests should include:
 - A short problem statement.
 - A summary of the change.
 - Tests that passed and tests that were not run.
-- At least one screenshot attached to every pull request. For non-visual changes, show the relevant current behavior, test output, or documentation preview; explain any exception.
-- The `Require PR screenshot` check must pass before a pull request can be merged.
+- Attach screenshots that show the relevant behavior, test output, or documentation preview when useful.
 - Device, operating-system, and network details for pairing or streaming changes.
 - Any security or privacy impact.
 
