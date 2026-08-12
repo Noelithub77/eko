@@ -113,8 +113,9 @@ Use this map to find the right place before editing.
 eko/
   AGENTS.md
   README.md
-  SETUP.md
-  TODO.md
+  .github/
+    SETUP.md
+    TODO.md
   package.json
   vite.config.ts
   biome.json
@@ -197,7 +198,7 @@ eko/
 - `plan/eko-architecture/` explains the chosen architecture and proposed structure.
 - `plan/eko-v1-steps/` holds the v1 step plan. Follow it for larger v1 work.
 - `plan/ci-release/` holds release and CI planning.
-- `SETUP.md` explains local setup, desktop dev, Android dev, build commands, and manual test flow.
+- `.github/SETUP.md` explains local setup, desktop dev, Android dev, build commands, and manual test flow.
 - `scripts/` holds Windows-friendly dev, stop, Android Studio, build, and release helpers.
 
 ### Desktop UI

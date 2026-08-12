@@ -55,7 +55,7 @@ The optional hosted signaling service helps peers find and negotiate a connectio
 - For Android: Android Studio, an Android SDK, and either an emulator or a device.
 - A desktop and receiver device on the same local network.
 
-See [SETUP.md](SETUP.md) for the complete Windows, Android, and development setup.
+See [.github/SETUP.md](.github/SETUP.md) for the complete Windows, Android, and development setup.
 
 ### Install and run the desktop app
 
@@ -92,7 +92,7 @@ cd rust
 cargo check
 ```
 
-The complete test and device flow is documented in [SETUP.md](SETUP.md).
+The complete test and device flow is documented in [.github/SETUP.md](.github/SETUP.md).
 
 ## Project layout
 
@@ -119,7 +119,7 @@ scripts/          Development and release helpers
 
 Eko is built for local-network use. It does not require an Eko account, and it does not send the audio stream through a cloud relay. Keep in mind that local-network security still matters: only pair devices you trust, keep the desktop and Android app updated, and avoid sharing pairing links.
 
-Read the [privacy policy](docs/Privacy_Policy.md) and [security policy](SECURITY.md) before deploying Eko beyond a development network.
+Read the [privacy policy](docs/Privacy_Policy.md) and [security policy](.github/SECURITY.md) before deploying Eko beyond a development network.
 
 ## Updates and releases
 
@@ -129,14 +129,14 @@ Desktop releases are published through [GitHub Releases](https://github.com/Noel
 
 Contributions are welcome. Please use the fork workflow: fork Eko into your account, create a branch on your fork, and open a pull request back to this repository. New contributors should not create working branches on the upstream repository.
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), and [SUPPORT.md](SUPPORT.md) before opening a pull request or issue.
+Read [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md), [.github/CODE_OF_CONDUCT.md](.github/CODE_OF_CONDUCT.md), and [.github/SUPPORT.md](.github/SUPPORT.md) before opening a pull request or issue.
 
 ## Roadmap
 
-The active work list is in [TODO.md](TODO.md). It includes real-device latency measurement, wider platform testing, and release hardening.
+The active work list is in [.github/TODO.md](.github/TODO.md). It includes real-device latency measurement, wider platform testing, and release hardening.
 
 ## License
 
 Eko is licensed under the [GNU Affero General Public License v3.0 or later](LICENSE). If you distribute a modified version or make it available for users to interact with over a network, the AGPL's corresponding-source requirements apply.
 
-Forks and modifications must keep the same AGPL license terms. See [CONTRIBUTING.md](CONTRIBUTING.md) for the collaboration rules.
+Forks and modifications must keep the same AGPL license terms. See [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) for the collaboration rules.

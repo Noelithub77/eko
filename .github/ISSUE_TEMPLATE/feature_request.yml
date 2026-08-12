@@ -26,3 +26,10 @@ body:
     id: context
     attributes:
       label: Additional context
+  - type: upload
+    id: screenshot
+    attributes:
+      label: Screenshot or mockup (required)
+      description: Attach at least one screenshot, mockup, or reference image by dragging it into this field. Redact secrets and personal data.
+    validations:
+      required: true
