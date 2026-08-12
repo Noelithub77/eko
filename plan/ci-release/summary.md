@@ -13,4 +13,4 @@ Targets:
 
 Desktop updater files are signed by Tauri and served from GitHub Releases through `latest.json`. Android APK and AAB files are uploaded as release assets, but Android app updating is not handled by the Tauri desktop updater.
 
-Tracked Actions values live in `actions.env`. The Android keystore is stored there as base64 because the real keystore is a binary file and env files are text.
+Release credentials live in GitHub Actions secrets and variables. The Android keystore is stored as a base64 secret because the real keystore is a binary file and Actions secrets are text.
