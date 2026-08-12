@@ -75,9 +75,7 @@ pub fn control(cmd: ControlCommand) -> Result<(), String> {
         .and_then(|m| m.lock().ok())
         .ok_or_else(|| "Media controller not initialized".to_string())?;
 
-    let tx = guard
-        .as_ref()
-        .ok_or_else(|| "Media controller not available")?;
+    let tx = guard.as_ref().ok_or("Media controller not available")?;
 
     let control = match cmd {
         ControlCommand::Play => smtc_suite::SmtcControlCommand::Play,

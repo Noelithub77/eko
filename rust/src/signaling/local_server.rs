@@ -6,7 +6,6 @@ use futures_util::StreamExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time;
-use tokio_tungstenite::tungstenite::handshake::server::{Request, Response};
 
 use crate::domain::DeviceConnectionState;
 use crate::web_client;
@@ -117,15 +116,7 @@ async fn handle_client(
     }
 
     let peer_address = stream.peer_addr().ok();
-    let accepted =
-        tokio_tungstenite::accept_hdr_async(stream, |request: &Request, response: Response| {
-            let path = request.uri().path().to_string();
-            if log_dedup(&format!("ws:{path}")) {
-                log::info!("Signaling websocket upgrade path: {path}");
-            }
-            Ok(response)
-        })
-        .await;
+    let accepted = tokio_tungstenite::accept_async(stream).await;
 
     let Ok(mut socket) = accepted else {
         if let Err(error) = accepted {

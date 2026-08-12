@@ -41,9 +41,7 @@
     "test:desktop:media": "node scripts/test-desktop-media.mjs",
     "relay:deploy:dry": "npm run build:web:client && wrangler deploy --dry-run --config relay/wrangler.jsonc",
     "relay:deploy": "npm run build:web:client && wrangler deploy --config relay/wrangler.jsonc",
-    "lint": "biome check",
-    "lint:fix": "biome check --write",
-    "format": "biome format --write"
+    "lint": "biome check"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

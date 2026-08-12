@@ -86,9 +86,8 @@ pub(super) async fn connect_signaling(
                 Ok(connection)
             }
             Err(local_error) => cloud.await
-                .map(|connection| {
+                .inspect(|_| {
                     log::info!("Receiver selected hosted signaling after LAN failed");
-                    connection
                 })
                 .map_err(|cloud_error| {
                     format!("Local signaling failed: {local_error}. Hosted signaling failed: {cloud_error}")

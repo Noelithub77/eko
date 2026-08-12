@@ -6,7 +6,7 @@ interface AudioWaveVisualizerProps {
   className?: string;
 }
 
-export function AudioWaveVisualizer({ stream, isPlaying: _isPlaying, className }: AudioWaveVisualizerProps) {
+export function AudioWaveVisualizer({ stream, isPlaying, className }: AudioWaveVisualizerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>(0);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -29,6 +29,10 @@ export function AudioWaveVisualizer({ stream, isPlaying: _isPlaying, className }
   }, []);
 
   useEffect(() => {
+    if (!isPlaying) {
+      return;
+    }
+
     if (audioContextRef.current) {
       ensureContextRunning(audioContextRef.current).then((ok) => {
         if (!ok) {
@@ -36,7 +40,7 @@ export function AudioWaveVisualizer({ stream, isPlaying: _isPlaying, className }
         }
       }).catch(() => {});
     }
-  }, [_isPlaying, ensureContextRunning]);
+  }, [isPlaying, ensureContextRunning]);
 
   useEffect(() => {
     if (!stream) {
