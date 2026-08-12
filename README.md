@@ -2,11 +2,18 @@
 
 [![License: AGPL v3+](https://img.shields.io/badge/License-AGPL%20v3%2B-blue.svg)](LICENSE)
 [![Latest release](https://img.shields.io/github/v/release/Noelithub77/eko?display_name=tag&sort=semver)](https://github.com/Noelithub77/eko/releases)
-[![GitHub stars](https://img.shields.io/github/stars/Noelithub77/eko?style=flat)](https://github.com/Noelithub77/eko/stargazers)
 [![Open issues](https://img.shields.io/github/issues/Noelithub77/eko)](https://github.com/Noelithub77/eko/issues)
 [![Last commit](https://img.shields.io/github/last-commit/Noelithub77/eko)](https://github.com/Noelithub77/eko/commits/main)
 
-Eko is a local desktop-to-device audio relay. It captures computer audio on the desktop and streams it to approved Android devices on the same local network.
+# Eko
+
+
+Eko is a local desktop-to-device audio relay designed for group listening. It captures system audio on the desktop and streams it to multiple approved devices over the  network.
+
+Bluetooth Classic audio commonly supports a single active audio output, while multi-device support varies by platform and manufacturer. Bluetooth LE Audio and Auracast can provide one-to-many broadcast audio, but only when all participating devices support the required hardware, profiles, and operating-system features and is generally not available and has 
+
+Eko bypasses the Bluetooth concurrency problem by using local-network WebRTC sessions. This allows the desktop to manage multiple receivers independently, with practical scaling determined by network bandwidth, device count, and desktop processing capacity.
+Each device joins through QR pairing or nearby discovery and must be approved by the desktop before receiving audio.
 
 The Android app is the preferred client. A desktop-served browser client is available as an iOS and browser fallback. Eko is designed to work without accounts, cloud audio relays, or manual IP entry.
 
