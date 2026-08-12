@@ -2,7 +2,7 @@
   "name": "eko",
   "private": true,
   "license": "AGPL-3.0-or-later",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev:web": "cross-env PLATFORM=desktop vite",
