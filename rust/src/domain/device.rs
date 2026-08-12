@@ -21,20 +21,12 @@ pub enum DeviceConnectionState {
 
 #[derive(Clone, Debug, Deserialize, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
-pub enum SharingState {
-    Enabled,
-    Disabled,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, Type)]
-#[serde(rename_all = "camelCase")]
 pub struct Device {
     pub device_id: String,
     pub device_name: String,
     pub label: Option<String>,
     pub state: DeviceConnectionState,
     pub join_method: JoinMethod,
-    pub sharing: SharingState,
     pub connected_at: Option<String>,
     pub web_rtc_state: String,
     pub ice_state: String,

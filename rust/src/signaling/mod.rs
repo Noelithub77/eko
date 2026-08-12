@@ -9,9 +9,7 @@ use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message;
 
-use crate::domain::{
-    DeviceConnectionState, JoinRequest, SharingState, SignalClientMessage, SignalServerMessage,
-};
+use crate::domain::{DeviceConnectionState, JoinRequest, SignalClientMessage, SignalServerMessage};
 use crate::session::SessionStore;
 use crate::webrtc_core::media_hub::{MediaSignal, SharedMediaHub};
 
@@ -282,7 +280,6 @@ fn receiver_ready_response(
     SignalServerMessage::PermissionChanged {
         device_id,
         state: DeviceConnectionState::Connected,
-        sharing: SharingState::Enabled,
         session,
     }
 }
@@ -302,36 +299,48 @@ async fn send_permission_update(
     socket: &mut tokio_tungstenite::WebSocketStream<TcpStream>,
     last_state: &mut Option<DeviceConnectionState>,
 ) -> Result<Option<mpsc::UnboundedReceiver<MediaSignal>>, String> {
-    let update = {
+    let (update, should_start_media) = {
         let store = session.lock().map_err(|error| error.to_string())?;
-        let Some((state, sharing)) = store.device_state(device_id) else {
-            return Ok(None);
-        };
-        if last_state.as_ref() == Some(&state) {
-            return Ok(None);
-        }
-        log::info!(
-            "Signaling device {} state changed to {:?}",
-            device_id,
-            state
-        );
-        *last_state = Some(state.clone());
-        SignalServerMessage::PermissionChanged {
-            device_id: device_id.to_string(),
-            state,
-            sharing,
-            session: store.snapshot(),
+        match store.device_state(device_id) {
+            Some(state) => {
+                if last_state.as_ref() == Some(&state) {
+                    return Ok(None);
+                }
+                log::info!(
+                    "Signaling device {} state changed to {:?}",
+                    device_id,
+                    state
+                );
+                *last_state = Some(state.clone());
+                let should_start_media = state == DeviceConnectionState::Connecting;
+                (
+                    SignalServerMessage::PermissionChanged {
+                        device_id: device_id.to_string(),
+                        state,
+                        session: store.snapshot(),
+                    },
+                    should_start_media,
+                )
+            }
+            None => {
+                if last_state.as_ref() == Some(&DeviceConnectionState::Disconnected) {
+                    return Ok(None);
+                }
+                *last_state = Some(DeviceConnectionState::Disconnected);
+                (
+                    SignalServerMessage::PermissionChanged {
+                        device_id: device_id.to_string(),
+                        state: DeviceConnectionState::Disconnected,
+                        session: store.snapshot(),
+                    },
+                    false,
+                )
+            }
         }
     };
 
     send_json(socket, &update).await?;
-    if matches!(
-        update,
-        SignalServerMessage::PermissionChanged {
-            state: DeviceConnectionState::Connecting,
-            ..
-        }
-    ) {
+    if should_start_media {
         let offer = media.create_sender_offer(device_id.to_string()).await?;
         send_json(
             socket,

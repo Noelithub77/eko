@@ -11,6 +11,7 @@ import { QrPairingCard } from "./features/pairing/QrPairingCard";
 import { SettingsPanel } from "./features/settings/SettingsPanel";
 import { NowPlayingCard } from "./features/stream/NowPlayingCard";
 import { UpdatePrompt } from "./features/updates/UpdatePrompt";
+import { Toaster } from "@shared/components/ui/sonner";
 import {
   Tooltip,
   TooltipContent,
@@ -30,7 +31,6 @@ function App() {
   const deny = useStreamStore((state) => state.deny);
   const unblock = useStreamStore((state) => state.unblock);
   const disconnect = useStreamStore((state) => state.disconnect);
-  const toggleSharing = useStreamStore((state) => state.toggleSharing);
   const addTestDevice = useStreamStore((state) => state.addTestDevice);
   const clearSessionEvents = useStreamStore((state) => state.clearEvents);
   const monitorLogs = useMonitorLogStore((state) => state.logs);
@@ -138,7 +138,8 @@ function App() {
   );
 
   return (
-    <DesktopLayout actions={headerActions} onEkoClick={() => setView("stream")}>
+    <>
+      <DesktopLayout actions={headerActions} onEkoClick={() => setView("stream")}>
       {view === "stream" ? (
         <div className="grid min-h-0 h-full gap-6 overflow-hidden lg:grid-cols-[minmax(300px,1fr)_minmax(360px,1.2fr)]">
           <div className="grid min-h-0 h-full grid-rows-[auto_1fr] gap-6 overflow-hidden">
@@ -150,7 +151,6 @@ function App() {
             onAllow={allow}
             onDeny={deny}
             onDisconnect={disconnect}
-            onSharingChange={toggleSharing}
             onUnblock={unblock}
           />
         </div>
@@ -176,7 +176,9 @@ function App() {
           {errorMessage}
         </div>
       ) : null}
-    </DesktopLayout>
+      </DesktopLayout>
+      <Toaster position="bottom-right" closeButton expand={false} visibleToasts={3} />
+    </>
   );
 }
 

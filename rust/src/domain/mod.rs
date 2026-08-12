@@ -3,7 +3,7 @@ pub mod receiver;
 pub mod session;
 pub mod signaling;
 
-pub use device::{Device, DeviceConnectionState, JoinMethod, JoinRequest, SharingState};
+pub use device::{Device, DeviceConnectionState, JoinMethod, JoinRequest};
 pub use receiver::NativeReceiverEvent;
 pub use session::{
     DevEvent, DevMetric, HostedPairingDetails, LocalPairingDetails, QrPairingPayload, RoomSession,

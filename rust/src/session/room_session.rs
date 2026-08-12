@@ -2,8 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::domain::{
     DevEvent, DevMetric, Device, DeviceConnectionState, HostedPairingDetails, JoinMethod,
-    JoinRequest, LocalPairingDetails, QrPairingPayload, RoomSession, SharingState,
-    StartStreamResult, StreamStatus,
+    JoinRequest, LocalPairingDetails, QrPairingPayload, RoomSession, StartStreamResult, StreamStatus,
 };
 
 const MAX_SESSION_EVENTS: usize = 200;
@@ -92,12 +91,12 @@ impl SessionStore {
         Ok(self.snapshot())
     }
 
-    pub fn device_state(&self, device_id: &str) -> Option<(DeviceConnectionState, SharingState)> {
+    pub fn device_state(&self, device_id: &str) -> Option<DeviceConnectionState> {
         self.session
             .devices
             .iter()
             .find(|device| device.device_id == device_id)
-            .map(|device| (device.state.clone(), device.sharing.clone()))
+            .map(|device| device.state.clone())
     }
 
     pub fn submit_join_request(&mut self, request: JoinRequest) -> Result<RoomSession, String> {
@@ -125,7 +124,6 @@ impl SessionStore {
                     device.device_name = receiver_name(request.device_name);
                     device.join_method = request.method;
                     device.state = DeviceConnectionState::Pending;
-                    device.sharing = SharingState::Disabled;
                     device.web_rtc_state = "waiting".to_string();
                     device.ice_state = "waiting".to_string();
                 });
@@ -144,7 +142,6 @@ impl SessionStore {
             label: None,
             state: DeviceConnectionState::Pending,
             join_method: request.method,
-            sharing: SharingState::Disabled,
             connected_at: None,
             web_rtc_state: "waiting".to_string(),
             ice_state: "waiting".to_string(),
@@ -171,7 +168,6 @@ impl SessionStore {
     pub fn allow_device(&mut self, device_id: String) -> RoomSession {
         self.update_device(&device_id, |device| {
             device.state = DeviceConnectionState::Connecting;
-            device.sharing = SharingState::Enabled;
             device.connected_at = Some(now_string());
             device.web_rtc_state = "connecting".to_string();
             device.ice_state = "checking".to_string();
@@ -183,7 +179,6 @@ impl SessionStore {
     pub fn deny_device(&mut self, device_id: String) -> RoomSession {
         self.update_device(&device_id, |device| {
             device.state = DeviceConnectionState::Denied;
-            device.sharing = SharingState::Disabled;
             device.web_rtc_state = "closed".to_string();
             device.ice_state = "closed".to_string();
         });
@@ -194,7 +189,6 @@ impl SessionStore {
     pub fn mark_device_connected(&mut self, device_id: String) -> RoomSession {
         self.update_device(&device_id, |device| {
             device.state = DeviceConnectionState::Connected;
-            device.sharing = SharingState::Enabled;
             device.connected_at = Some(now_string());
             device.web_rtc_state = "connected".to_string();
             device.ice_state = "connected".to_string();
@@ -212,27 +206,12 @@ impl SessionStore {
     }
 
     pub fn disconnect_device(&mut self, device_id: String) -> RoomSession {
-        self.update_device(&device_id, |device| {
-            device.state = DeviceConnectionState::Disconnected;
-            device.sharing = SharingState::Disabled;
-            device.web_rtc_state = "closed".to_string();
-            device.ice_state = "closed".to_string();
-        });
+        self.session
+            .devices
+            .retain(|device| device.device_id != device_id);
         self.session
             .events
-            .push(event("info", "Device disconnected"));
-        self.snapshot()
-    }
-
-    pub fn set_device_sharing(&mut self, device_id: String, enabled: bool) -> RoomSession {
-        self.update_device(&device_id, |device| {
-            device.sharing = if enabled {
-                SharingState::Enabled
-            } else {
-                SharingState::Disabled
-            };
-        });
-        self.session.events.push(event("info", "Sharing changed"));
+            .push(event("info", "Device disconnected and forgotten"));
         self.snapshot()
     }
 
