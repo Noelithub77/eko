@@ -18,7 +18,23 @@ export async function checkForDesktopUpdate(): Promise<Update | null> {
     return null;
   }
 
-  return check({ timeout: 10_000 });
+  try {
+    return await check({ timeout: 10_000 });
+  } catch (error) {
+    if (isMissingUpdateTargetError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+export function getDesktopPlatformName(): string {
+  const userAgent = navigator.userAgent;
+  if (userAgent.includes("Windows")) return "Windows";
+  if (userAgent.includes("Linux")) return "Linux";
+  if (userAgent.includes("Mac OS")) return "macOS";
+  return "this platform";
 }
 
 export async function loadCachedUpdate(): Promise<CachedUpdate | null> {
@@ -104,6 +120,18 @@ function isCachedUpdate(value: unknown): value is CachedUpdate {
     typeof candidate.version === "string" &&
     typeof candidate.currentVersion === "string" &&
     typeof candidate.checkedAt === "string"
+  );
+}
+
+function isMissingUpdateTargetError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : error;
+  if (typeof message !== "string") {
+    return false;
+  }
+
+  return (
+    message.includes("None of the fallback platforms") ||
+    message.includes("was not found in the response `platforms` object")
   );
 }
 
