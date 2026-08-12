@@ -19,6 +19,7 @@ import {
   type CachedUpdate,
   checkForDesktopUpdate,
   clearCachedUpdate,
+  getDesktopPlatformName,
   isNewerVersion,
   loadCachedUpdate,
   saveCachedUpdate,
@@ -36,6 +37,7 @@ export function UpdatePrompt() {
   const [downloadProgress, setDownloadProgress] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const checkStarted = useRef(false);
+  const platformName = getDesktopPlatformName();
 
   const refreshUpdate = useCallback(async (showError: boolean): Promise<void> => {
     setCheckState("checking");
@@ -195,7 +197,9 @@ export function UpdatePrompt() {
             </p>
           ) : null}
           {!hasUpdate && !isChecking && !errorMessage ? (
-            <p className="text-sm text-muted-foreground">Eko is up to date.</p>
+            <p className="text-sm text-muted-foreground">
+              No new updates are available for {platformName}.
+            </p>
           ) : null}
           <DialogFooter>
             <DialogClose asChild>
