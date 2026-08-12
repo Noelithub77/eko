@@ -5,9 +5,6 @@
 [![Open issues](https://img.shields.io/github/issues/Noelithub77/eko)](https://github.com/Noelithub77/eko/issues)
 [![Last commit](https://img.shields.io/github/last-commit/Noelithub77/eko)](https://github.com/Noelithub77/eko/commits/main)
 
-# Eko
-
-
 Eko is a local desktop-to-device audio relay designed for group listening. It captures system audio on the desktop and streams it to multiple approved devices over the  network.
 
 Bluetooth Classic audio commonly supports a single active audio output, while multi-device support varies by platform and manufacturer. Bluetooth LE Audio and Auracast can provide one-to-many broadcast audio, but only when all participating devices support the required hardware, profiles, and operating-system features and is generally not available and has 
