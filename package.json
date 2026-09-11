@@ -38,6 +38,7 @@
     "relay:smoke:hosted": "node scripts/test-hosted-relay.mjs",
     "relay:test:media": "node scripts/test-hosted-media.mjs",
     "test:desktop:media": "node scripts/test-desktop-media.mjs",
+    "operator": "node scripts/eko-operator.mjs",
     "relay:deploy:dry": "npm run build:web:client && wrangler deploy --dry-run --config relay/wrangler.jsonc",
     "relay:deploy": "npm run build:web:client && wrangler deploy --config relay/wrangler.jsonc",
     "lint": "biome check"

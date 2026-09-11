@@ -12,43 +12,69 @@ use super::frame::{AudioFrame, SAMPLES_PER_PACKET, SAMPLE_RATE};
 pub fn start_system_audio_source(
     sender: mpsc::Sender<AudioFrame>,
 ) -> Result<thread::JoinHandle<()>, String> {
-    let source_name = find_monitor_source();
-    log::info!("Linux audio capture source: {}", source_name);
+    thread::Builder::new()
+        .name("eko-linux-capture".to_string())
+        .spawn(move || {
+            capture_thread_loop(sender);
+        })
+        .map_err(|e| e.to_string())
+}
 
+fn capture_thread_loop(sender: mpsc::Sender<AudioFrame>) {
     let spec = Spec {
         format: Format::S16le,
         rate: SAMPLE_RATE as u32,
         channels: 2,
     };
 
-    let simple = Simple::new(
-        None,
-        "eko",
-        Direction::Record,
-        Some(&source_name),
-        "eko-system-audio",
-        &spec,
-        None,
-        None,
-    )
-    .map_err(|e| format!("PulseAudio open failed for source '{source_name}': {e:?}"))?;
+    loop {
+        if sender.is_closed() {
+            log::info!("PulseAudio capture stopping because the audio pipeline closed");
+            return;
+        }
 
-    log::info!(
-        "PulseAudio capture started: source={source_name} rate={}Hz channels=2 format=S16le",
-        SAMPLE_RATE
-    );
+        let source_name = find_monitor_source();
+        log::info!("Linux audio capture source: {}", source_name);
+        let simple = match Simple::new(
+            None,
+            "eko",
+            Direction::Record,
+            Some(&source_name),
+            "eko-system-audio",
+            &spec,
+            None,
+            None,
+        ) {
+            Ok(simple) => simple,
+            Err(error) => {
+                log::error!("PulseAudio open failed for source '{source_name}': {error:?}");
+                thread::sleep(Duration::from_millis(500));
+                continue;
+            }
+        };
 
-    thread::Builder::new()
-        .name("eko-linux-capture".to_string())
-        .spawn(move || {
-            capture_loop(simple, sender);
-        })
-        .map_err(|e| e.to_string())
+        log::info!(
+            "PulseAudio capture started: source={source_name} rate={}Hz channels=2 format=S16le",
+            SAMPLE_RATE
+        );
+
+        match capture_loop(&simple, &sender) {
+            Ok(()) if sender.is_closed() => {
+                log::info!("PulseAudio capture stopped because the audio pipeline closed");
+                return;
+            }
+            Ok(()) => {}
+            Err(error) => {
+                log::error!("PulseAudio capture stopped: {error}");
+            }
+        }
+        thread::sleep(Duration::from_millis(500));
+    }
 }
 
-fn capture_loop(simple: Simple, sender: mpsc::Sender<AudioFrame>) {
+fn capture_loop(simple: &Simple, sender: &mpsc::Sender<AudioFrame>) -> Result<(), String> {
     let mut accum: Vec<f32> = Vec::with_capacity(SAMPLES_PER_PACKET * 4);
-    let mut buffer = vec![0u8; SAMPLES_PER_PACKET * 2 * std::mem::size_of::<i16>() * 2];
+    let mut buffer = vec![0u8; SAMPLES_PER_PACKET * std::mem::size_of::<i16>()];
     let mut frames_sent: u64 = 0;
     let mut max_sample: f32 = 0.0;
 
@@ -63,7 +89,11 @@ fn capture_loop(simple: Simple, sender: mpsc::Sender<AudioFrame>) {
                 };
 
                 if frames_sent == 0 && !raw.is_empty() {
-                    let max_raw = raw.iter().map(|s| s.unsigned_abs() as u32).max().unwrap_or(0);
+                    let max_raw = raw
+                        .iter()
+                        .map(|s| s.unsigned_abs() as u32)
+                        .max()
+                        .unwrap_or(0);
                     log::info!(
                         "PulseAudio capture: first read samples={} max_u16={}",
                         raw.len(),
@@ -83,9 +113,10 @@ fn capture_loop(simple: Simple, sender: mpsc::Sender<AudioFrame>) {
                 while accum.len() >= SAMPLES_PER_PACKET {
                     let packet: Vec<f32> = accum.drain(..SAMPLES_PER_PACKET).collect();
                     let frame = AudioFrame::new(packet);
-                    if sender.try_send(frame).is_ok() {
-                        frames_sent += 1;
+                    if sender.blocking_send(frame).is_err() {
+                        return Ok(());
                     }
+                    frames_sent += 1;
                     if frames_sent == 100 || frames_sent % 500 == 0 {
                         log::info!(
                             "PulseAudio capture: sent {} frames, max_sample_level={:.6}",
@@ -96,8 +127,7 @@ fn capture_loop(simple: Simple, sender: mpsc::Sender<AudioFrame>) {
                 }
             }
             Err(e) => {
-                log::error!("PulseAudio read error: {e:?}");
-                thread::sleep(Duration::from_millis(100));
+                return Err(format!("PulseAudio read error: {e:?}"));
             }
         }
     }
@@ -190,14 +220,8 @@ fn try_create_loopback() -> Option<String> {
     let module_id = String::from_utf8_lossy(&load_output.stdout)
         .trim()
         .to_string();
-    log::info!(
-        "Created loopback module id={module_id} for source={sink}.monitor"
-    );
+    log::info!("Created loopback module id={module_id} for source={sink}.monitor");
 
     let monitor = format!("{sink}.monitor");
     Some(monitor)
-}
-
-pub fn find_monitor_device_name() -> Option<String> {
-    Some(find_monitor_source())
 }
