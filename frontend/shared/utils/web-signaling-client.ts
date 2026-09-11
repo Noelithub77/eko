@@ -1,7 +1,6 @@
 import type {
   IceCandidateMessage,
   JoinRequest,
-  SignalClientMessage,
   SignalServerMessage,
 } from "@shared/bindings/tauri";
 import type { PairingLinkPayload } from "@shared/types/pairing-link";
@@ -17,25 +16,16 @@ import {
   scheduleStreamDelivery,
   tuneAudioReceivers,
 } from "@shared/utils/web-playback-sync";
+import {
+  createSignalTransport,
+  parseRelayMessage,
+  type SignalTransport,
+} from "@shared/utils/web-signaling-transport";
 
 const DEFAULT_JITTER_BUFFER_TARGET_MS = 60;
 const DIRECT_CONNECTION_ERROR =
   "Couldn’t make a direct connection. This network may block peer-to-peer connections. Try another Wi-Fi network or a phone hotspot.";
 const STUN_URLS = ["stun:stun.cloudflare.com:3478", "stun:stun.cloudflare.com:53"];
-
-type RelayServerMessage =
-  | { type: "ready"; role: "host" | "receiver" }
-  | { type: "signal"; deviceId: string; payload: unknown }
-  | { type: "hostReconnecting" }
-  | { type: "hostConnected" }
-  | { type: "roomClosed" }
-  | { type: "error"; message: string };
-
-type SignalTransport = {
-  socket: WebSocket;
-  hosted: boolean;
-  send: (message: SignalClientMessage) => void;
-};
 
 export type WebReceiverSession = {
   peer: RTCPeerConnection;
@@ -49,7 +39,7 @@ export async function startWebReceiver(
   request: JoinRequest,
   handlers: PlaybackHandlers,
 ): Promise<WebReceiverSession> {
-  const transport = createTransport(payload);
+  const transport = await createSignalTransport(payload, request.deviceId);
   const { socket } = transport;
   const peer = new RTCPeerConnection({
     iceServers: [{ urls: STUN_URLS }],
@@ -60,6 +50,7 @@ export async function startWebReceiver(
   let hasJoined = false;
   let joinInFlight = false;
   let canSendCandidates = false;
+  let connectionErrorReported = false;
   let messageQueue = Promise.resolve();
   const pendingLocalCandidates: RTCIceCandidateInit[] = [];
   const pendingHostCandidates: IceCandidateMessage[] = [];
@@ -78,7 +69,7 @@ export async function startWebReceiver(
     console.log(`[eko] browser connection state: ${peer.connectionState}`);
     if (!isClosed && (peer.connectionState === "failed" || peer.connectionState === "closed")) {
       if (peer.connectionState === "failed") {
-        handlers.onStatus(DIRECT_CONNECTION_ERROR);
+        reportConnectionError();
       }
       handlers.onConnectionLost();
     }
@@ -86,7 +77,7 @@ export async function startWebReceiver(
   peer.oniceconnectionstatechange = () => {
     console.log(`[eko] browser ICE state: ${peer.iceConnectionState}`);
     if (!isClosed && peer.iceConnectionState === "failed") {
-      handlers.onStatus(DIRECT_CONNECTION_ERROR);
+      reportConnectionError();
     }
   };
 
@@ -119,22 +110,6 @@ export async function startWebReceiver(
     joinInFlight = false;
   };
 
-  socket.addEventListener("open", () => {
-    hasOpened = true;
-    if (transport.hosted && payload.hosted) {
-      socket.send(
-        JSON.stringify({
-          type: "hello",
-          role: "receiver",
-          token: payload.hosted.joinToken,
-          deviceId: request.deviceId,
-        }),
-      );
-      return;
-    }
-    void beginJoin();
-  });
-
   socket.addEventListener("message", (event: MessageEvent<string>) => {
     const relay = transport.hosted ? parseRelayMessage(event.data) : null;
     if (relay?.type === "ready") {
@@ -153,12 +128,12 @@ export async function startWebReceiver(
       return;
     }
     if (relay?.type === "roomClosed") {
-      handlers.onStatus("This stream has ended.");
+      reportError(handlers, "This stream has ended on the desktop.");
       handlers.onConnectionLost();
       return;
     }
     if (relay?.type === "error") {
-      handlers.onStatus(relay.message);
+      reportError(handlers, relay.message);
       return;
     }
     const text = relay?.type === "signal" ? JSON.stringify(relay.payload) : event.data;
@@ -181,24 +156,40 @@ export async function startWebReceiver(
       .catch((error: unknown) => {
         const message = error instanceof Error ? error.message : String(error);
         console.error(`[eko] signaling message failed: ${message}`);
-        handlers.onStatus("Could not finish the direct connection.");
+        reportError(handlers, `Could not finish the direct connection: ${message}`);
       });
   });
 
   socket.addEventListener("close", () => {
     if (!isClosed) {
-      handlers.onStatus(hasOpened ? "Signaling connection closed." : "Could not open signaling.");
+      const message = hasOpened
+        ? "Signaling connection closed before audio connected."
+        : "Could not open signaling.";
+      reportError(handlers, message);
       handlers.onConnectionLost();
     }
   });
 
   socket.addEventListener("error", () => {
-    handlers.onStatus(
+    reportError(
+      handlers,
       transport.hosted
         ? "Hosted pairing is unavailable."
-        : "Could not reach desktop on this network.",
+        : "Could not reach the desktop on this local network.",
     );
   });
+
+  hasOpened = true;
+  void beginJoin();
+
+  function reportConnectionError(): void {
+    if (connectionErrorReported) return;
+    connectionErrorReported = true;
+    const transportHint = transport.hosted
+      ? "Signaling used the hosted relay, but audio still requires a direct WebRTC path."
+      : "Local signaling succeeded, but the devices could not establish direct WebRTC media.";
+    reportError(handlers, `${DIRECT_CONNECTION_ERROR} ${transportHint}`);
+  }
 
   return {
     peer,
@@ -214,25 +205,8 @@ export async function startWebReceiver(
       isClosed = true;
       window.clearInterval(statsInterval);
       clearPlaybackSync(playbackSync);
-      socket.close();
+      transport.socket.close();
       peer.close();
-    },
-  };
-}
-
-function createTransport(payload: PairingLinkPayload): SignalTransport {
-  const hosted = payload.hosted !== null;
-  const socketUrl =
-    payload.hosted?.socketUrl ?? `ws://${payload.local.host}:${payload.local.port}/eko`;
-  const socket = new WebSocket(socketUrl);
-  return {
-    socket,
-    hosted,
-    send: (message) => {
-      if (socket.readyState !== WebSocket.OPEN) {
-        return;
-      }
-      socket.send(JSON.stringify(hosted ? { type: "signal", payload: message } : message));
     },
   };
 }
@@ -287,7 +261,7 @@ async function handleServerMessage(
     return;
   }
   if (message.kind === "joinRejected") {
-    handlers.onStatus(message.reason);
+    reportError(handlers, `The desktop rejected this receiver: ${message.reason}`);
     return;
   }
   if (message.kind === "permissionChanged") {
@@ -295,9 +269,9 @@ async function handleServerMessage(
       handlers.onStatus("Connecting audio.");
       transport.send({ kind: "receiverReady", deviceId });
     } else if (message.state === "denied") {
-      handlers.onStatus("Desktop denied this device.");
+      reportError(handlers, "The desktop denied this receiver.");
     } else if (message.state === "disconnected") {
-      handlers.onStatus("Desktop disconnected this device.");
+      reportError(handlers, "The desktop disconnected this receiver.");
       handlers.onConnectionLost();
     }
     return;
@@ -322,7 +296,7 @@ async function handleServerMessage(
     return;
   }
   if (message.kind === "error") {
-    handlers.onStatus(message.message);
+    reportError(handlers, message.message);
   }
 }
 
@@ -374,38 +348,13 @@ async function addHostCandidate(
   }
 }
 
+function reportError(handlers: PlaybackHandlers, message: string): void {
+  handlers.onError?.(message);
+}
+
 function parseServerMessage(text: string): SignalServerMessage | null {
   try {
     return JSON.parse(text) as SignalServerMessage;
-  } catch {
-    return null;
-  }
-}
-
-function parseRelayMessage(text: string): RelayServerMessage | null {
-  try {
-    const value: unknown = JSON.parse(text);
-    if (typeof value !== "object" || value === null || !("type" in value)) {
-      return null;
-    }
-    const message = value as Record<string, unknown>;
-    if (message.type === "signal" && typeof message.deviceId === "string") {
-      return { type: "signal", deviceId: message.deviceId, payload: message.payload };
-    }
-    if (message.type === "ready" && (message.role === "host" || message.role === "receiver")) {
-      return { type: "ready", role: message.role };
-    }
-    if (
-      message.type === "hostReconnecting" ||
-      message.type === "hostConnected" ||
-      message.type === "roomClosed"
-    ) {
-      return { type: message.type };
-    }
-    if (message.type === "error" && typeof message.message === "string") {
-      return { type: "error", message: message.message };
-    }
-    return null;
   } catch {
     return null;
   }

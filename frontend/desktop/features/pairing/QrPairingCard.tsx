@@ -3,8 +3,9 @@ import { Copy, ExternalLink } from "lucide-react";
 import { NetworkBadge } from "@shared/components/NetworkBadge";
 import { Button } from "@shared/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@shared/components/ui/card";
+import { cn } from "@shared/lib/utils";
 import type { QrPairingPayload } from "@shared/types/stream";
-import { createPairingLink } from "@shared/utils/pairing-link";
+import { createLocalPairingLink, createPairingLink } from "@shared/utils/pairing-link";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { StyledPairingQr } from "./StyledPairingQr";
 
@@ -14,7 +15,10 @@ type QrPairingCardProps = {
 
 export function QrPairingCard({ payload }: QrPairingCardProps) {
   const [copied, setCopied] = useState(false);
-  const qrValue = payload ? createPairingLink(payload) : "";
+  const [pairingMode, setPairingMode] = useState<"local" | "hosted">("local");
+  const localQrValue = payload ? createLocalPairingLink(payload) : "";
+  const hostedQrValue = payload ? createPairingLink(payload) : "";
+  const qrValue = pairingMode === "local" ? localQrValue : hostedQrValue;
 
   const handleOpen = () => {
     if (qrValue) {
@@ -34,21 +38,45 @@ export function QrPairingCard({ payload }: QrPairingCardProps) {
   };
 
   return (
-    <Card className="h-full min-h-0 rounded-2xl shadow-sm">
+    <Card className="min-h-[360px] rounded-2xl shadow-sm xl:min-h-0">
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="text-xl">QR Pairing</CardTitle>
+          {payload?.hosted ? (
+            <div className="flex rounded-md border bg-muted/50 p-0.5 text-xs">
+              <button
+                type="button"
+                className={cn(
+                  "rounded px-2 py-1 transition-colors",
+                  pairingMode === "local" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground",
+                )}
+                onClick={() => setPairingMode("local")}
+              >
+                Local
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  "rounded px-2 py-1 transition-colors",
+                  pairingMode === "hosted" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground",
+                )}
+                onClick={() => setPairingMode("hosted")}
+              >
+                Hosted
+              </button>
+            </div>
+          ) : null}
           <NetworkBadge
-            label={payload?.hosted ? "Direct audio" : "Same network"}
+            label={pairingMode === "local" ? "Local first" : "Hosted signaling"}
             tooltip={
-              payload?.hosted
-                ? "Pairing uses Eko’s hosted service. Audio still travels directly between your devices and is never relayed."
-                : undefined
+              pairingMode === "local"
+                ? "The browser opens the desktop locally first. Audio stays direct WebRTC; hosted signaling is a fallback."
+                : "Pairing uses Eko’s hosted service. Audio still travels directly between your devices and is never relayed."
             }
           />
         </div>
       </CardHeader>
-      <CardContent className="flex flex-1 min-h-0 px-4 pb-4">
+      <CardContent className="flex min-h-0 flex-1 px-4 pb-4">
         <div className="group relative h-full w-full">
           {payload ? (
             <StyledPairingQr value={qrValue} />

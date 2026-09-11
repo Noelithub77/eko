@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pause, Pencil, Play, X } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@shared/components/ui/button";
 import { Card, CardContent } from "@shared/components/ui/card";
+import { Toaster } from "@shared/components/ui/sonner";
 import { Spinner } from "@shared/components/ui/spinner";
 import { cn } from "@shared/lib/utils";
 import { useDeviceProfileStore } from "@shared/stores/device-profile-store";
@@ -14,6 +16,7 @@ import type { ConnectionQuality } from "./features/playback/connection-quality";
 import { createLiveProfiler, type LiveProfiler } from "./features/playback/live-profiler";
 import { useWebBackgroundPlayback } from "./features/playback/web-background-playback";
 import type { WebNowPlayingState } from "@shared/types/web-now-playing";
+import { formatError } from "@shared/utils/logger";
 
 type ConnectionState = "ready" | "waiting" | "connected" | "failed";
 
@@ -82,6 +85,10 @@ function App() {
       })
       .catch((error: unknown) => {
         console.warn("[eko] App: audio.play() failed:", error);
+        toast.error("Audio playback failed", {
+          description: `${formatError(error)} Tap Play to retry browser playback.`,
+          duration: 9000,
+        });
       });
   }, []);
 
@@ -125,6 +132,12 @@ function App() {
     try {
       const session = await startWebReceiver(payload, request, {
         onStatus: () => {},
+        onError: (message) => {
+          toast.error("Eko connection failed", {
+            description: message,
+            duration: 9000,
+          });
+        },
         onNowPlaying: (media) => {
           setDesktopMedia(media);
         },
@@ -169,6 +182,10 @@ function App() {
     } catch (error) {
       setStatus("failed");
       console.error(`[eko] App: connect failed:`, error);
+      toast.error("Could not connect to Eko", {
+        description: formatError(error),
+        duration: 9000,
+      });
     } finally {
       reconnectInFlightRef.current = false;
     }
@@ -246,8 +263,9 @@ function App() {
   });
 
   return (
-    <div className="mobile-shell bg-background text-foreground">
-      <main className="mx-auto grid min-h-dvh w-full max-w-[430px] content-center gap-3 px-4">
+    <>
+      <div className="mobile-shell bg-background text-foreground">
+        <main className="mx-auto grid min-h-dvh w-full max-w-[430px] content-center gap-3 px-4">
         <div className="grid gap-1">
           <h1 className="text-2xl font-semibold leading-tight">Eko</h1>
           <p className="text-sm leading-5 text-muted-foreground">Web receiver</p>
@@ -371,8 +389,10 @@ function App() {
             ) : null}
           </CardContent>
         </Card>
-      </main>
-    </div>
+        </main>
+      </div>
+      <Toaster position="top-center" closeButton expand={false} visibleToasts={3} />
+    </>
   );
 }
 

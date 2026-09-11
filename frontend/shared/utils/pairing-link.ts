@@ -17,6 +17,16 @@ export function createPairingLink(payload: PairingLinkPayload): string {
   return `http://${payload.local.host}:${payload.local.port}${CLIENT_PATH}`;
 }
 
+export function createLocalPairingLink(payload: PairingLinkPayload): string {
+  const localUrl = `http://${payload.local.host}:${payload.local.port}${CLIENT_PATH}`;
+  if (!payload.hosted) {
+    return localUrl;
+  }
+
+  const encodedPayload = encodePayload(JSON.stringify(payload));
+  return `${localUrl}#payload=${encodedPayload}`;
+}
+
 export function parsePairingSource(text: string): PairingLinkPayload | null {
   const fromLink = parsePairingLink(text);
   if (fromLink) {
@@ -149,6 +159,10 @@ function decodePayload(value: string): string {
   const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
   const binary = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "="));
   return new TextDecoder().decode(Uint8Array.from(binary, (character) => character.charCodeAt(0)));
+}
+
+function encodePayload(value: string): string {
+  return btoa(value).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

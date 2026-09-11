@@ -68,6 +68,18 @@ ICE did not find a usable path. The host now gathers all ICE candidates rather
 than restricting candidates to the address used in the QR code. The QR address
 still selects the initial signaling/discovery path.
 
+For the browser client, the desktop QR defaults to a local-network link. The
+local web client tries local signaling first and falls back to hosted signaling
+when the local socket cannot be reached. A QR opened from the hosted HTTPS page
+uses hosted signaling directly because browsers block insecure `ws://` sockets
+from secure pages. In both cases, audio remains direct WebRTC.
+
+The browser shows a Sonner error toast when signaling, ICE, or browser audio
+playback fails. The toast contains the short reason; the browser console and
+the desktop operator log contain the detailed sequence. An ICE failure after
+signaling means the relay exchanged negotiation messages successfully but no
+direct media path was reachable.
+
 ## Log and system locations
 
 On Linux, the default Tauri log is:

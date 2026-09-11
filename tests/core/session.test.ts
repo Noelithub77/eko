@@ -9,7 +9,11 @@ import {
 } from "../../frontend/shared/core/session";
 import type { Device, JoinRequest } from "../../frontend/shared/types/device";
 import type { RoomSession } from "../../frontend/shared/types/stream";
-import { createPairingLink, parsePairingSource } from "../../frontend/shared/utils/pairing-link";
+import {
+  createLocalPairingLink,
+  createPairingLink,
+  parsePairingSource,
+} from "../../frontend/shared/utils/pairing-link";
 import { parseQrPayload } from "../../frontend/shared/utils/signaling-client";
 
 const runningSession: RoomSession = {
@@ -63,6 +67,10 @@ const compactLink = createPairingLink(hostedPayload);
 const parsedHostedPayload = parsePairingSource(compactLink);
 assert.ok(compactLink.length < 300);
 assert.deepEqual(parsedHostedPayload, hostedPayload);
+
+const localLink = createLocalPairingLink(hostedPayload);
+assert.match(localLink, /^http:\/\/192\.168\.1\.20:13370\/client#payload=/);
+assert.deepEqual(parsePairingSource(localLink), hostedPayload);
 
 const allowedDevices = allowDevice([pendingDevice], "phone-1");
 assert.equal(allowedDevices[0]?.state, "connecting");

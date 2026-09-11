@@ -39,7 +39,10 @@ Desktop app
        +--> Browser client: WebRTC playback fallback
 ```
 
-The optional hosted signaling service helps peers find and negotiate a connection. Eko does not use a cloud service to relay the audio stream.
+The desktop QR defaults browser clients to local signaling and includes hosted
+signaling as a fallback. The optional hosted signaling service helps peers find
+and negotiate a connection when local signaling is unavailable. Eko does not
+use a cloud service to relay the audio stream.
 
 ## Current platform status
 
