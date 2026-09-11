@@ -68,9 +68,7 @@ export async function startWebReceiver(
   peer.onconnectionstatechange = () => {
     console.log(`[eko] browser connection state: ${peer.connectionState}`);
     if (!isClosed && (peer.connectionState === "failed" || peer.connectionState === "closed")) {
-      if (peer.connectionState === "failed") {
-        reportConnectionError();
-      }
+      reportConnectionError();
       handlers.onConnectionLost();
     }
   };
@@ -88,6 +86,7 @@ export async function startWebReceiver(
       return;
     }
     const candidate = event.candidate.toJSON();
+    console.log(`[eko] browser local ICE candidate: ${describeIceCandidate(candidate)}`);
     if (!canSendCandidates) {
       pendingLocalCandidates.push(candidate);
       return;
@@ -188,7 +187,10 @@ export async function startWebReceiver(
     const transportHint = transport.hosted
       ? "Signaling used the hosted relay, but audio still requires a direct WebRTC path."
       : "Local signaling succeeded, but the devices could not establish direct WebRTC media.";
-    reportError(handlers, `${DIRECT_CONNECTION_ERROR} ${transportHint}`);
+    reportError(
+      handlers,
+      `${DIRECT_CONNECTION_ERROR} ${transportHint} ICE state: ${peer.iceConnectionState}; peer state: ${peer.connectionState}.`,
+    );
   }
 
   return {
@@ -367,4 +369,21 @@ function isIceCandidateInit(value: unknown): value is RTCIceCandidateInit {
     "candidate" in value &&
     typeof value.candidate === "string"
   );
+}
+
+function describeIceCandidate(candidate: RTCIceCandidateInit): string {
+  const fields = (candidate.candidate ?? "").trim().split(/\s+/);
+  const protocol = fields[2] ?? "unknown";
+  const address = fields[4] ?? "unknown";
+  const port = fields[5] ?? "unknown";
+  const typeIndex = fields.indexOf("typ");
+  const type = typeIndex >= 0 ? (fields[typeIndex + 1] ?? "unknown") : "unknown";
+  const addressKind = address.endsWith(".local")
+    ? "mdns"
+    : address.includes(":")
+      ? "ipv6"
+      : address.includes(".")
+        ? "ipv4"
+        : "opaque";
+  return `type=${type} addressKind=${addressKind} port=${port} protocol=${protocol}`;
 }

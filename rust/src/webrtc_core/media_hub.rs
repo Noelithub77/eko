@@ -273,8 +273,9 @@ impl MediaHub {
         let parsed = serde_json::from_str::<RTCIceCandidateInit>(&candidate.candidate)
             .map_err(|error| error.to_string())?;
         log::info!(
-            "Remote ICE candidate received for device {} (candidate metadata accepted)",
-            candidate.device_id
+            "Remote ICE candidate received for device {}: {}",
+            candidate.device_id,
+            describe_ice_candidate(&parsed),
         );
         {
             let mut signal = peer.remote_signal.lock().await;
@@ -478,4 +479,28 @@ fn direct_ice_configuration() -> RTCConfiguration {
         }],
         ..Default::default()
     }
+}
+
+fn describe_ice_candidate(candidate: &RTCIceCandidateInit) -> String {
+    let fields: Vec<&str> = candidate.candidate.split_whitespace().collect();
+    let protocol = fields.get(2).copied().unwrap_or("unknown");
+    let address = fields.get(4).copied().unwrap_or("unknown");
+    let port = fields.get(5).copied().unwrap_or("unknown");
+    let candidate_type = fields
+        .windows(2)
+        .find(|pair| pair[0] == "typ")
+        .map(|pair| pair[1])
+        .unwrap_or("unknown");
+    let address_kind = if address.ends_with(".local") {
+        "mdns"
+    } else if address.parse::<std::net::Ipv4Addr>().is_ok() {
+        "ipv4"
+    } else if address.contains(':') {
+        "ipv6"
+    } else {
+        "opaque"
+    };
+    format!(
+        "type={candidate_type} address_kind={address_kind} port={port} protocol={protocol}"
+    )
 }

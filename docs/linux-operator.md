@@ -68,6 +68,19 @@ ICE did not find a usable path. The host now gathers all ICE candidates rather
 than restricting candidates to the address used in the QR code. The QR address
 still selects the initial signaling/discovery path.
 
+If UFW is enabled with its default `deny incoming` policy, allow the Eko
+signaling port and local-LAN UDP ICE traffic on the active Wi-Fi interface.
+Replace the interface and CIDR after checking `ip -4 addr` and `ip route`:
+
+```bash
+sudo ufw allow in on wlp0s20f3 from 172.16.96.0/19 to any port 13370 proto tcp comment 'Eko local signaling'
+sudo ufw allow in on wlp0s20f3 from 172.16.96.0/19 to any proto udp comment 'Eko local WebRTC ICE'
+sudo ufw status numbered
+```
+
+The UDP rule is intentionally limited to the current local subnet. WebRTC
+uses dynamic UDP ports, so opening only TCP `13370` is not enough for audio.
+
 For the browser client, the desktop QR defaults to a local-network link. The
 local web client tries local signaling first and falls back to hosted signaling
 when the local socket cannot be reached. A QR opened from the hosted HTTPS page
@@ -100,7 +113,8 @@ coredumpctl list --no-pager --reverse -n 10 eko
 state, network addresses/routes, listening sockets, app session state, and the
 last log lines. It does not collect raw audio, SDP bodies, full ICE candidate
 strings, tokens, or user-agent strings. ICE logs include candidate type,
-address, port, and protocol so interface selection can be diagnosed.
+address kind, port, and protocol so interface selection can be diagnosed
+without storing full remote candidate strings.
 
 The operator HTTP endpoint is `http://127.0.0.1:13370/__eko_operator`. It is
 loopback-only; it is not a LAN debugging API. The existing
