@@ -61,6 +61,8 @@ The optional hosted signaling service helps peers find and negotiate a connectio
 
 See [.github/SETUP.md](.github/SETUP.md) for the complete Windows, Android, and development setup.
 
+For Linux runtime investigation, see [Linux operator diagnostics](docs/linux-operator.md).
+
 ### Install and run the desktop app
 
 ```powershell

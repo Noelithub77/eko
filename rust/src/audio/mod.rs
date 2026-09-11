@@ -29,8 +29,8 @@ pub fn proof_status() -> AudioProofStatus {
     AudioProofStatus {
         backend: backend_name().to_string(),
         default_output_device,
-    capture_ready: cfg!(any(windows, target_os = "linux")),
-    note: proof_note().to_string(),
+        capture_ready: cfg!(any(windows, target_os = "linux")),
+        note: proof_note().to_string(),
     }
 }
 
@@ -44,7 +44,12 @@ fn backend_name() -> &'static str {
     "oboe"
 }
 
-#[cfg(not(any(windows, target_os = "android")))]
+#[cfg(target_os = "linux")]
+fn backend_name() -> &'static str {
+    "libpulse"
+}
+
+#[cfg(not(any(windows, target_os = "android", target_os = "linux")))]
 fn backend_name() -> &'static str {
     "cpal"
 }
@@ -59,7 +64,12 @@ fn proof_note() -> &'static str {
     "Android playback should use Oboe for low-latency native output."
 }
 
-#[cfg(not(any(windows, target_os = "android")))]
+#[cfg(target_os = "linux")]
 fn proof_note() -> &'static str {
-    "Linux system-audio capture uses cpal with PulseAudio/PipeWire monitor sources."
+    "Linux system-audio capture uses libpulse with PulseAudio/PipeWire monitor sources."
+}
+
+#[cfg(not(any(windows, target_os = "android", target_os = "linux")))]
+fn proof_note() -> &'static str {
+    "System-audio capture uses the platform default cpal host."
 }

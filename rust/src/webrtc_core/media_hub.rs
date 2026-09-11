@@ -1,12 +1,11 @@
 use std::collections::HashMap;
-use std::net::IpAddr;
 use std::sync::{Arc, Mutex as StdMutex};
 use std::time::Duration;
 
 use bytes::Bytes;
+use serde::Serialize;
 use tokio::sync::{mpsc, Mutex};
 use webrtc::api::media_engine::{MediaEngine, MIME_TYPE_OPUS};
-use webrtc::api::setting_engine::SettingEngine;
 use webrtc::api::APIBuilder;
 use webrtc::ice_transport::ice_candidate::RTCIceCandidateInit;
 use webrtc::ice_transport::ice_server::RTCIceServer;
@@ -41,10 +40,41 @@ pub struct MediaPeerOffer {
 pub struct MediaHub {
     track: Arc<TrackLocalStaticSample>,
     peers: Mutex<HashMap<String, Arc<MediaPeer>>>,
-    preferred_host: IpAddr,
+    audio_counters: Arc<AudioCounters>,
+    capture_thread: StdMutex<Option<std::thread::JoinHandle<()>>>,
     audio_task: StdMutex<Option<tauri::async_runtime::JoinHandle<()>>>,
     session: Option<crate::signaling::SharedSession>,
     app: Option<tauri::AppHandle>,
+}
+
+#[derive(Debug, Default)]
+struct AudioCounters {
+    frames_received: std::sync::atomic::AtomicU64,
+    frames_encoded: std::sync::atomic::AtomicU64,
+    samples_written: std::sync::atomic::AtomicU64,
+    write_errors: std::sync::atomic::AtomicU64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaPeerOperatorStatus {
+    pub device_id: String,
+    pub peer_connection_state: String,
+    pub ice_connection_state: String,
+    pub outbound_audio_packets: u64,
+    pub outbound_audio_bytes: u64,
+    pub selected_candidate_type: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaOperatorStatus {
+    pub audio_task_running: bool,
+    pub audio_frames_received: u64,
+    pub audio_frames_encoded: u64,
+    pub audio_samples_written: u64,
+    pub audio_write_errors: u64,
+    pub peers: Vec<MediaPeerOperatorStatus>,
 }
 
 #[derive(Debug)]
@@ -63,7 +93,6 @@ impl MediaHub {
     pub fn start(
         session: Option<crate::signaling::SharedSession>,
         app: Option<tauri::AppHandle>,
-        preferred_host: IpAddr,
     ) -> Result<SharedMediaHub, String> {
         let track = Arc::new(TrackLocalStaticSample::new(
             RTCRtpCodecCapability {
@@ -81,7 +110,8 @@ impl MediaHub {
         let hub = Arc::new(Self {
             track,
             peers: Mutex::new(HashMap::new()),
-            preferred_host,
+            audio_counters: Arc::new(AudioCounters::default()),
+            capture_thread: StdMutex::new(None),
             audio_task: StdMutex::new(None),
             session,
             app,
@@ -92,15 +122,7 @@ impl MediaHub {
     }
 
     pub async fn stop(&self) {
-        if let Some(task) = self
-            .audio_task
-            .lock()
-            .map(|mut task| task.take())
-            .ok()
-            .flatten()
-        {
-            task.abort();
-        }
+        self.stop_audio_tasks();
         let mut peers = self.peers.lock().await;
         for peer in peers.values() {
             let _ = peer.connection.close().await;
@@ -111,7 +133,10 @@ impl MediaHub {
     pub async fn create_sender_offer(&self, device_id: String) -> Result<MediaPeerOffer, String> {
         self.close_peer(&device_id).await;
 
-        let api = webrtc_api_with_default_codecs(self.preferred_host)?;
+        log::info!(
+            "Creating WebRTC sender for device {device_id}; ICE candidate filtering disabled"
+        );
+        let api = webrtc_api_with_default_codecs()?;
         let peer = Arc::new(
             api.new_peer_connection(direct_ice_configuration())
                 .await
@@ -127,6 +152,13 @@ impl MediaHub {
                 let Some(candidate) = candidate else {
                     return;
                 };
+                log::info!(
+                    "Local ICE candidate for device {candidate_device_id}: type={} address={} port={} protocol={}",
+                    candidate.typ,
+                    candidate.address,
+                    candidate.port,
+                    candidate.protocol
+                );
                 if let Ok(json) = candidate.to_json() {
                     let _ = signal_sender.send(MediaSignal::IceCandidate(IceCandidateMessage {
                         device_id: candidate_device_id,
@@ -240,6 +272,10 @@ impl MediaHub {
             .ok_or_else(|| "No WebRTC peer for this device.".to_string())?;
         let parsed = serde_json::from_str::<RTCIceCandidateInit>(&candidate.candidate)
             .map_err(|error| error.to_string())?;
+        log::info!(
+            "Remote ICE candidate received for device {} (candidate metadata accepted)",
+            candidate.device_id
+        );
         {
             let mut signal = peer.remote_signal.lock().await;
             if !signal.remote_description_ready {
@@ -263,10 +299,79 @@ impl MediaHub {
         }
     }
 
+    pub async fn operator_status(&self) -> MediaOperatorStatus {
+        use std::sync::atomic::Ordering;
+
+        let peers = self.peers.lock().await.clone();
+        let mut peer_statuses = Vec::with_capacity(peers.len());
+
+        for (device_id, peer) in peers {
+            let stats = peer.connection.get_stats().await;
+            let mut selected_local_candidate_id: Option<String> = None;
+            let mut outbound_audio_packets = 0_u64;
+            let mut outbound_audio_bytes = 0_u64;
+
+            for report in stats.reports.values() {
+                match report {
+                    webrtc::stats::StatsReportType::CandidatePair(pair) if pair.nominated => {
+                        selected_local_candidate_id = Some(pair.local_candidate_id.clone());
+                    }
+                    webrtc::stats::StatsReportType::OutboundRTP(outbound)
+                        if outbound.kind == "audio" =>
+                    {
+                        outbound_audio_packets =
+                            outbound_audio_packets.saturating_add(outbound.packets_sent);
+                        outbound_audio_bytes =
+                            outbound_audio_bytes.saturating_add(outbound.bytes_sent);
+                    }
+                    _ => {}
+                }
+            }
+
+            let selected_candidate_type = selected_local_candidate_id.and_then(|candidate_id| {
+                stats.reports.values().find_map(|report| match report {
+                    webrtc::stats::StatsReportType::LocalCandidate(candidate)
+                        if candidate.id == candidate_id =>
+                    {
+                        Some(candidate.candidate_type.to_string())
+                    }
+                    _ => None,
+                })
+            });
+
+            peer_statuses.push(MediaPeerOperatorStatus {
+                device_id,
+                peer_connection_state: format!("{:?}", peer.connection.connection_state())
+                    .to_ascii_lowercase(),
+                ice_connection_state: format!("{:?}", peer.connection.ice_connection_state())
+                    .to_ascii_lowercase(),
+                outbound_audio_packets,
+                outbound_audio_bytes,
+                selected_candidate_type,
+            });
+        }
+
+        let audio_task_running = self
+            .audio_task
+            .lock()
+            .map(|task| task.is_some())
+            .unwrap_or(false);
+
+        MediaOperatorStatus {
+            audio_task_running,
+            audio_frames_received: self.audio_counters.frames_received.load(Ordering::Relaxed),
+            audio_frames_encoded: self.audio_counters.frames_encoded.load(Ordering::Relaxed),
+            audio_samples_written: self.audio_counters.samples_written.load(Ordering::Relaxed),
+            audio_write_errors: self.audio_counters.write_errors.load(Ordering::Relaxed),
+            peers: peer_statuses,
+        }
+    }
+
     fn start_audio_loop(hub: &SharedMediaHub) -> Result<(), String> {
         let (sender, mut receiver) = mpsc::channel::<AudioFrame>(8);
-        let _capture_thread = start_system_audio_source(sender)?;
+        let capture_thread = start_system_audio_source(sender)?;
         let track = Arc::clone(&hub.track);
+        let counters = Arc::clone(&hub.audio_counters);
         let session = hub.session.clone();
         let app = hub.app.clone();
         let task = tauri::async_runtime::spawn(async move {
@@ -288,37 +393,78 @@ impl MediaHub {
             };
 
             while let Some(frame) = receiver.recv().await {
+                counters
+                    .frames_received
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 let Ok(encoded) = encoder.encode(frame) else {
+                    log::warn!("Audio loop: Opus encode failed");
                     continue;
                 };
+                counters
+                    .frames_encoded
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 let sample = Sample {
                     data: Bytes::from(encoded.data),
                     duration: Duration::from_millis(encoded.duration_ms),
                     ..Default::default()
                 };
                 if let Err(error) = track.write_sample(&sample).await {
+                    counters
+                        .write_errors
+                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     log::error!("Audio loop: write_sample error: {error}");
+                } else {
+                    counters
+                        .samples_written
+                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 }
             }
         });
 
         *hub.audio_task.lock().map_err(|error| error.to_string())? = Some(task);
+        *hub.capture_thread
+            .lock()
+            .map_err(|error| error.to_string())? = Some(capture_thread);
 
         Ok(())
     }
+
+    fn stop_audio_tasks(&self) {
+        if let Some(task) = self
+            .audio_task
+            .lock()
+            .map(|mut task| task.take())
+            .ok()
+            .flatten()
+        {
+            task.abort();
+        }
+        if let Some(thread) = self
+            .capture_thread
+            .lock()
+            .map(|mut thread| thread.take())
+            .ok()
+            .flatten()
+        {
+            if thread.join().is_err() {
+                log::warn!("Linux audio capture thread did not exit cleanly");
+            }
+        }
+    }
 }
 
-fn webrtc_api_with_default_codecs(preferred_host: IpAddr) -> Result<webrtc::api::API, String> {
+impl Drop for MediaHub {
+    fn drop(&mut self) {
+        self.stop_audio_tasks();
+    }
+}
+
+fn webrtc_api_with_default_codecs() -> Result<webrtc::api::API, String> {
     let mut media_engine = MediaEngine::default();
     media_engine
         .register_default_codecs()
         .map_err(|error| error.to_string())?;
-    let mut setting_engine = SettingEngine::default();
-    setting_engine.set_ip_filter(Box::new(move |candidate| candidate == preferred_host));
-    Ok(APIBuilder::new()
-        .with_media_engine(media_engine)
-        .with_setting_engine(setting_engine)
-        .build())
+    Ok(APIBuilder::new().with_media_engine(media_engine).build())
 }
 
 fn direct_ice_configuration() -> RTCConfiguration {

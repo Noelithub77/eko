@@ -65,12 +65,7 @@ async fn start_stream(
 
     let host = network_host::pairing_host()?;
     log::info!("Selected LAN pairing address {host}");
-    let preferred_host = host.parse().map_err(|error| format!("Invalid LAN address: {error}"))?;
-    let media = MediaHub::start(
-        Some(Arc::clone(&state.session)),
-        Some(app.clone()),
-        preferred_host,
-    )?;
+    let media = MediaHub::start(Some(Arc::clone(&state.session)), Some(app.clone()))?;
     let server =
         SignalingServer::start(Arc::clone(&state.session), Arc::clone(&media), app.clone())?;
     let port = server.port();

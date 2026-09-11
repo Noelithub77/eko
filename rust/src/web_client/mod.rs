@@ -1,12 +1,14 @@
 use std::path::{Component, Path, PathBuf};
 
 use rust_embed::RustEmbed;
+use serde_json::json;
 use tauri::{path::BaseDirectory, AppHandle, Manager};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
 const MAX_REQUEST_BYTES: usize = 64 * 1024;
 const PROFILER_PATH: &str = "/__eko_profiler";
+const OPERATOR_PATH: &str = "/__eko_operator";
 
 #[derive(RustEmbed)]
 #[folder = "../dist/web/client"]
@@ -29,6 +31,29 @@ async fn serve_inner(stream: &mut TcpStream, app: &AppHandle) -> Result<(), Stri
 
     if is_profiler_get(&request) {
         let body = crate::profiler::snapshot_json()?;
+        write_response(
+            stream,
+            "200 OK",
+            "application/json; charset=utf-8",
+            body.as_bytes(),
+        )
+        .await?;
+        return Ok(());
+    }
+
+    if is_operator_get(&request) {
+        if !is_loopback_peer(stream) {
+            write_response(
+                stream,
+                "403 Forbidden",
+                "text/plain; charset=utf-8",
+                b"Operator diagnostics are available on localhost only.",
+            )
+            .await?;
+            return Ok(());
+        }
+
+        let body = operator_snapshot(app).await?;
         write_response(
             stream,
             "200 OK",
@@ -215,6 +240,73 @@ fn is_profiler_get(request: &str) -> bool {
         .next()
         .map(|line| line.starts_with("GET ") && line.contains(PROFILER_PATH))
         .unwrap_or(false)
+}
+
+fn is_operator_get(request: &str) -> bool {
+    request
+        .lines()
+        .next()
+        .map(|line| line.starts_with("GET ") && line.contains(OPERATOR_PATH))
+        .unwrap_or(false)
+}
+
+fn is_loopback_peer(stream: &TcpStream) -> bool {
+    stream
+        .peer_addr()
+        .map(|address| address.ip().is_loopback())
+        .unwrap_or(false)
+}
+
+async fn operator_snapshot(app: &AppHandle) -> Result<String, String> {
+    let state = app.state::<crate::AppState>();
+    let session = state
+        .session
+        .lock()
+        .map_err(|error| error.to_string())?
+        .snapshot();
+    let media = state
+        .media
+        .lock()
+        .map_err(|error| error.to_string())?
+        .clone();
+    let webrtc = match media {
+        Some(media) => serde_json::to_value(media.operator_status().await)
+            .map_err(|error| error.to_string())?,
+        None => json!({
+            "audioTaskRunning": false,
+            "audioFramesReceived": 0,
+            "audioFramesEncoded": 0,
+            "audioSamplesWritten": 0,
+            "audioWriteErrors": 0,
+            "peers": [],
+        }),
+    };
+    let profiler = serde_json::from_str::<serde_json::Value>(&crate::profiler::snapshot_json()?)
+        .map_err(|error| error.to_string())?;
+    let mut session = serde_json::to_value(session).map_err(|error| error.to_string())?;
+    if let Some(session_object) = session.as_object_mut() {
+        session_object.remove("token");
+        for key in ["events", "metrics"] {
+            if let Some(items) = session_object
+                .get_mut(key)
+                .and_then(|value| value.as_array_mut())
+            {
+                if items.len() > 20 {
+                    *items = items.split_off(items.len() - 20);
+                }
+            }
+        }
+    }
+
+    serde_json::to_string(&json!({
+        "processId": std::process::id(),
+        "platform": std::env::consts::OS,
+        "session": session,
+        "audio": crate::audio::proof_status(),
+        "webrtc": webrtc,
+        "profiler": profiler,
+    }))
+    .map_err(|error| error.to_string())
 }
 
 fn request_body(request: &str) -> &str {

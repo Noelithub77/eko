@@ -185,6 +185,21 @@ npm run test:core
 6. Approve the phone on desktop.
 7. Confirm Android receives audio.
 
+## Linux operator diagnostics
+
+When debugging Linux audio or a receiver that connects without playback, run
+the desktop app and inspect it from the repository root:
+
+```bash
+pnpm operator status
+pnpm operator logs --follow
+pnpm operator diagnostics > /tmp/eko-diagnostics.json
+```
+
+See [docs/linux-operator.md](../docs/linux-operator.md) for the full command
+reference and how to interpret capture, encoding, ICE, and outbound audio
+counters.
+
 ## Notes
 
 - Final latency acceptance needs real Windows hardware plus a real Android phone.
