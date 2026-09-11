@@ -20,7 +20,7 @@ import { formatError } from "@shared/utils/logger";
 
 type ConnectionState = "ready" | "waiting" | "connected" | "failed";
 
-const RECOVERY_COOLDOWN_MS = 3_000;
+const RECOVERY_COOLDOWN_MS = 15_000;
 
 function App() {
   const payload = useMemo(() => parsePairingSource(window.location.href), []);
