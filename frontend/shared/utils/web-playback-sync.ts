@@ -26,6 +26,7 @@ export type PlaybackSyncState = {
 
 export type PlaybackHandlers = {
   onStatus: (message: string) => void;
+  onError?: (message: string) => void;
   onStream: (stream: MediaStream) => void;
   onNowPlaying: (media: WebNowPlayingState | null) => void;
   onConnectionLost: () => void;

@@ -2,7 +2,12 @@
 
 Eko uses a Cloudflare Worker and one Durable Object per active stream to exchange approval and WebRTC signaling messages. Audio remains a direct WebRTC connection and TURN is not configured.
 
-The hosted QR is the normal browser path. Android races the local and hosted signaling handshakes, while LAN discovery and the desktop-served client remain available offline.
+The desktop QR now defaults the browser to the local desktop-served client. The
+browser tries local signaling first and falls back to hosted signaling when the
+local socket cannot be reached. A hosted HTTPS page uses hosted signaling
+directly because browsers block insecure local `ws://` connections from secure
+pages. Android keeps its existing LAN-first selection. In every case, audio
+remains a direct WebRTC connection.
 
 Production relay: `https://eko.noelmcv7.workers.dev`
 
