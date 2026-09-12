@@ -1,12 +1,14 @@
 # Privacy Policy
 
-**Last updated:** June 13, 2026
+**Last updated:** September 13, 2026
 
 ## Overview
 
 Eko ("the App") is a local desktop-to-device audio relay application developed by **Codialo**. The App captures computer audio and streams it to approved devices on the same local network.
 
-Eko is designed to work entirely **without accounts, cloud services, or internet access**. Your data stays on your local network and your devices.
+Eko works without accounts. Local pairing and streaming can work without
+internet access; the hosted browser path uses the Eko Cloudflare Worker for
+signaling and Cloudflare TURN when direct WebRTC media cannot connect.
 
 ## Data Collection
 
@@ -18,7 +20,8 @@ Eko **does not collect, store, or transmit any personal information**. This incl
 - No account registration or login
 - No user profiles or identity data
 - No payment or financial information
-- No IP addresses are logged or transmitted off the local network
+- Hosted signaling and TURN providers receive normal connection metadata needed
+  to route the session, such as IP address and connection timing
 
 ### Analytics & Telemetry
 
@@ -26,9 +29,13 @@ Eko **does not include any analytics, telemetry, or crash reporting services** (
 
 ### Audio Content
 
-Audio captured from your computer is streamed exclusively over your local LAN using WebRTC with DTLS-SRTP encryption. The audio content:
+Audio captured from your computer is streamed to approved devices using WebRTC
+with DTLS-SRTP encryption. When direct ICE is unavailable, packets may pass
+through Cloudflare TURN; the TURN service forwards encrypted WebRTC traffic and
+does not receive the WebRTC media keys. The audio content:
 
-- Is never transmitted over the internet
+- May be transmitted through an encrypted Cloudflare TURN path when direct LAN
+  or peer-to-peer connectivity is unavailable
 - Is never recorded or stored
 - Is never sent to any remote server
 - Is only sent to devices you have explicitly approved via the desktop interface
@@ -48,17 +55,25 @@ This data is stored in JSON files within the app's local data directory and is n
 
 ## Network Communications
 
-### Local Network Only
+### Network Communications
 
-All audio streaming and device signaling happens exclusively over your local LAN:
+When using local pairing, audio streaming and device signaling happen over the
+local LAN. When using the hosted browser QR, the following services are used:
 
 - **WebRTC** (DTLS-SRTP encrypted) for audio streaming
 - **WebSocket** (plaintext JSON over TCP) for signaling messages (join requests, permission approvals, WebRTC handshake)
 - **mDNS** for local network device discovery
+- **Cloudflare Worker and Durable Object** for hosted room approval and WebRTC
+  signaling
+- **Cloudflare TURN** as an optional encrypted media relay when direct ICE fails
 
 ### QR Code Pairing
 
-When you initiate a stream, the App generates a QR code containing a local network URL with a randomly generated session token. This token is used solely to scope the current session and is not associated with any user identity.
+When you initiate a stream, the App generates a QR code containing a hosted
+browser URL with a randomly generated room join token. This token scopes the
+current session and is not associated with a user identity. Short-lived TURN
+credentials are fetched after the browser authenticates to that room; they are
+not embedded in the QR code.
 
 ### Update Checks
 
@@ -70,14 +85,17 @@ The web client (served by the desktop app for browser fallback) uses a single co
 
 ## Data Sharing
 
-Eko **does not share any data with third parties**. There are no third-party SDKs, analytics providers, advertising networks, or data brokers integrated into the App.
+Eko does not sell or share data for advertising. The hosted browser path uses
+Cloudflare as the configured signaling and TURN infrastructure provider.
 
 ## Data Security
 
 - Audio streams use mandatory WebRTC encryption (DTLS-SRTP)
-- All network communication stays within your local LAN
+- Hosted WebRTC media remains DTLS-SRTP encrypted end-to-end between the Eko
+  peers, including when Cloudflare TURN forwards the packets
 - Session access requires both physical QR code scanning or LAN proximity and explicit desktop approval
-- There are no cloud servers, databases, or remote services involved in the App's core functionality
+- Hosted rooms and ephemeral TURN credentials are remote services used only by
+  the hosted browser path
 
 ## Children's Privacy
 
@@ -98,4 +116,8 @@ For questions about this privacy policy or the App's data practices:
 
 ## Microsoft Store Compliance
 
-This privacy policy is provided in compliance with the Microsoft Store Policies regarding data collection and usage. As of the last updated date above, Eko collects no personal data, telemetry, or analytics, and transmits no user data off the local network except for optional user-initiated update checks.
+This privacy policy is provided in compliance with the Microsoft Store Policies
+regarding data collection and usage. Eko collects no account profile data,
+telemetry, or analytics. The hosted browser path necessarily sends connection
+metadata and encrypted signaling/media packets through the configured
+Cloudflare infrastructure.

@@ -5,6 +5,9 @@
   "main": "worker.ts",
   "compatibility_date": "2026-07-08",
   "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "TURN_KEY_ID": "7339df54ca223e7cbb7693d16193dc9c"
+  },
   "assets": {
     "directory": "../dist/web/client",
     "binding": "ASSETS",

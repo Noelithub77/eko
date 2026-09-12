@@ -4,9 +4,9 @@
 
 Build Eko as a local desktop-to-device audio relay.
 
-The desktop app captures computer audio and streams it to approved Android devices on the same local network. Android is the preferred client experience. A desktop-served web client exists mainly as an iOS/browser fallback. The app must work without accounts, cloud services, or internet access.
+The desktop app captures computer audio and streams it to approved devices. Android is the preferred client experience. A hosted web client exists mainly as an iOS/browser fallback. Local Android use can work without internet; the hosted browser path uses Cloudflare signaling and TURN when direct media is blocked.
 
-Keep the product simple: one desktop authority, approved local devices, no cloud relay, no accounts, no manual IP entry.
+Keep the product simple: one desktop authority, approved local devices, no accounts, no manual IP entry. Hosted browser media may use encrypted Cloudflare TURN only when direct WebRTC cannot connect.
 
 ## How To Work With Noel
 
@@ -98,7 +98,7 @@ Current preferred package direction:
 - Android uses the Tauri Android WebView for UI, but native Rust and Android code owns receiver playback.
 - Android is the preferred client experience.
 - The web client is mainly for iOS/browser fallback and uses browser WebRTC/audio APIs.
-- The desktop local signaling server also serves the built web client at `/client`.
+- The desktop local signaling server serves the built web client at `/client`; production browser pairing uses the hosted Worker at `/client`.
 - Shared TypeScript types live in `frontend/shared/types`.
 - Shared Rust types live in `rust/src/domain`.
 
@@ -231,7 +231,7 @@ Android UI must stay simple: Scan QR Code, Find Nearby Host, connection status, 
 
 Browser fallback lives in `frontend/web/client/`. `App.tsx` owns the client flow, `features/playback/` owns browser playback and quality reporting, and `components/AudioWaveVisualizer.tsx` owns the visualizer.
 
-The web client is served by the desktop local server at `/client`. It parses the same QR hash payload used by Android: `http://<desktop-lan-ip>:<port>/client#payload=<base64url-json>`.
+The web client is served at `/client` by the desktop in local development and by the hosted Worker in production. It parses the compact hosted QR hash payload and fetches short-lived TURN credentials with the room join token.
 
 The web client is mainly for iOS and browser fallback. Do not make it the primary Android path.
 
@@ -307,15 +307,15 @@ Only two pairing methods are allowed:
 
 Manual IP entry is not allowed.
 
-The desktop QR uses a local web URL with a hash payload:
+The desktop QR uses a hosted web URL with a compact hash payload:
 
 ```text
-http://<desktop-lan-ip>:<port>/client#payload=<base64url-json>
+https://<eko-worker>/client#v=1&h=<lan-host>&p=<port>&r=<room-id>&t=<join-token>
 ```
 
 The Android app scanner must parse this QR directly and start the native receiver. It must not open the website from inside the app.
 
-The browser or iOS fallback opens the same URL and runs the desktop-served web client.
+The browser or iOS fallback opens the hosted URL and runs the web client. Android parses the same room payload directly and keeps its native receiver path.
 
 Scanning a QR code or finding a LAN host must not grant access by itself. The desktop user must approve every device before it can receive audio.
 
@@ -340,7 +340,7 @@ Android playback rules:
 
 ## Web Client Responsibilities
 
-The web client is a fallback, mainly for iOS and browsers. It must be served at `/client`, parse the same QR hash payload, ask the desktop for approval before playback, use browser WebRTC/audio APIs, and avoid LAN discovery or manual IP entry for v1. It must not use Cloudflare as an audio or signaling relay, replace Android native playback, or use a full Rust/WASM receiver unless Noel explicitly chooses that later.
+The web client is a fallback, mainly for iOS and browsers. It must be served at `/client`, parse the hosted QR hash payload, ask the desktop for approval before playback, use browser WebRTC/audio APIs, fetch ephemeral TURN credentials from the Worker, and avoid LAN discovery or manual IP entry for v1. It must not replace Android native playback or use a full Rust/WASM receiver unless Noel explicitly chooses that later.
 
 ## Error Handling Rules
 

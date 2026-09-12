@@ -341,7 +341,7 @@ async fn send_permission_update(
 
     send_json(socket, &update).await?;
     if should_start_media {
-        let offer = media.create_sender_offer(device_id.to_string()).await?;
+        let offer = media.create_sender_offer(device_id.to_string(), &[]).await?;
         send_json(
             socket,
             &SignalServerMessage::WebRtcReady {

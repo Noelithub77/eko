@@ -4,6 +4,7 @@ import {
   type RelayClientMessage,
   type RelayServerMessage,
 } from "./protocol";
+import { generateTurnCredentials } from "./turn";
 
 const HOST_RECONNECT_GRACE_MS = 60_000;
 const MAX_RECEIVERS = 10;
@@ -42,6 +43,10 @@ export class Room extends DurableObject<Env> {
   }
 
   async fetch(request: Request): Promise<Response> {
+    const requestUrl = new URL(request.url);
+    if (request.method === "GET" && requestUrl.pathname.endsWith("/turn")) {
+      return this.handleTurnRequest(request);
+    }
     if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
       return new Response("Expected WebSocket", { status: 426 });
     }
@@ -57,6 +62,33 @@ export class Room extends DurableObject<Env> {
     } satisfies ConnectionInfo);
     this.ctx.acceptWebSocket(server);
     return new Response(null, { status: 101, webSocket: client });
+  }
+
+  private async handleTurnRequest(request: Request): Promise<Response> {
+    const room = await this.ctx.storage.get<RoomRecord>("room");
+    if (!room) {
+      return new Response("Room not found", { status: 404 });
+    }
+
+    const token = readBearerToken(request.headers.get("Authorization"));
+    if (!token) {
+      return new Response("Authorization required", { status: 401 });
+    }
+    const authorized = await Promise.all([
+      sameSecret(token, room.hostTokenHash),
+      sameSecret(token, room.joinTokenHash),
+    ]);
+    if (!authorized.some(Boolean)) {
+      return new Response("Invalid room token", { status: 401 });
+    }
+
+    try {
+      const iceServers = await generateTurnCredentials(this.env);
+      return Response.json({ iceServers }, { headers: { "Cache-Control": "no-store" } });
+    } catch (error: unknown) {
+      console.error("TURN credential request failed", error);
+      return new Response("Hosted TURN is unavailable", { status: 503 });
+    }
   }
 
   async webSocketMessage(socket: WebSocket, raw: string | ArrayBuffer): Promise<void> {
@@ -265,6 +297,14 @@ async function sameSecret(secret: string, expectedHash: string): Promise<boolean
   ]);
   const encoder = new TextEncoder();
   return crypto.subtle.timingSafeEqual(encoder.encode(provided), encoder.encode(expected));
+}
+
+function readBearerToken(value: string | null): string | null {
+  if (!value?.startsWith("Bearer ")) {
+    return null;
+  }
+  const token = value.slice("Bearer ".length).trim();
+  return token.length > 0 ? token : null;
 }
 
 export async function hashSecret(secret: string): Promise<string> {

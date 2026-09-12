@@ -31,6 +31,18 @@ app.post("/v1/rooms", zValidator("json", createRoomSchema), async (context) => {
   });
 });
 
+app.get("/v1/rooms/:roomId/turn", async (context) => {
+  const parsed = roomIdSchema.safeParse(context.req.param("roomId"));
+  if (!parsed.success) {
+    return context.json({ error: "Invalid room" }, 400);
+  }
+  return context.env.ROOM.getByName(parsed.data).fetch(
+    new Request(context.req.raw, {
+      headers: new Headers(context.req.raw.headers),
+    }),
+  );
+});
+
 app.get("/v1/rooms/:roomId/socket", async (context) => {
   const parsed = roomIdSchema.safeParse(context.req.param("roomId"));
   if (!parsed.success) {
