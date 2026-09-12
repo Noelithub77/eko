@@ -130,15 +130,20 @@ impl MediaHub {
         peers.clear();
     }
 
-    pub async fn create_sender_offer(&self, device_id: String) -> Result<MediaPeerOffer, String> {
+    pub async fn create_sender_offer(
+        &self,
+        device_id: String,
+        extra_ice_servers: &[RTCIceServer],
+    ) -> Result<MediaPeerOffer, String> {
         self.close_peer(&device_id).await;
 
         log::info!(
-            "Creating WebRTC sender for device {device_id}; ICE candidate filtering disabled"
+            "Creating WebRTC sender for device {device_id}; ICE candidate filtering disabled; TURN servers={} ",
+            extra_ice_servers.len()
         );
         let api = webrtc_api_with_default_codecs()?;
         let peer = Arc::new(
-            api.new_peer_connection(direct_ice_configuration())
+            api.new_peer_connection(direct_ice_configuration(extra_ice_servers))
                 .await
                 .map_err(|error| error.to_string())?,
         );
@@ -468,15 +473,17 @@ fn webrtc_api_with_default_codecs() -> Result<webrtc::api::API, String> {
     Ok(APIBuilder::new().with_media_engine(media_engine).build())
 }
 
-fn direct_ice_configuration() -> RTCConfiguration {
+fn direct_ice_configuration(extra_ice_servers: &[RTCIceServer]) -> RTCConfiguration {
+    let mut ice_servers = vec![RTCIceServer {
+        urls: vec![
+            "stun:stun.cloudflare.com:3478".to_string(),
+            "stun:stun.cloudflare.com:53".to_string(),
+        ],
+        ..Default::default()
+    }];
+    ice_servers.extend_from_slice(extra_ice_servers);
     RTCConfiguration {
-        ice_servers: vec![RTCIceServer {
-            urls: vec![
-                "stun:stun.cloudflare.com:3478".to_string(),
-                "stun:stun.cloudflare.com:53".to_string(),
-            ],
-            ..Default::default()
-        }],
+        ice_servers,
         ..Default::default()
     }
 }

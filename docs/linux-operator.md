@@ -81,17 +81,36 @@ sudo ufw status numbered
 The UDP rule is intentionally limited to the current local subnet. WebRTC
 uses dynamic UDP ports, so opening only TCP `13370` is not enough for audio.
 
-For the browser client, the desktop QR defaults to a local-network link. The
-local web client tries local signaling first and falls back to hosted signaling
-when the local socket cannot be reached. A QR opened from the hosted HTTPS page
-uses hosted signaling directly because browsers block insecure `ws://` sockets
-from secure pages. In both cases, audio remains direct WebRTC.
+For the browser client, the desktop QR is hosted-only. The browser connects to
+the Cloudflare Worker for signaling and requests short-lived TURN credentials
+using the room join token. WebRTC still uses `iceTransportPolicy: all`: it
+tries direct host/server-reflexive candidates first and can select a Cloudflare
+TURN `relay` candidate when direct media is blocked. The desktop fetches a
+separate credential set with its host token.
 
-The browser shows a Sonner error toast when signaling, ICE, or browser audio
-playback fails. The toast contains the short reason; the browser console and
-the desktop operator log contain the detailed sequence. An ICE failure after
-signaling means the relay exchanged negotiation messages successfully but no
-direct media path was reachable.
+The browser shows a Sonner error toast when hosted signaling, TURN credential
+fetching, ICE, or browser audio playback fails. The toast contains the short
+reason; the browser console and desktop operator log contain the detailed
+sequence. Look for `ICE state: connected`, a selected `relay` candidate when
+TURN is needed, and increasing outbound audio counters. An ICE failure after
+signaling means negotiation succeeded but neither direct nor TURN media
+connected.
+
+The deployed Worker needs one non-secret variable and one secret:
+
+```bash
+pnpm exec wrangler secret list --config relay/wrangler.jsonc
+pnpm exec wrangler tail eko --format pretty
+```
+
+`TURN_KEY_ID` is the Cloudflare TURN key id in
+`relay/wrangler.jsonc`; `TURN_KEY_SECRET` is stored as a Worker secret. Never
+put the TURN key secret in a QR payload, pairing link, browser bundle, or
+operator report. Deploy the Worker after changing the web client:
+
+```bash
+pnpm relay:deploy
+```
 
 ## Log and system locations
 

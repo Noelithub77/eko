@@ -3,9 +3,8 @@ import { Copy, ExternalLink } from "lucide-react";
 import { NetworkBadge } from "@shared/components/NetworkBadge";
 import { Button } from "@shared/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@shared/components/ui/card";
-import { cn } from "@shared/lib/utils";
 import type { QrPairingPayload } from "@shared/types/stream";
-import { createLocalPairingLink, createPairingLink } from "@shared/utils/pairing-link";
+import { createPairingLink } from "@shared/utils/pairing-link";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { StyledPairingQr } from "./StyledPairingQr";
 
@@ -15,10 +14,7 @@ type QrPairingCardProps = {
 
 export function QrPairingCard({ payload }: QrPairingCardProps) {
   const [copied, setCopied] = useState(false);
-  const [pairingMode, setPairingMode] = useState<"local" | "hosted">("local");
-  const localQrValue = payload ? createLocalPairingLink(payload) : "";
-  const hostedQrValue = payload ? createPairingLink(payload) : "";
-  const qrValue = pairingMode === "local" ? localQrValue : hostedQrValue;
+  const qrValue = payload?.hosted ? createPairingLink(payload) : "";
 
   const handleOpen = () => {
     if (qrValue) {
@@ -42,44 +38,20 @@ export function QrPairingCard({ payload }: QrPairingCardProps) {
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="text-xl">QR Pairing</CardTitle>
-          {payload?.hosted ? (
-            <div className="flex rounded-md border bg-muted/50 p-0.5 text-xs">
-              <button
-                type="button"
-                className={cn(
-                  "rounded px-2 py-1 transition-colors",
-                  pairingMode === "local" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground",
-                )}
-                onClick={() => setPairingMode("local")}
-              >
-                Local
-              </button>
-              <button
-                type="button"
-                className={cn(
-                  "rounded px-2 py-1 transition-colors",
-                  pairingMode === "hosted" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground",
-                )}
-                onClick={() => setPairingMode("hosted")}
-              >
-                Hosted
-              </button>
-            </div>
-          ) : null}
           <NetworkBadge
-            label={pairingMode === "local" ? "Local first" : "Hosted signaling"}
-            tooltip={
-              pairingMode === "local"
-                ? "The browser opens the desktop locally first. Audio stays direct WebRTC; hosted signaling is a fallback."
-                : "Pairing uses Eko’s hosted service. Audio still travels directly between your devices and is never relayed."
-            }
+            label="Hosted + TURN"
+            tooltip="Pairing uses Eko’s hosted service. Audio uses a direct path when possible and Cloudflare TURN when the network blocks direct media."
           />
         </div>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 px-4 pb-4">
         <div className="group relative h-full w-full">
-          {payload ? (
+          {payload?.hosted ? (
             <StyledPairingQr value={qrValue} />
+          ) : payload ? (
+            <span className="absolute inset-0 flex items-center justify-center px-6 text-center text-base text-destructive">
+              Hosted pairing is unavailable. Restart the stream to try again.
+            </span>
           ) : (
             <span className="absolute inset-0 flex items-center justify-center text-base text-muted-foreground">
               Preparing secure pairing

@@ -12,7 +12,7 @@ Bluetooth Classic audio commonly supports a single active audio output, while mu
 Eko bypasses the Bluetooth concurrency problem by using local-network WebRTC sessions. This allows the desktop to manage multiple receivers independently, with practical scaling determined by network bandwidth, device count, and desktop processing capacity.
 Each device joins through QR pairing or nearby discovery and must be approved by the desktop before receiving audio.
 
-The Android app is the preferred client. A desktop-served browser client is available as an iOS and browser fallback. Eko is designed to work without accounts, cloud audio relays, or manual IP entry.
+The Android app is the preferred client. A desktop-served browser client is available as an iOS and browser fallback. Eko does not require accounts or manual IP entry. Hosted browser pairing uses Cloudflare for signaling and TURN only when a direct media path is blocked.
 
 > Eko is in active early development. Pairing and streaming work is still being tested on real devices, and latency results may change between releases.
 
@@ -39,10 +39,10 @@ Desktop app
        +--> Browser client: WebRTC playback fallback
 ```
 
-The desktop QR defaults browser clients to local signaling and includes hosted
-signaling as a fallback. The optional hosted signaling service helps peers find
-and negotiate a connection when local signaling is unavailable. Eko does not
-use a cloud service to relay the audio stream.
+The desktop QR opens the hosted browser client. The hosted service exchanges
+approval and WebRTC signaling messages and supplies short-lived TURN
+credentials. WebRTC still prefers a direct connection; if the network blocks
+direct media, encrypted audio is relayed through Cloudflare TURN.
 
 ## Current platform status
 
@@ -126,7 +126,11 @@ scripts/          Development and release helpers
 
 ## Privacy and security
 
-Eko is built for local-network use. It does not require an Eko account, and it does not send the audio stream through a cloud relay. Keep in mind that local-network security still matters: only pair devices you trust, keep the desktop and Android app updated, and avoid sharing pairing links.
+Eko is designed for local-network use but the hosted browser path can use
+Cloudflare TURN when direct WebRTC is unavailable. Audio remains protected by
+WebRTC encryption and is sent only to approved receivers. Only pair devices
+you trust, keep the desktop and client updated, and avoid sharing pairing
+links.
 
 Read the [privacy policy](docs/Privacy_Policy.md) and [security policy](.github/SECURITY.md) before deploying Eko beyond a development network.
 

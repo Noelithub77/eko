@@ -7,7 +7,9 @@ const relayUrl = (process.env.EKO_RELAY_URL ?? "https://eko.noelmcv7.workers.dev
 const room = await createRoom(relayUrl);
 const host = await openSocket(room.socketUrl);
 const inbox = createHostInbox(host);
+const chromiumPath = process.env.EKO_CHROMIUM_PATH ?? "/usr/bin/chromium";
 const browser = await chromium.launch({
+  executablePath: chromiumPath,
   headless: true,
   args: ["--autoplay-policy=no-user-gesture-required"],
 });

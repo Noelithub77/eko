@@ -5,6 +5,7 @@ import type {
 } from "@shared/bindings/tauri";
 import type { PairingLinkPayload } from "@shared/types/pairing-link";
 import { logAudioStats } from "@shared/utils/web-rtc-stats";
+import { formatError } from "@shared/utils/logger";
 import {
   calibrateClock,
   clearPlaybackSync,
@@ -24,7 +25,7 @@ import {
 
 const DEFAULT_JITTER_BUFFER_TARGET_MS = 60;
 const DIRECT_CONNECTION_ERROR =
-  "Couldn’t make a direct connection. This network may block peer-to-peer connections. Try another Wi-Fi network or a phone hotspot.";
+  "Couldn’t establish the audio connection. This network may block direct peer-to-peer media.";
 const STUN_URLS = ["stun:stun.cloudflare.com:3478", "stun:stun.cloudflare.com:53"];
 
 export type WebReceiverSession = {
@@ -39,12 +40,14 @@ export async function startWebReceiver(
   request: JoinRequest,
   handlers: PlaybackHandlers,
 ): Promise<WebReceiverSession> {
+  const iceServers = await fetchTurnIceServers(payload);
   const transport = await createSignalTransport(payload, request.deviceId);
   const { socket } = transport;
   const peer = new RTCPeerConnection({
-    iceServers: [{ urls: STUN_URLS }],
+    iceServers,
     iceTransportPolicy: "all",
   });
+  console.info(`[eko] browser ICE servers ready: ${iceServers.length} (direct + TURN fallback)`);
   let isClosed = false;
   let hasOpened = false;
   let hasJoined = false;
@@ -185,8 +188,8 @@ export async function startWebReceiver(
     if (connectionErrorReported) return;
     connectionErrorReported = true;
     const transportHint = transport.hosted
-      ? "Signaling used the hosted relay, but audio still requires a direct WebRTC path."
-      : "Local signaling succeeded, but the devices could not establish direct WebRTC media.";
+      ? "Hosted signaling and Cloudflare TURN were configured, but ICE did not select a usable media path."
+      : "Local signaling succeeded, but the devices could not establish a usable media path.";
     reportError(
       handlers,
       `${DIRECT_CONNECTION_ERROR} ${transportHint} ICE state: ${peer.iceConnectionState}; peer state: ${peer.connectionState}.`,
@@ -211,6 +214,66 @@ export async function startWebReceiver(
       peer.close();
     },
   };
+}
+
+async function fetchTurnIceServers(payload: PairingLinkPayload): Promise<RTCIceServer[]> {
+  if (!payload.hosted) {
+    return [{ urls: STUN_URLS }];
+  }
+
+  const turnUrl = new URL(`/v1/rooms/${payload.hosted.roomId}/turn`, payload.hosted.clientUrl);
+  let response: Response;
+  try {
+    response = await fetch(turnUrl, {
+      headers: { Authorization: `Bearer ${payload.hosted.joinToken}` },
+    });
+  } catch (error: unknown) {
+    throw new Error(`Could not reach hosted TURN: ${formatError(error)}`);
+  }
+  if (!response.ok) {
+    throw new Error(`Hosted TURN credentials were rejected (HTTP ${response.status}).`);
+  }
+
+  const body: unknown = await response.json();
+  const iceServers = parseTurnResponse(body);
+  if (iceServers.length === 0) {
+    throw new Error("Hosted TURN returned no usable ICE servers.");
+  }
+  return iceServers;
+}
+
+function parseTurnResponse(value: unknown): RTCIceServer[] {
+  if (!isRecord(value) || !Array.isArray(value.iceServers)) {
+    return [];
+  }
+  return value.iceServers.flatMap((entry: unknown) => {
+    if (!isRecord(entry)) {
+      return [];
+    }
+    const urls = normalizeUrls(entry.urls);
+    if (urls.length === 0) {
+      return [];
+    }
+    const server: RTCIceServer = { urls };
+    if (typeof entry.username === "string") {
+      server.username = entry.username;
+    }
+    if (typeof entry.credential === "string") {
+      server.credential = entry.credential;
+    }
+    return [server];
+  });
+}
+
+function normalizeUrls(value: unknown): string[] {
+  if (typeof value === "string") {
+    return [value];
+  }
+  return Array.isArray(value) ? value.filter((url): url is string => typeof url === "string") : [];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 async function handleServerMessage(

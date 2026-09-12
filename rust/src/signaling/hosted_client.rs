@@ -5,6 +5,7 @@ use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, oneshot};
 use tokio_tungstenite::tungstenite::Message;
+use webrtc::ice_transport::ice_server::RTCIceServer;
 
 use crate::domain::{
     DeviceConnectionState, HostedPairingDetails, SignalClientMessage, SignalServerMessage,
@@ -26,6 +27,8 @@ pub(crate) struct HostedRoomResponse {
     join_token: String,
     socket_url: String,
     client_url: String,
+    #[serde(default)]
+    ice_servers: Vec<RTCIceServer>,
 }
 
 #[derive(Serialize)]
@@ -88,7 +91,8 @@ impl HostedSignaling {
             .unwrap_or_else(|_| DEFAULT_RELAY_URL.to_string())
             .trim_end_matches('/')
             .to_string();
-        let room = reqwest::Client::new()
+        let client = reqwest::Client::new();
+        let mut room = client
             .post(format!("{relay_url}/v1/rooms"))
             .timeout(Duration::from_secs(8))
             .json(&serde_json::json!({}))
@@ -100,6 +104,27 @@ impl HostedSignaling {
             .json::<HostedRoomResponse>()
             .await
             .map_err(|error| format!("Hosted pairing returned invalid data: {error}"))?;
+        room.ice_servers = client
+            .get(format!("{relay_url}/v1/rooms/{}/turn", room.room_id))
+            .bearer_auth(&room.host_token)
+            .timeout(Duration::from_secs(8))
+            .send()
+            .await
+            .map_err(|error| format!("Hosted TURN is unavailable: {error}"))?
+            .error_for_status()
+            .map_err(|error| format!("Hosted TURN was rejected: {error}"))?
+            .json::<TurnCredentialsResponse>()
+            .await
+            .map_err(|error| format!("Hosted TURN returned invalid data: {error}"))?
+            .ice_servers
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        log::info!(
+            "Hosted TURN credentials ready for room {} ({} ICE servers)",
+            room.room_id,
+            room.ice_servers.len()
+        );
         let details = HostedPairingDetails {
             room_id: room.room_id.clone(),
             join_token: room.join_token.clone(),
@@ -130,6 +155,32 @@ impl HostedSignaling {
     pub fn stop(&mut self) {
         if let Some(shutdown) = self.shutdown.take() {
             let _ = shutdown.send(());
+        }
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TurnCredentialsResponse {
+    ice_servers: Vec<HostedIceServer>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HostedIceServer {
+    urls: Vec<String>,
+    #[serde(default)]
+    username: String,
+    #[serde(default)]
+    credential: String,
+}
+
+impl From<HostedIceServer> for RTCIceServer {
+    fn from(server: HostedIceServer) -> Self {
+        Self {
+            urls: server.urls,
+            username: server.username,
+            credential: server.credential,
         }
     }
 }
@@ -207,7 +258,14 @@ async fn run_connection(
                 return ConnectionEnd::Stopped;
             }
             _ = approval_tick.tick() => {
-                if let Err(error) = send_receiver_updates(&mut writer, &mut receivers, session, media).await {
+                if let Err(error) = send_receiver_updates(
+                    &mut writer,
+                    &mut receivers,
+                    session,
+                    media,
+                    &room.ice_servers,
+                )
+                .await {
                     return ConnectionEnd::Retry(error);
                 }
             }
@@ -336,6 +394,7 @@ async fn send_receiver_updates<S>(
     receivers: &mut HashMap<String, ReceiverState>,
     session: &SharedSession,
     media: &SharedMediaHub,
+    ice_servers: &[RTCIceServer],
 ) -> Result<(), String>
 where
     S: futures_util::Sink<Message> + Unpin,
@@ -368,7 +427,9 @@ where
                 )
                 .await?;
                 if device_state == DeviceConnectionState::Connecting {
-                    let offer = media.create_sender_offer(device_id.clone()).await?;
+                    let offer = media
+                        .create_sender_offer(device_id.clone(), ice_servers)
+                        .await?;
                     send_signal(
                         writer,
                         &device_id,
