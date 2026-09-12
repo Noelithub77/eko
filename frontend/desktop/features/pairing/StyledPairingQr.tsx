@@ -44,6 +44,7 @@ export function StyledPairingQr({ value }: StyledPairingQrProps) {
       const entry = entries[0];
       if (!entry) return;
       const { width, height } = entry.contentRect;
+      if (width < 32 || height < 32) return;
       const size = Math.max(1, Math.floor(Math.min(width, height)));
 
       if (qrRef.current) {
