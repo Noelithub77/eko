@@ -25,7 +25,12 @@ Eko **does not collect, store, or transmit any personal information**. This incl
 
 ### Analytics & Telemetry
 
-Eko **does not include any analytics, telemetry, or crash reporting services** (e.g., Google Analytics, Sentry, Firebase, PostHog, or similar). No usage data, diagnostics, or error reports are sent to any remote server.
+Eko **does not include product analytics, advertising trackers, or crash
+reporting services** (e.g., Google Analytics, Sentry, Firebase, PostHog, or
+similar). Eko does not send its local operator diagnostics to a separate
+analytics service. The hosted path is different: Cloudflare necessarily
+processes connection metadata and counts TURN relay bytes for operating and
+billing its service; see the hosted-service details below.
 
 ### Audio Content
 
@@ -37,7 +42,8 @@ does not receive the WebRTC media keys. The audio content:
 - May be transmitted through an encrypted Cloudflare TURN path when direct LAN
   or peer-to-peer connectivity is unavailable
 - Is never recorded or stored
-- Is never sent to any remote server
+- Is not readable as audio by the TURN relay because the WebRTC peers retain
+  the DTLS-SRTP media keys
 - Is only sent to devices you have explicitly approved via the desktop interface
 
 ## Data Stored Locally
@@ -66,6 +72,14 @@ local LAN. When using the hosted browser QR, the following services are used:
 - **Cloudflare Worker and Durable Object** for hosted room approval and WebRTC
   signaling
 - **Cloudflare TURN** as an optional encrypted media relay when direct ICE fails
+
+When TURN is selected, Cloudflare receives the encrypted packets needed to
+relay the session and operational metadata such as client IP addresses, relay
+ports, and session timing. Cloudflare's TURN service measures ingress and
+egress bytes; only egress from Cloudflare to the TURN client is billable. Eko
+currently uses a single TURN key and does not attach a room or user identifier
+to Cloudflare's credential analytics, so Cloudflare usage is not attributed to
+an Eko account or named person.
 
 ### QR Code Pairing
 
