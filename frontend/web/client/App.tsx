@@ -44,6 +44,7 @@ function App() {
   const hasAskedRef = useRef(false);
   const reconnectInFlightRef = useRef(false);
   const lastRecoveryAtRef = useRef(0);
+  const hasShownRelayWarningRef = useRef(false);
   const recoverConnectionRef = useRef<() => void>(() => {});
 
   useEffect(() => {
@@ -125,6 +126,7 @@ function App() {
     setProfiler(null);
     shouldRecoverRef.current = false;
     hasAskedRef.current = true;
+    hasShownRelayWarningRef.current = false;
 
     const savedName = finalReceiverName("web");
     const request = createJoinRequest(deviceId, savedName);
@@ -135,6 +137,16 @@ function App() {
         onError: (message) => {
           toast.error("Eko connection failed", {
             description: message,
+            duration: 9000,
+          });
+        },
+        onConnectionPath: (path) => {
+          if (path !== "relay" || hasShownRelayWarningRef.current) {
+            return;
+          }
+          hasShownRelayWarningRef.current = true;
+          toast.warning("Using a longer connection path", {
+            description: "For lower latency, connect this device and the desktop to the same Wi-Fi.",
             duration: 9000,
           });
         },
