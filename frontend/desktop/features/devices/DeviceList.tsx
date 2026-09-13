@@ -42,7 +42,7 @@ export function DeviceList({
   );
 
   return (
-    <Card className="flex h-full flex-col rounded-2xl shadow-sm">
+    <Card className="flex min-h-[360px] flex-col rounded-2xl shadow-sm xl:min-h-0">
       <CardHeader className="shrink-0">
         <CardTitle className="text-xl">Devices</CardTitle>
       </CardHeader>
