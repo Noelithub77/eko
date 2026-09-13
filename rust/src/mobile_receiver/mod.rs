@@ -88,9 +88,6 @@ mod android {
                 Ok(()) => return,
                 Err(message) => {
                     final_error = Some(message);
-                    if payload.hosted.is_none() {
-                        break;
-                    }
                 }
             }
         }

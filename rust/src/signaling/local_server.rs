@@ -194,7 +194,7 @@ async fn handle_client(
     }
     if let Some(device_id) = device_id {
         let session = match session.lock() {
-            Ok(mut store) => store.disconnect_device(device_id),
+            Ok(mut store) => store.mark_device_disconnected(&device_id),
             Err(error) => {
                 log::warn!("Mark disconnected failed: {error}");
                 return;

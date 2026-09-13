@@ -2,7 +2,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::domain::{
     DevEvent, DevMetric, Device, DeviceConnectionState, HostedPairingDetails, JoinMethod,
-    JoinRequest, LocalPairingDetails, QrPairingPayload, RoomSession, StartStreamResult, StreamStatus,
+    JoinRequest, LocalPairingDetails, QrPairingPayload, RoomSession, StartStreamResult,
+    StreamStatus,
 };
 
 const MAX_SESSION_EVENTS: usize = 200;
@@ -197,6 +198,17 @@ impl SessionStore {
         self.snapshot()
     }
 
+    pub fn mark_device_disconnected(&mut self, device_id: &str) -> RoomSession {
+        self.update_device(device_id, |device| {
+            device.state = DeviceConnectionState::Disconnected;
+            device.connected_at = None;
+            device.web_rtc_state = "closed".to_string();
+            device.ice_state = "closed".to_string();
+        });
+        self.push_limited_event("warn", "Device connection lost");
+        self.snapshot()
+    }
+
     pub fn unblock_device(&mut self, device_id: String) -> RoomSession {
         self.session
             .devices
@@ -319,4 +331,40 @@ fn receiver_name(name: String) -> String {
     }
 
     trimmed.chars().take(40).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SessionStore;
+    use crate::domain::{DeviceConnectionState, JoinMethod, JoinRequest};
+
+    #[test]
+    fn transport_disconnect_preserves_device_for_reconnect() {
+        let mut store = SessionStore::default();
+        store
+            .start_stream("127.0.0.1".to_string(), 13_370, None)
+            .expect("Stream should start");
+        let request = JoinRequest {
+            device_id: "phone-1".to_string(),
+            device_name: "Noel phone".to_string(),
+            method: JoinMethod::Qr,
+        };
+
+        store
+            .submit_join_request(request.clone())
+            .expect("Join should be accepted for approval");
+        store.allow_device(request.device_id.clone());
+        let disconnected = store.mark_device_disconnected(&request.device_id);
+
+        assert_eq!(disconnected.devices.len(), 1);
+        assert_eq!(
+            disconnected.devices[0].state,
+            DeviceConnectionState::Disconnected
+        );
+
+        let rejoining = store
+            .submit_join_request(request)
+            .expect("A known device should be able to request approval again");
+        assert_eq!(rejoining.devices[0].state, DeviceConnectionState::Pending);
+    }
 }

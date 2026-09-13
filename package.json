@@ -5,6 +5,7 @@
   "version": "0.4.1",
   "type": "module",
   "scripts": {
+    "start": "pnpm dev:desktop",
     "dev:web": "cross-env PLATFORM=desktop vite",
     "dev:web:desktop": "cross-env PLATFORM=desktop vite",
     "dev:web:mobile": "cross-env PLATFORM=mobile vite",

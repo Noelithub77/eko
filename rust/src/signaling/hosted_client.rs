@@ -306,7 +306,7 @@ async fn run_connection(
                         receivers.remove(&device_id);
                         media.close_peer(&device_id).await;
                         if let Ok(mut store) = session.lock() {
-                            emit_room_session(app, store.disconnect_device(device_id));
+                            emit_room_session(app, store.mark_device_disconnected(&device_id));
                         }
                     }
                     RelayServerMessage::RoomClosed => return ConnectionEnd::RoomClosed,

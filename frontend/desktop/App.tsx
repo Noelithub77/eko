@@ -141,8 +141,8 @@ function App() {
     <>
       <DesktopLayout actions={headerActions} onEkoClick={() => setView("stream")}>
       {view === "stream" ? (
-        <div className="grid min-h-0 h-full gap-6 overflow-hidden lg:grid-cols-[minmax(300px,1fr)_minmax(360px,1.2fr)]">
-          <div className="grid min-h-0 h-full grid-rows-[auto_1fr] gap-6 overflow-hidden">
+        <div className="grid min-h-full gap-6 xl:min-h-0 xl:h-full xl:grid-cols-[minmax(0,1.65fr)_minmax(360px,0.85fr)]">
+          <div className="grid gap-6 xl:min-h-0 xl:h-full xl:grid-rows-[minmax(240px,0.75fr)_minmax(360px,1.25fr)]">
             <NowPlayingCard />
             <QrPairingCard payload={qrPayload} />
           </div>
