@@ -1,6 +1,11 @@
 const loggedCandidatePaths = new WeakSet<RTCPeerConnection>();
 
-export function logAudioStats(peer: RTCPeerConnection): void {
+export type WebConnectionPath = "direct" | "relay";
+
+export function logAudioStats(
+  peer: RTCPeerConnection,
+  onConnectionPath?: (path: WebConnectionPath) => void,
+): void {
   void peer.getStats().then((stats) => {
     let audioBytes = 0;
     let audioPackets = 0;
@@ -16,11 +21,15 @@ export function logAudioStats(peer: RTCPeerConnection): void {
     if (audioBytes > 0 || audioPackets > 0) {
       console.log(`[eko] inbound audio: packets=${audioPackets} bytes=${audioBytes}`);
     }
-    logSelectedCandidate(peer, reports);
+    logSelectedCandidate(peer, reports, onConnectionPath);
   });
 }
 
-function logSelectedCandidate(peer: RTCPeerConnection, reports: Record<string, unknown>[]): void {
+function logSelectedCandidate(
+  peer: RTCPeerConnection,
+  reports: Record<string, unknown>[],
+  onConnectionPath?: (path: WebConnectionPath) => void,
+): void {
   if (loggedCandidatePaths.has(peer)) {
     return;
   }
@@ -38,9 +47,11 @@ function logSelectedCandidate(peer: RTCPeerConnection, reports: Record<string, u
     return;
   }
   loggedCandidatePaths.add(peer);
-  if (candidate.candidateType === "relay") {
-    console.error("[eko] invalid relay candidate selected while TURN is disabled");
+  const path: WebConnectionPath = candidate.candidateType === "relay" ? "relay" : "direct";
+  if (path === "relay") {
+    console.warn("[eko] selected ICE relay candidate");
   } else {
     console.log(`[eko] selected ICE candidate: ${candidate.candidateType}`);
   }
+  onConnectionPath?.(path);
 }

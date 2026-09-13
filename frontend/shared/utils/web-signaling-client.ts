@@ -82,7 +82,10 @@ export async function startWebReceiver(
     }
   };
 
-  const statsInterval = window.setInterval(() => logAudioStats(peer), 2000);
+  const statsInterval = window.setInterval(
+    () => logAudioStats(peer, handlers.onConnectionPath),
+    2000,
+  );
 
   peer.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
     if (!event.candidate) {
