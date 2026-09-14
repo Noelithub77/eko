@@ -9,9 +9,13 @@
 
 ---
 
-## 1. Why I Built It
+## 1. Why eko?
 
-The idea began with a simple question: why is it still so difficult to send one computer's audio to several nearby devices?
+The idea began with a situation that sounds simple but becomes surprisingly difficult in practice: a group of people wants to watch a movie together, but playing the audio through a speaker is not an option.
+
+Maybe the room is quiet, people are sleeping nearby, the neighbours are close, or the built-in laptop speakers are too weak for everyone to hear the dialogue clearly. Headphones solve the volume problem for one person, but they also isolate everyone from the shared experience. The ideal setup is simple: keep the movie on one shared screen, while each person listens through their own phone and headphones.
+
+That led to a simple question: why is it still so difficult to send one computer's audio to several nearby devices?
 
 Bluetooth is excellent for connecting a device to a speaker or headphones, but it becomes much less flexible when the same audio needs to reach multiple receivers. Traditional Bluetooth setups are generally designed around one active audio stream, while multipoint support usually means switching between devices rather than broadcasting the same audio to all of them.
 
@@ -21,7 +25,7 @@ I researched the native options available for the setup I wanted. I could find w
 
 That gap was the reason I started building this project.
 
-The goal was not to replace Bluetooth everywhere. The goal was more focused: take audio already playing on a desktop and make it available to trusted nearby devices with as little friction as possible.
+The goal was not to replace Bluetooth everywhere. The goal was more focused: take audio already playing on a desktop and make it available to trusted nearby devices with as little friction as possible. The desktop would continue displaying the movie; the system would only share the live audio.
 
 The requirements quickly became clear:
 
@@ -32,7 +36,7 @@ The requirements quickly became clear:
 - The experience should feel live, not like downloading and replaying a file.
 - The solution should work with ordinary phones rather than requiring special receivers.
 
-That last point mattered most to me. The most useful technology is often the technology people can use immediately, with the devices already in their hands.
+That last point mattered most to me. The most useful technology is often the technology people can use immediately, with the devices already in their hands. A group should be able to sit together, scan a code, wait for the host to approve each person, and start watching without buying a special transmitter or passing around a single pair of headphones.
 
 > [Excalidraw diagram 01: Show one desktop audio source, a traditional Bluetooth output, and several nearby receivers. Mark the one-to-one limitation in red, then show the local-network fan-out approach. Caption: “The problem was not creating audio; it was sharing one live source with several ordinary devices.”]
 
@@ -40,11 +44,11 @@ That last point mattered most to me. The most useful technology is often the tec
 
 ## 2. The Innovation
 
-The central idea was to use WebRTC to stream the desktop's audio directly to the user's phone instead of treating Bluetooth as the transport layer.
+The central idea was to use WebRTC to stream the desktop's audio directly to each person's phone instead of treating Bluetooth as the transport layer.
 
 WebRTC is usually associated with video calls, browser meetings, and real-time communication. That made it a good fit for this problem. It already provides the difficult parts of live media transport: peer connections, negotiation, connectivity checks, encryption, congestion handling, and support for audio codecs such as Opus.
 
-The important innovation in this project is not that I invented WebRTC. I did not. The interesting part was applying it to a different experience: turning a desktop into a local audio source that can serve several approved phones independently.
+The important innovation in this project is not that I invented WebRTC. I did not. The interesting part was applying it to a different experience: turning a desktop into a local audio source that can serve several approved phones independently while everyone continues watching the same shared screen.
 
 Instead of sending audio through Bluetooth, the system follows this path:
 
@@ -60,7 +64,7 @@ WebRTC
 Phone playback
 ```
 
-Every approved receiver gets its own WebRTC connection. This means one phone can disconnect without taking every other receiver down. It also gives the desktop clear control over individual devices.
+Every approved receiver gets its own WebRTC connection. This means one person can disconnect without taking every other listener down. It also gives the desktop clear control over individual devices.
 
 The user experience is deliberately simple:
 
