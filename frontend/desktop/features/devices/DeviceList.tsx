@@ -257,7 +257,13 @@ function connectionPathText(device: Device): string {
     return "Relayed";
   }
 
-  return device.state === "connected" || device.state === "connecting"
-    ? "Checking connection"
-    : "Connection path unavailable";
+  if (device.state === "connecting") {
+    return "Resolving connection";
+  }
+
+  if (device.state === "pending") {
+    return "Awaiting approval";
+  }
+
+  return "Connection path unavailable";
 }

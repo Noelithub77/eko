@@ -105,14 +105,13 @@ export async function startWebReceiver(
       return;
     }
     joinInFlight = true;
-    handlers.onStatus("Synchronizing playback.");
-    await calibrateClock(transport.send, playbackSync);
-    if (socket.readyState === WebSocket.OPEN) {
-      hasJoined = true;
-      handlers.onStatus("Asking desktop.");
-      transport.send({ kind: "joinRequest", request });
-    }
+    hasJoined = true;
+    handlers.onStatus("Asking desktop.");
+    transport.send({ kind: "joinRequest", request });
     joinInFlight = false;
+    void calibrateClock(transport.send, playbackSync).catch((error: unknown) => {
+      console.warn(`[eko] clock calibration failed: ${formatError(error)}`);
+    });
   };
 
   socket.addEventListener("message", (event: MessageEvent<string>) => {
