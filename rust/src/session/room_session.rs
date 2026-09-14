@@ -124,14 +124,15 @@ impl SessionStore {
                 self.update_device(&request.device_id, |device| {
                     device.device_name = receiver_name(request.device_name);
                     device.join_method = request.method;
-                    device.state = DeviceConnectionState::Pending;
-                    device.web_rtc_state = "waiting".to_string();
-                    device.ice_state = "waiting".to_string();
+                    device.state = DeviceConnectionState::Connecting;
+                    device.connected_at = None;
+                    device.web_rtc_state = "connecting".to_string();
+                    device.ice_state = "checking".to_string();
                     device.connection_path = None;
                 });
                 self.session
                     .events
-                    .push(event("info", "Join request received"));
+                    .push(event("info", "Device reconnecting"));
                 return Ok(self.snapshot());
             }
 
@@ -355,7 +356,7 @@ mod tests {
     use crate::domain::{DeviceConnectionState, JoinMethod, JoinRequest};
 
     #[test]
-    fn transport_disconnect_preserves_device_for_reconnect() {
+    fn transport_disconnect_allows_previously_approved_device_to_reconnect() {
         let mut store = SessionStore::default();
         store
             .start_stream("127.0.0.1".to_string(), 13_370, None)
@@ -380,7 +381,7 @@ mod tests {
 
         let rejoining = store
             .submit_join_request(request)
-            .expect("A known device should be able to request approval again");
-        assert_eq!(rejoining.devices[0].state, DeviceConnectionState::Pending);
+            .expect("A known device should be able to reconnect");
+        assert_eq!(rejoining.devices[0].state, DeviceConnectionState::Connecting);
     }
 }

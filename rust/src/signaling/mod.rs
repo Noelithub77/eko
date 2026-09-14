@@ -255,9 +255,17 @@ fn join_response(
     match store.submit_join_request(request.clone()) {
         Ok(session) => {
             emit_room_session(app, session.clone());
-            SignalServerMessage::ApprovalWaiting {
-                device_id: request.device_id,
-                session,
+            if store.device_state(&request.device_id) == Some(DeviceConnectionState::Connecting) {
+                SignalServerMessage::PermissionChanged {
+                    device_id: request.device_id,
+                    state: DeviceConnectionState::Connecting,
+                    session,
+                }
+            } else {
+                SignalServerMessage::ApprovalWaiting {
+                    device_id: request.device_id,
+                    session,
+                }
             }
         }
         Err(reason) => SignalServerMessage::JoinRejected { reason },
