@@ -21,7 +21,9 @@ use crate::audio::frame::{AudioFrame, SAMPLE_RATE};
 use crate::audio::opus_codec::OpusAudioEncoder;
 use crate::audio::windows_capture::start_system_audio_source;
 use crate::domain::{IceCandidateMessage, SessionDescriptionMessage};
-use crate::webrtc_core::candidate_path::{connection_path_for, log_selected_candidate};
+use crate::webrtc_core::candidate_path::{
+    connection_path_for, log_selected_candidate, selected_candidate_path,
+};
 
 pub type SharedMediaHub = Arc<MediaHub>;
 
@@ -64,6 +66,8 @@ pub struct MediaPeerOperatorStatus {
     pub outbound_audio_packets: u64,
     pub outbound_audio_bytes: u64,
     pub selected_candidate_type: Option<String>,
+    pub selected_remote_candidate_type: Option<String>,
+    pub selected_connection_path: Option<crate::domain::ConnectionPath>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -203,12 +207,12 @@ impl MediaHub {
                     if state
                         == webrtc::ice_transport::ice_connection_state::RTCIceConnectionState::Connected
                     {
-                        let Some(candidate_type) =
+                        let Some(candidate_path) =
                             log_selected_candidate(&stats_peer, &device_id).await
                         else {
                             return;
                         };
-                        let Some(connection_path) = connection_path_for(&candidate_type) else {
+                        let Some(connection_path) = connection_path_for(&candidate_path) else {
                             return;
                         };
                         let (Some(session), Some(app)) = (session.as_ref(), app.as_ref()) else {
@@ -338,15 +342,11 @@ impl MediaHub {
 
         for (device_id, peer) in peers {
             let stats = peer.connection.get_stats().await;
-            let mut selected_local_candidate_id: Option<String> = None;
             let mut outbound_audio_packets = 0_u64;
             let mut outbound_audio_bytes = 0_u64;
 
             for report in stats.reports.values() {
                 match report {
-                    webrtc::stats::StatsReportType::CandidatePair(pair) if pair.nominated => {
-                        selected_local_candidate_id = Some(pair.local_candidate_id.clone());
-                    }
                     webrtc::stats::StatsReportType::OutboundRTP(outbound)
                         if outbound.kind == "audio" =>
                     {
@@ -359,16 +359,14 @@ impl MediaHub {
                 }
             }
 
-            let selected_candidate_type = selected_local_candidate_id.and_then(|candidate_id| {
-                stats.reports.values().find_map(|report| match report {
-                    webrtc::stats::StatsReportType::LocalCandidate(candidate)
-                        if candidate.id == candidate_id =>
-                    {
-                        Some(candidate.candidate_type.to_string())
-                    }
-                    _ => None,
-                })
-            });
+            let selected_path = selected_candidate_path(&peer.connection).await;
+            let selected_candidate_type = selected_path
+                .as_ref()
+                .map(|path| path.local_candidate_type.clone());
+            let selected_remote_candidate_type = selected_path
+                .as_ref()
+                .map(|path| path.remote_candidate_type.clone());
+            let selected_connection_path = selected_path.as_ref().and_then(connection_path_for);
 
             peer_statuses.push(MediaPeerOperatorStatus {
                 device_id,
@@ -379,6 +377,8 @@ impl MediaHub {
                 outbound_audio_packets,
                 outbound_audio_bytes,
                 selected_candidate_type,
+                selected_remote_candidate_type,
+                selected_connection_path,
             });
         }
 

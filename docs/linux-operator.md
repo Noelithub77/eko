@@ -61,7 +61,15 @@ For a connected receiver, `webrtc.peers[*]` should show:
 - `peerConnectionState: "connected"`
 - `iceConnectionState: "connected"`
 - increasing `outboundAudioPackets` and `outboundAudioBytes`
-- a non-empty `selectedCandidateType`, normally `host` on the local network
+- a non-empty `selectedCandidateType` and `selectedRemoteCandidateType`
+- a `selectedConnectionPath` of `local`, `direct`, or `relayed`
+
+`selectedCandidateType` is only the desktop-side candidate. It must not be
+read as “local Wi-Fi”: a `host` candidate can be a VPN, overlay, VM, or other
+network interface. `selectedConnectionPath: "local"` is reserved for a
+nominated `host`/`host` pair whose private IPv4 addresses are on the same /24.
+Use `direct` for a non-relayed path that is not verified as the same local
+network, and `relayed` when either side of the nominated pair is a TURN relay.
 
 `checking` followed by `closed`, especially with “no candidate pairs”, means
 ICE did not find a usable path. The host now gathers all ICE candidates rather
@@ -91,10 +99,12 @@ separate credential set with its host token.
 The browser shows a Sonner error toast when hosted signaling, TURN credential
 fetching, ICE, or browser audio playback fails. The toast contains the short
 reason; the browser console and desktop operator log contain the detailed
-sequence. Look for `ICE state: connected`, a selected `relay` candidate when
-TURN is needed, and increasing outbound audio counters. An ICE failure after
-signaling means negotiation succeeded but neither direct nor TURN media
-connected.
+sequence. Look for `ICE state: connected`, a `selectedConnectionPath` of
+`relayed` when TURN is needed, and increasing outbound audio counters. An ICE
+failure after signaling means negotiation succeeded but neither direct nor
+TURN media connected. A later “desktop disconnected this receiver” message is
+a session/transport disconnect after that peer or signaling socket was lost;
+it is not evidence that audio capture stopped.
 
 The deployed Worker needs one non-secret variable and one secret:
 
