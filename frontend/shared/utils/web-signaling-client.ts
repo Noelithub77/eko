@@ -40,14 +40,23 @@ export async function startWebReceiver(
   request: JoinRequest,
   handlers: PlaybackHandlers,
 ): Promise<WebReceiverSession> {
-  const iceServers = await fetchTurnIceServers(payload);
+  const startedAt = performance.now();
   const transport = await createSignalTransport(payload, request.deviceId);
   const { socket } = transport;
   const peer = new RTCPeerConnection({
-    iceServers,
+    iceServers: [{ urls: STUN_URLS }],
     iceTransportPolicy: "all",
   });
-  console.info(`[eko] browser ICE servers ready: ${iceServers.length} (direct + TURN fallback)`);
+  const iceServersReady = fetchTurnIceServers(payload)
+    .then((iceServers) => {
+      peer.setConfiguration({ iceServers, iceTransportPolicy: "all" });
+      console.info(`[eko] browser ICE servers ready: ${iceServers.length} (direct + TURN fallback)`);
+    })
+    .catch((error: unknown) => {
+      console.warn(
+        `[eko] hosted TURN unavailable; continuing with direct ICE: ${formatError(error)}`,
+      );
+    });
   let isClosed = false;
   let hasOpened = false;
   let hasJoined = false;
@@ -108,6 +117,7 @@ export async function startWebReceiver(
     hasJoined = true;
     handlers.onStatus("Asking desktop.");
     transport.send({ kind: "joinRequest", request });
+    console.info(`[eko] join request sent after ${Math.round(performance.now() - startedAt)}ms`);
     joinInFlight = false;
     void calibrateClock(transport.send, playbackSync).catch((error: unknown) => {
       console.warn(`[eko] clock calibration failed: ${formatError(error)}`);
@@ -155,6 +165,7 @@ export async function startWebReceiver(
           () => {
             canSendCandidates = true;
           },
+          iceServersReady,
         ),
       )
       .catch((error: unknown) => {
@@ -288,6 +299,7 @@ async function handleServerMessage(
   pendingHostCandidates: IceCandidateMessage[],
   pendingLocalCandidates: RTCIceCandidateInit[],
   markAnswerSent: () => void,
+  iceServersReady: Promise<void>,
 ): Promise<void> {
   const message = parseServerMessage(text);
   if (!message) {
@@ -344,6 +356,7 @@ async function handleServerMessage(
     return;
   }
   if (message.kind === "hostOffer") {
+    await iceServersReady;
     await answerOffer(
       transport,
       peer,
@@ -355,6 +368,7 @@ async function handleServerMessage(
     return;
   }
   if (message.kind === "hostIceCandidate") {
+    await iceServersReady;
     if (!peer.remoteDescription) {
       pendingHostCandidates.push(message.candidate);
     } else {

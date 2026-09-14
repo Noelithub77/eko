@@ -96,6 +96,12 @@ tries direct host/server-reflexive candidates first and can select a Cloudflare
 TURN `relay` candidate when direct media is blocked. The desktop fetches a
 separate credential set with its host token.
 
+The browser sends its `joinRequest` as soon as hosted signaling is ready, so
+the desktop should show the pending device without waiting for TURN
+credentials. TURN setup runs in parallel and is completed before the host's
+WebRTC offer is processed. If TURN is unavailable, direct ICE can still be
+attempted and the failure is logged for diagnosis.
+
 The browser shows a Sonner error toast when hosted signaling, TURN credential
 fetching, ICE, or browser audio playback fails. The toast contains the short
 reason; the browser console and desktop operator log contain the detailed
