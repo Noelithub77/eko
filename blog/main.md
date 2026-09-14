@@ -1,662 +1,448 @@
 # Eko: Building a Desktop-to-Device Audio Relay with Rust, WebRTC, and Android
 
-> Draft template for a Medium technical blog post. Replace bracketed prompts with your own story, screenshots, measurements, and links before publishing.
-
-## Working title
-
-**Eko: Building a Desktop-to-Device Audio Relay with Rust, WebRTC, and Android**
-
-### Possible subtitle
-
-How I turned a Bluetooth limitation into a local audio system, learned to treat pairing as an authorization problem, and debugged the difference between “audio is captured” and “audio can actually reach the receiver.”
-
-### One-sentence promise to the reader
-
-By the end of this post, the reader should understand how Eko moves audio from a desktop to approved devices, why the system is split across Rust, React, Android, and a hosted fallback, and what the project taught me about real-time systems.
-
----
+> [Replace the title only if you find a more personal version. Keep the technical keywords because they help readers understand the project quickly.]
 
 ## Index
 
-1. [The short version](#1-the-short-version)
-2. [The problem that started Eko](#2-the-problem-that-started-eko)
-3. [What Eko is](#3-what-eko-is)
-4. [The constraints I chose](#4-the-constraints-i-chose)
+1. [The idea behind Eko](#1-the-idea-behind-eko)
+2. [The problem I wanted to solve](#2-the-problem-i-wanted-to-solve)
+3. [What Eko does](#3-what-eko-does)
+4. [The decisions that shaped the project](#4-the-decisions-that-shaped-the-project)
 5. [The architecture](#5-the-architecture)
-6. [Designing the audio path](#6-designing-the-audio-path)
+6. [Building the audio path](#6-building-the-audio-path)
 7. [Pairing is not permission](#7-pairing-is-not-permission)
-8. [Why the Android client is native](#8-why-the-android-client-is-native)
-9. [The browser fallback and hosted networking](#9-the-browser-fallback-and-hosted-networking)
-10. [The debugging story: when the audio pipeline was healthy but nothing played](#10-the-debugging-story-when-the-audio-pipeline-was-healthy-but-nothing-played)
+8. [Why Android has a native receiver](#8-why-android-has-a-native-receiver)
+9. [The browser fallback and TURN](#9-the-browser-fallback-and-turn)
+10. [The debugging lesson that changed how I tested](#10-the-debugging-lesson-that-changed-how-i-tested)
 11. [What I learned](#11-what-i-learned)
-12. [Current status and honest limitations](#12-current-status-and-honest-limitations)
+12. [What works and what is still unfinished](#12-what-works-and-what-is-still-unfinished)
 13. [What I would build next](#13-what-i-would-build-next)
-14. [Closing](#14-closing)
-15. [Medium publishing checklist](#15-medium-publishing-checklist)
-
-### Diagram plan
-
-Use approximately **nine diagrams** in the final article. That is enough to make the architecture and debugging story visual without turning the post into a slide deck.
-
-1. Problem: one desktop source, several listeners.
-2. Eko's user journey from pairing to playback.
-3. High-level system architecture.
-4. Audio pipeline from capture to speaker.
-5. Session and approval state machine.
-6. QR/LAN pairing and signaling sequence.
-7. Native Android playback boundary.
-8. Direct WebRTC path versus TURN fallback.
-9. Debugging pipeline and evidence checkpoints.
-
-Keep diagrams simple: boxes, arrows, short labels, and one idea per diagram. Draw them in Excalidraw and export them as PNG or SVG with readable text at Medium's inline width.
+14. [Closing thoughts](#14-closing-thoughts)
+15. [Publishing checklist](#15-publishing-checklist)
 
 ---
 
-## 1. The short version
+## 1. The idea behind Eko
 
-Open with the outcome in two or three paragraphs. This is the part a hiring manager should understand even if they only read the first screen.
+I have always enjoyed building tools that sit close to the real world. The most interesting projects are often not the ones with the most screens; they are the ones where software has to make something physical feel simple.
 
-**Draft prompt:**
+Eko started with a small question: could one desktop audio source be shared with several nearby devices without requiring special hardware, accounts, or a complicated setup process?
 
-> Eko is a local desktop-to-device audio relay. It captures computer audio on one desktop and streams it to multiple approved devices over WebRTC. The desktop remains the authority: discovering or scanning a device does not grant access until the desktop user approves it.
->
-> I built Eko because [describe the moment or limitation that made the problem feel real]. The interesting part was not just sending bytes from A to B. I had to make audio capture, real-time transport, device discovery, authorization, native Android playback, and network failure handling work as one understandable system.
+The answer became Eko, a local desktop-to-device audio relay. It captures audio from a desktop and streams it to approved receivers over WebRTC. The Android app is the preferred client, while a browser client provides a fallback for iOS and modern browsers.
 
-Add a compact project card here:
+The project taught me that real-time software is rarely just about moving data. It is also about ownership, permission, timing, network paths, platform boundaries, and being honest about what a test has actually proved.
 
-- Repository: `[GitHub link]`
-- Status: `[current status]`
-- Desktop: Tauri 2 + React UI + Rust core
-- Receiver: native Android path, with browser fallback for iOS and modern browsers
-- Transport: WebRTC audio, WebSocket signaling
-- Pairing: QR code or LAN discovery, followed by desktop approval
-- Current measured latency: `[measurement and test setup]`
+`[Add one personal sentence here about the moment that made you want to build Eko.]`
 
-### Optional hero visual
+### Hero image
 
-`[HERO IMAGE PLACEHOLDER]`
-
-Show the desktop Eko window beside an Android phone playing the same source. If you do not have a good photo, use a clean Excalidraw-style illustration of one desktop sending to two devices.
+`[Insert a warm, simple hero image: the Eko desktop window beside an Android phone receiving the same audio. An Excalidraw illustration of one desktop sending to two devices also works well.]`
 
 ---
 
-## 2. The problem that started Eko
+## 2. The problem I wanted to solve
 
-Explain the user problem before introducing implementation details.
+Bluetooth audio is convenient, but it is not always designed for the kind of group listening experience I had in mind. Depending on the hardware and operating system, sending the same audio to several devices can be difficult, inconsistent, or simply unavailable.
 
-### 2.1 The practical problem
+There are newer standards such as Bluetooth LE Audio and Auracast, but they depend on compatible hardware, profiles, and operating-system support. I wanted to explore a software-first alternative that could work with devices already connected to the same local network.
 
-**Draft prompts:**
-
-- What were you trying to listen to?
-- Why was one Bluetooth output not enough?
-- What did existing solutions require that you did not want: special hardware, accounts, manual IP addresses, or platform-specific setup?
-- Who is Eko for: a group in the same room, a personal multi-device setup, or both?
-
-Be specific and personal. A strong opening sounds like a real engineering motivation, not a product requirements document.
-
-### 2.2 The first version of the problem statement
+The problem statement became:
 
 > Given one desktop audio source, let trusted nearby devices join quickly and receive the same live audio with low enough delay to feel usable.
 
-Then state the non-goals:
+That wording contains several important constraints:
 
-- Not a general-purpose music streaming service.
-- Not an account-based cloud product.
-- Not an attempt to replace Bluetooth LE Audio or Auracast where those are available.
-- Not a browser-only Android experience.
+- “One desktop audio source” means the desktop is the authority.
+- “Trusted nearby devices” means discovery alone cannot be enough.
+- “Join quickly” means there should be no manual IP entry or account setup.
+- “Live audio” means buffering and latency matter as much as correctness.
+- “Usable” means the experience must be tested on real devices, not only in a successful build.
 
-### Excalidraw placeholder 01 — The problem space
+`[Add the real-life use case here: who would use Eko, where they would use it, and why existing solutions were not a good fit.]`
 
-**Draw:** One desktop audio source on the left, one Bluetooth speaker in the middle, and several phones/speakers on the right. Mark the single-output limitation in red, then show Eko as a local-network path that fans out to multiple approved receivers.
+### Excalidraw diagram 01 — The problem space
 
-**Caption:** “Eko moves the fan-out problem from Bluetooth hardware constraints into software-managed local-network sessions.”
-
-**Do not draw:** A claim that every network or every device will have identical latency.
+`[Draw one desktop audio source, one traditional Bluetooth output, and several nearby receivers. Show the Bluetooth limitation in red, then show Eko using the local network to fan out to multiple approved devices. Caption: “Eko moves the fan-out problem from Bluetooth hardware constraints into software-managed local sessions.”]`
 
 ---
 
-## 3. What Eko is
+## 3. What Eko does
 
-Define the product in plain language before the architecture.
+Eko keeps the user experience intentionally small.
 
-### 3.1 The user experience
+The desktop starts a stream and displays a QR code. It can also advertise itself on the local network. A receiver either scans the QR code or finds the host through LAN discovery. The desktop then receives a join request and decides whether that device should be allowed to receive audio.
 
-Describe the happy path as a short numbered flow:
+Once the device is approved, Eko establishes signaling, completes the WebRTC negotiation, and starts the receiver's audio path.
 
-1. The desktop starts a stream.
-2. Eko displays a QR code and can advertise the host on the LAN.
-3. A receiver scans the code or finds the nearby host.
-4. The desktop sees a pending device and approves it.
-5. Eko establishes signaling and a WebRTC media connection.
-6. The receiver plays the live audio.
-7. The desktop can stop sharing, disconnect a device, or disable sharing for one device.
+The flow looks like this:
 
-### 3.2 The important security boundary
+1. Start the stream on the desktop.
+2. Scan the QR code or find the nearby host.
+3. Send a join request.
+4. Wait for desktop approval.
+5. Complete the WebRTC connection.
+6. Play the live audio.
 
-Make this sentence prominent:
+The most important sentence in the product is simple:
 
 > Pairing identifies a device. Approval authorizes it.
 
-This distinction is one of the strongest technical/product ideas in the project. Explain that a QR code or LAN discovery result is not enough to start receiving audio.
+A QR code is a convenient way to begin a connection, but it is not a permission slip. The same is true of LAN discovery. A nearby device can find Eko, but it cannot receive audio until the desktop user explicitly approves it.
 
-### Excalidraw placeholder 02 — From discovery to playback
+### Excalidraw diagram 02 — From discovery to playback
 
-**Draw:** A horizontal five-stage journey: `Discover → Request access → Desktop approves → WebRTC connects → Audio plays`. Put a lock icon between “Request access” and “Desktop approves.”
-
-**Caption:** “The connection is not complete when the device is discovered; it is complete only after explicit approval and media setup.”
+`[Draw: Discover → Request access → Desktop approves → WebRTC connects → Audio plays. Add a lock between “Request access” and “Desktop approves.” Caption: “Discovery starts the conversation; approval grants access.”]`
 
 ---
 
-## 4. The constraints I chose
+## 4. The decisions that shaped the project
 
-This section shows design judgment. Explain what you deliberately refused to build.
+Before choosing libraries, I made a few product decisions. They helped keep Eko focused.
 
-### 4.1 Product constraints
+### Local first
 
-- No accounts for local use.
-- No manual IP entry.
-- Only QR pairing and LAN discovery.
-- Desktop is the authority for approval and sharing.
-- Android uses native playback instead of being redirected to the browser.
-- Hosted services are a fallback for browser pairing and blocked direct media, not the default media path.
+Eko should work on a local network without requiring an account or a cloud dashboard. This keeps the common path fast, private, and understandable.
 
-For each constraint, add one sentence explaining the user or engineering reason.
+### No manual IP addresses
 
-### 4.2 Technical constraints
+Users should not have to look up an address, type a port, or understand which network interface is active. QR pairing and LAN discovery are the two supported entry points.
 
-- Audio must remain live rather than becoming a large buffered file transfer.
-- Multiple receivers must be independent: one bad connection should not stop the others.
-- The system must tell the difference between capture failure, encoding failure, signaling failure, ICE failure, and playback failure.
-- The design must leave room for real-device measurements instead of treating a passing build as proof of a working stream.
+### The desktop remains the authority
 
-### 4.3 The trade-off table
+The desktop owns the session, device approval, sharing controls, and stop/disconnect actions. This creates one clear place where the user can see who is connected and decide who may receive audio.
 
-Fill in this table with your final reasoning. Keep it short.
+### Native Android playback
 
-| Decision | Why it fit Eko | Cost or limitation |
-| --- | --- | --- |
-| Tauri 2 for desktop and Android shell | `[fill in]` | `[fill in]` |
-| Rust for audio, sessions, signaling, and WebRTC core | `[fill in]` | `[fill in]` |
-| React for surface-specific UI | `[fill in]` | `[fill in]` |
-| WebRTC for media transport | `[fill in]` | `[fill in]` |
-| WebSocket for signaling | `[fill in]` | `[fill in]` |
-| mDNS for LAN discovery | `[fill in]` | `[fill in]` |
+The Android app uses a native receiver path instead of simply opening the browser client. The UI can remain shared where that is useful, but the audio receiver needs control over playback, buffering, lifecycle, and native audio output.
 
-Avoid turning this section into a package list. Explain the decisions in terms of the problem.
+### Hosted fallback, not hosted dependency
+
+The browser path can use hosted signaling and TURN when a direct media path is blocked. Direct WebRTC remains preferred whenever it works.
+
+The architecture direction became Tauri 2 with a Rust core and React interfaces. Rust owns audio capture, sessions, discovery, signaling, and WebRTC. React owns screens and user actions. Native Android code owns receiver playback.
+
+### Excalidraw diagram 03 — High-level architecture
+
+`[Draw three main areas: Desktop React UI → Rust core → approved receivers. Inside the Rust core, label capture, session approval, discovery, signaling, and WebRTC. Show two receiver branches: native Android playback and browser fallback. Put hosted Worker/TURN outside the local path with a dashed line. Caption: “Eko keeps authority and media orchestration in the desktop core while adapting playback to the receiver platform.”]`
 
 ---
 
 ## 5. The architecture
 
-Start with the simplest system diagram, then explain each boundary.
+The desktop is the center of the system, but it is not responsible for doing everything in one layer.
 
-### 5.1 High-level structure
+The React desktop UI exposes actions such as starting a stream, displaying the QR code, approving a receiver, stopping a stream, and disconnecting a device. Those actions cross a typed boundary into the Rust core.
 
-Use this as the first architecture paragraph:
+The Rust core owns the state that should not be duplicated across user interfaces. It captures system audio, manages the session, validates join requests, exchanges signaling messages, and creates a separate WebRTC sender for each approved receiver.
 
-> The desktop owns the session. Rust captures and prepares audio, manages discovery and approval, and creates one sender path per approved receiver. React renders the desktop and Android-facing screens. Android uses a native receiver path for playback. The browser client remains a fallback for iOS and modern browsers.
+The Android-facing UI is responsible for scanning, discovery, and showing connection status. Its native receiver handles the media path. The browser client uses browser WebRTC and browser audio APIs when it is acting as the fallback.
 
-### Excalidraw placeholder 03 — High-level architecture
+This separation matters because a UI can display “connected” before audio is actually flowing. The core needs to understand the difference between a request being accepted, signaling succeeding, ICE finding a path, and media being played.
 
-**Draw:**
+Each approved receiver has an independent peer connection. That makes it possible to approve, disconnect, or stop sharing for one device without treating every receiver as one inseparable connection. The trade-off is that desktop processing and network usage increase as more receivers are added.
 
-```text
-Desktop React UI
-        ↓ typed commands/events
-Rust core: capture · session · approval · signaling · WebRTC
-        ├── approved Android receiver → native decode/playback
-        └── browser fallback → browser WebRTC/audio
-```
-
-Add the hosted Worker and TURN service to the side, with a dashed boundary labelled “only for hosted browser path / direct media fallback.”
-
-**Caption:** “Eko keeps authority and media orchestration in the desktop core while adapting playback to the receiver platform.”
-
-### 5.2 Why Rust owns the core
-
-Explain the ownership boundary:
-
-- React handles screens, buttons, status, and user feedback.
-- Rust owns the state that must remain authoritative: sessions, approval, signaling, capture, and transport.
-- Native Android code owns the lifecycle and playback details that a browser UI cannot reliably own.
-
-Mention the benefit of a typed command/event boundary and link to one representative file or commit: `[link]`.
-
-### 5.3 One peer connection per approved receiver
-
-Explain that multi-device streaming is not one magic broadcast socket. Eko creates an independent WebRTC path per approved receiver, which makes device-level control possible but increases desktop/network work as the receiver count grows.
-
-Add your current tested receiver count and planned scale, without implying a benchmark you have not run.
+`[Add the current tested receiver count here. Do not describe a scaling limit until you have measured it.]`
 
 ---
 
-## 6. Designing the audio path
+## 6. Building the audio path
 
-This is the first deeply technical section. Keep the pipeline linear and explain what each stage guarantees.
+The audio path is a chain of stages:
 
-### 6.1 The pipeline
+```text
+Desktop output
+    ↓
+OS loopback capture
+    ↓
+PCM audio frames
+    ↓
+Opus encoding
+    ↓
+WebRTC audio track
+    ↓
+Receiver decode
+    ↓
+Native audio output
+```
 
-Describe the path:
+On the Windows path, Eko uses WASAPI loopback capture for system output. The captured audio is prepared as Opus at 48 kHz stereo with 20 ms packets, then placed on the Rust WebRTC sender track. The Android receiver decodes the audio natively and writes it to the device's low-latency audio output path.
 
-`Desktop output → OS loopback capture → PCM frames → Opus encoding → WebRTC audio track → receiver decode → native audio output`
+The important part is not only that every stage exists. It is that every stage has a clear failure signal.
 
-Current implementation anchors to verify before publishing:
+If no frames are captured, the problem is probably near the operating-system audio source. If frames are captured but encoding or writing stops, the problem has moved further down the pipeline. If the audio pipeline is healthy but ICE cannot find a media path, then changing the capture code will not solve the real problem.
 
-- Windows system-output capture uses WASAPI loopback.
-- Audio is encoded as Opus at 48 kHz stereo with 20 ms packets.
-- Rust feeds the WebRTC sender track.
-- The Android receiver decodes natively and writes to Oboe audio output.
+Packet size and buffering also create a balance. Smaller packets can reduce waiting time, but they increase scheduling and transport overhead. Larger buffers can hide jitter, but they make playback feel delayed. A paused Android receiver should stop local playback and clear stale samples, then resume from the live edge instead of playing old audio.
 
-If any of these change before publication, update this section rather than describing the intended architecture.
+### Excalidraw diagram 04 — The audio pipeline
 
-### Excalidraw placeholder 04 — Audio pipeline
+`[Draw seven boxes from capture to speaker. Under each box, add one useful diagnostic such as “frames received,” “encoded packets,” “ICE state,” or “samples written.” Use green for progressing stages and red only for the actual failure in your chosen incident. Caption: “A live audio system is a chain of independently failing stages.”]`
 
-**Draw:** Seven boxes in a left-to-right flow. Under each box add one small “failure signal,” for example `frames = 0`, `encode error`, `ICE not connected`, or `samples not written`.
+### Measuring latency
 
-**Caption:** “A live audio system is a chain of independently failing stages; observability must follow the same chain.”
+Latency is one of the most important numbers in Eko, but it is also one of the easiest numbers to overstate.
 
-### 6.2 Why packet size and buffering matter
+`[Add your repeatable measurement method here: source signal, receiver device, network, number of samples, median, p95, and worst observed value.]`
 
-Explain, in your own words:
-
-- Smaller packets can reduce waiting time but increase overhead and sensitivity to scheduling.
-- Larger buffers can hide jitter but make controls feel delayed.
-- A receiver that pauses should stop local playback and clear stale samples, then resume from the live edge instead of playing old buffered audio.
-
-Add your actual target and measurement method:
-
-- Target end-to-end latency: `[target]`
-- Measurement method: `[how you measured source-to-device delay]`
-- Test hardware and network: `[desktop, phone, Wi-Fi, OS versions]`
-- Result: `[median / p95 / range]`
-
-Do not publish a latency number until the test can be repeated.
-
-### 6.3 The first useful proof
-
-Describe the smallest milestone that proved the media path was real: `[for example, a known test tone or increasing encoded packet count]`.
-
-Explain why that proof was stronger than “the button worked.”
+The final article should never say “Eko has X milliseconds of latency” without explaining how X was measured.
 
 ---
 
 ## 7. Pairing is not permission
 
-This section is where the product model and distributed-systems model meet.
+Pairing and authorization are closely related, but they are not the same operation.
 
-### 7.1 Two ways to find a host
+QR pairing carries the information needed to start joining a room. LAN discovery helps a nearby receiver find an Eko host. Both paths eventually create a join request that the desktop can approve or deny.
 
-Explain the two entry points:
+The session therefore has meaningful states:
 
-- QR pairing carries the compact room/host information needed to begin joining.
-- LAN discovery lets a nearby client find an advertised Eko host.
+```text
+Unknown
+  → Join requested
+  → Waiting for approval
+  → Approved
+  → Negotiating
+  → Connected
+```
 
-Both paths converge on the same approval flow. Discovery is intentionally not authorization.
+It also has important exits: `Denied`, `Disconnected`, `Stopped`, and `Retry required`.
 
-### 7.2 Session state
+WebSocket is used for coordination. It carries join requests, approval decisions, SDP messages, ICE candidates, and state events. It does not carry the audio itself. WebRTC is responsible for the media path.
 
-List the states you actually expose or intend to expose:
+That distinction made the system easier to reason about. A successful WebSocket connection means the peers can exchange setup information. It does not mean that audio can travel between them.
 
-`Unknown → Join requested → Waiting for approval → Approved → Negotiating → Connected`
+### Excalidraw diagram 05 — Approval state machine
 
-Also show the important exits:
+`[Draw Join requested → Waiting for approval. From the desktop decision, branch to Approved and Denied. Continue Approved → Negotiating → Connected. Add Stop stream returning all active states to Stopped. Caption: “Approval is a first-class session state.”]`
 
-`Denied`, `Disconnected`, `Stopped`, and `Retry required`.
+### Excalidraw diagram 06 — Pairing and signaling sequence
 
-### Excalidraw placeholder 05 — Approval state machine
-
-**Draw:** A state diagram with `Join requested` and `Waiting for approval` on the left, `Approved` and `Denied` branching from the desktop decision, then `Negotiating → Connected`. Add `Stop stream` returning every active state to `Stopped`.
-
-**Caption:** “Approval is a first-class session state, not a side effect of networking.”
-
-### 7.3 The signaling sequence
-
-Explain that WebSocket carries coordination rather than audio:
-
-- receiver joins
-- desktop receives a request
-- desktop approves or denies
-- host and receiver exchange SDP
-- host and receiver exchange ICE candidates
-- media begins only after approval and successful negotiation
-
-### Excalidraw placeholder 06 — Pairing and signaling sequence
-
-**Draw:** A sequence diagram with four vertical lanes: `Receiver UI`, `Desktop UI`, `Rust session`, and `Signaling server`. Add a separate WebRTC media arrow below the signaling arrows and label it “audio does not travel through WebSocket.”
-
-**Caption:** “Signaling sets up the path; WebRTC carries the audio.”
-
-### 7.4 Failure cases worth showing
-
-Include one short example for each:
-
-- A device is discovered but denied.
-- A previously denied device remains blocked until explicitly unblocked.
-- The desktop stops the stream while a receiver is connected.
-- One receiver disconnects while another remains healthy.
-
-Link to the relevant session test or code: `[link]`.
+`[Draw four lanes: Receiver UI, Desktop UI, Rust session, and Signaling server. Show join request, approval, SDP, and ICE messages. Draw a separate lower arrow labelled “encrypted WebRTC audio” and make clear that it does not travel through WebSocket. Caption: “Signaling sets up the path; WebRTC carries the audio.”]`
 
 ---
 
-## 8. Why the Android client is native
+## 8. Why Android has a native receiver
 
-Explain this as a platform decision, not a preference.
+It would have been faster to make every phone open a browser page. That approach is still valuable as a fallback, but Android has requirements that are easier to handle natively.
 
-### 8.1 The browser temptation
+Playback lifecycle, audio focus, media controls, background behavior, and stale buffered audio all become important once a receiver is expected to feel like a real app. A browser UI can request playback, but it should not be the canonical owner of the Android audio engine.
 
-It would have been easier to make every phone open a browser page. That is useful for a fallback, but it makes Android playback lifecycle, background behavior, audio focus, media controls, and stale buffering harder to control.
-
-### 8.2 The Android boundary
-
-Describe the split:
+Eko keeps the boundary clear:
 
 - React shows scan, discovery, approval, connection, and error states.
-- Native Android/Rust receives the media and owns playback.
-- Media controls and background behavior are anchored to the native media service where supported.
+- The native bridge passes playback commands and status events.
+- The native media path receives, decodes, buffers, and plays audio.
 
-Be precise about what has been tested. Do not claim durable background playback unless it has been tested under Android background limits.
+This was also a lesson in startup safety. Work that is harmless during desktop development can be dangerous when executed during mobile app startup. In Eko, binding-generation behavior had to be kept out of the mobile runtime path so that startup remained focused on opening the application and establishing only the services that Android actually needed.
 
-### Excalidraw placeholder 07 — Android playback boundary
+`[Replace the previous paragraph with the exact Android failure, the evidence from the device log, and the before/after change.]`
 
-**Draw:** Three layers: `React/Tauri UI`, `native bridge + media service`, and `Rust receiver → decoder → Oboe output`. Mark UI events such as `pause`, `resume`, and `stop` crossing the bridge, and mark the audio stream bypassing the React UI.
+### Excalidraw diagram 07 — Android playback boundary
 
-**Caption:** “The UI controls playback, but it is not the playback engine.”
+`[Draw React/Tauri UI above a native bridge and media service, with the Rust receiver, decoder, and Oboe output below. Show pause/resume/stop commands crossing the bridge, while the audio stream bypasses the React UI. Caption: “The UI controls playback, but it is not the playback engine.”]`
 
-### 8.3 What I learned from mobile startup failures
-
-Use this as a learning-story slot. Explain the actual failure, not just the fix:
-
-> `[Describe the Android startup failure caused by work that was safe on desktop but unsafe during mobile startup. Explain how moving code generation/export out of the mobile runtime changed the failure boundary.]`
-
-Include a small before/after table:
-
-| Before | After |
-| --- | --- |
-| `[startup behavior]` | `[startup behavior]` |
-| `[why it failed]` | `[why it is safer]` |
+Do not claim durable background playback until it has been tested on the target Android versions under normal background limits.
 
 ---
 
-## 9. The browser fallback and hosted networking
+## 9. The browser fallback and TURN
 
-Keep this section focused: the hosted path exists to extend reach, not to obscure the local-first design.
+The browser client exists mainly for iOS and modern browsers. It lets those receivers participate without installing the Android app, while keeping Android's preferred path native.
 
-### 9.1 Why a fallback exists
+The hosted path has two separate responsibilities. Signaling helps the host and browser exchange the information needed for WebRTC negotiation. TURN provides a relay when the peers cannot establish a direct media path.
 
-The Android app is the preferred receiver. A hosted browser client gives iOS and modern browsers a way to participate without installing the Android app.
+The preferred sequence is:
 
-### 9.2 Direct media first, relay when needed
+1. Try to establish a direct WebRTC path.
+2. Gather and evaluate available ICE candidates.
+3. Use TURN only when a direct path cannot connect.
+4. Continue carrying the audio through encrypted WebRTC media.
 
-Explain the network layers:
+This design has a useful trade-off. Direct media generally gives the best local latency and avoids relay bandwidth. TURN makes the system more reliable on networks that block direct connectivity, but it introduces provider metadata, relay bandwidth, and an operational cost.
 
-- Hosted signaling exchanges room and WebRTC setup messages.
-- WebRTC first attempts a direct path.
-- When direct ICE cannot connect, a TURN relay can forward encrypted WebRTC packets.
-- The relay sees connection metadata and encrypted traffic, not the WebRTC media keys or readable audio content.
+Short-lived TURN credentials help keep the long-lived service secret away from QR payloads, browser bundles, logs, and screenshots.
 
-### Excalidraw placeholder 08 — Direct path versus TURN fallback
+### Excalidraw diagram 08 — Direct path versus TURN fallback
 
-**Draw:** Two parallel paths from `Desktop` to `Browser receiver`:
+`[Draw Desktop and Browser receiver with two paths. Use a solid green arrow for “direct ICE → encrypted WebRTC audio.” Use a dashed amber path for “hosted signaling → short-lived TURN credentials → TURN relay → encrypted WebRTC audio.” Caption: “Direct media is preferred; the relay is a fallback.”]`
 
-1. Solid green path: `direct ICE → encrypted WebRTC audio`.
-2. Dashed amber path: `Cloudflare signaling → short-lived TURN credentials → TURN relay → encrypted WebRTC audio`.
-
-Label signaling and media separately. Put the phrase “direct preferred; relay only when needed” in the center.
-
-**Caption:** “Cloud infrastructure helps establish or relay the connection; it is not the default audio destination.”
-
-### 9.3 The privacy and cost trade-off
-
-Write plainly about the trade-off:
-
-- Local direct media is the preferred path for low latency and fewer external dependencies.
-- TURN improves connectivity when networks block direct media.
-- TURN introduces relay bandwidth, operational cost, and provider metadata.
-- Credentials are short-lived and should never be placed in QR payloads, browser bundles, logs, or screenshots.
-
-Link the privacy policy and hosted signaling code: `[links]`.
+`[Link to the repository's privacy policy and hosted signaling implementation here.]`
 
 ---
 
-## 10. The debugging story: when the audio pipeline was healthy but nothing played
+## 10. The debugging lesson that changed how I tested
 
-This should be the strongest section in the article. Readers remember a concrete incident more than a list of technologies.
+The most valuable Eko debugging lesson came from a failure that looked like an audio problem.
 
-### 10.1 The misleading symptom
+During development, the receiver was not producing useful audio. My first instinct was to inspect capture. That was reasonable, but incomplete.
 
-Open with the observed symptom:
+I followed the counters through the pipeline:
 
-> `[Example: the connection looked like it started, but the receiver produced no audio.]`
+```text
+audioFramesReceived
+        ↓
+audioFramesEncoded
+        ↓
+audioSamplesWritten
+```
 
-Then state the tempting wrong conclusion: `[for example, “capture must be broken”]`.
+The counters showed that capture was progressing, encoded audio was being produced, and samples were being written. That evidence ruled out the first part of the pipeline.
 
-### 10.2 Follow the evidence through the pipeline
+The more important clue was in ICE. The connection moved through checking and then failed with no usable candidate pair. Signaling had happened, but the peers had not found a network path capable of carrying the WebRTC media.
 
-Use the project’s counters as a causal chain:
+That changed the investigation completely. Instead of repeatedly changing the audio code, I looked at candidate gathering, network interfaces, firewall behavior, and TURN fallback.
 
-`audioFramesReceived → audioFramesEncoded → audioSamplesWritten`
+The lesson was simple but important:
 
-Interpret them explicitly:
+> Signaling can succeed while media connectivity fails.
 
-- If received frames stay at zero, inspect the OS capture source.
-- If received frames increase but encoded or written samples do not, inspect the encoder or WebRTC track.
-- If the audio counters are healthy but ICE has no usable pair, the problem is connectivity rather than capture.
-- If ICE connects and outbound bytes increase but the receiver is silent, inspect receiver decode, playback state, and audio output.
+A connected WebSocket does not prove connected audio. Available TURN credentials do not prove that a relay was selected. A successful build does not prove playback. Each claim needs evidence from the stage it describes.
 
-### Excalidraw placeholder 09 — Debugging evidence checkpoints
+Structured operator diagnostics made this much easier. Useful fields included peer state, ICE state, selected connection path, outbound packets and bytes, latency, jitter, buffer, packet loss, and audio pipeline counters.
 
-**Draw:** A pipeline with checkpoints under every stage. Put green counters under healthy stages and a red break at the actual failure point from your incident. Beside the break, write the evidence that proved it: `[exact state/log/metric]`.
+The diagnostics intentionally avoided collecting raw audio, SDP bodies, full ICE candidate strings, tokens, or full user-agent strings. Good debugging should make the system more understandable without creating a second privacy problem.
 
-**Caption:** “The fastest diagnosis came from identifying the first stage that stopped making progress.”
+### Excalidraw diagram 09 — Debugging checkpoints
 
-### 10.3 The ICE lesson
+`[Draw the full pipeline with a checkpoint beneath every stage. Put the failure marker at the first stage that actually stopped making progress in your chosen incident. Beside it, write the exact evidence: log line, state transition, or counter. Caption: “The fastest diagnosis came from finding the first stage that stopped progressing.”]`
 
-Explain the key insight in accessible language:
+### What did not count as proof
 
-> Signaling can succeed while media connectivity fails. A WebSocket connection proves that the peers exchanged setup messages; it does not prove that WebRTC found a usable media path.
-
-If you use the real incident, include the state transition and its meaning:
-
-`checking → no candidate pairs → closed`
-
-Explain what changed: `[for example, broader candidate gathering, firewall/interface investigation, or TURN fallback]`.
-
-### 10.4 Better diagnostics changed the development loop
-
-Describe why structured operator diagnostics were useful. Mention only the fields that help the reader reason about the stream:
-
-- peer and ICE state
-- selected connection path
-- outbound packets and bytes
-- latency, jitter, buffer, and packet loss samples
-- audio pipeline counters
-
-State what you deliberately do not log: raw audio, SDP bodies, ICE candidate strings, tokens, or full user-agent strings.
-
-### 10.5 The lesson about proof
-
-Add a short “what did not count as proof” list:
-
-- A successful build did not prove playback.
-- A visible QR code did not prove authorization.
-- A connected WebSocket did not prove media connectivity.
-- Available TURN credentials did not prove that TURN was selected.
+- A QR code being visible did not prove authorization.
+- A join request being received did not prove playback.
+- A WebSocket being connected did not prove media connectivity.
+- TURN being configured did not prove that TURN was selected.
 - An emulator result did not prove real-phone latency.
 
-This is excellent resume material because it demonstrates how you validate systems rather than only assemble them.
+This changed the way I approach debugging. I now ask not only “what failed?” but also “what is the strongest evidence that each earlier stage worked?”
 
 ---
 
 ## 11. What I learned
 
-Turn implementation details into transferable lessons. Aim for five to seven lessons, each with a concrete Eko example.
+### Real-time systems are chains, not features
 
-### Lesson 1: Real-time systems are chains, not features
+“Audio streaming works” is not one fact. Capture, encoding, signaling, ICE, decoding, and playback can all succeed or fail independently. The observability should follow the same chain as the data.
 
-`[Explain how capture, encoding, signaling, ICE, decoding, and playback can fail independently.]`
+### Authorization deserves its own model
 
-### Lesson 2: Authorization should be modeled explicitly
+Separating discovery from approval made the product safer and the session state easier to explain. It also prevented a common mistake: treating proximity as permission.
 
-`[Explain why discovery and approval became separate states.]`
+### Native boundaries are product decisions
 
-### Lesson 3: Native boundaries are product decisions
+Choosing native Android playback was not about avoiding the web. It was about giving the platform the ownership it needed for lifecycle and audio behavior while keeping the UI shared where that remained valuable.
 
-`[Explain why Android playback needed native ownership while the UI could stay shared.]`
+### Type safety matters most at boundaries
 
-### Lesson 4: Prefer evidence that follows causality
+The Rust-to-TypeScript command and event boundary is where mismatched assumptions become user-visible bugs. Keeping that boundary typed made the system easier to evolve and review.
 
-`[Explain why stage counters and selected ICE stats beat vague “connected” labels.]`
+### Direct networking and hosted fallback can coexist
 
-### Lesson 5: Direct networking and hosted fallback can coexist
+Local-first and hosted fallback are not contradictory. They solve different problems: one optimizes the normal path, while the other handles networks where direct connectivity is unavailable.
 
-`[Explain how local-first behavior and TURN fallback serve different failure modes.]`
+### “Works on my machine” is not a measurement
 
-### Lesson 6: Type safety is most valuable at boundaries
+Desktop tests, emulator tests, build checks, and hosted smoke tests all have value. None of them should silently stand in for real-device playback or latency validation.
 
-`[Explain the Rust/TypeScript command and event boundary, and any bug it prevented.]`
-
-### Lesson 7: “Works on my machine” is not a measurement
-
-`[Explain the difference between desktop/Linux/emulator validation and real target-device proof.]`
-
-For each lesson, use this mini-format:
-
-1. What happened.
-2. What I initially assumed.
-3. What the evidence showed.
-4. What I changed in the design or workflow.
-5. What I would do earlier next time.
+`[Add one personal lesson here: what Eko changed about how you design or debug software.]`
 
 ---
 
-## 12. Current status and honest limitations
+## 12. What works and what is still unfinished
 
-Do not hide unfinished work. A resume blog is stronger when it clearly separates shipped behavior from pending validation.
+Eko is in active development, so I want to describe its status honestly.
 
-### Working today
+The current implementation includes:
 
-- `[confirmed feature]`
-- `[confirmed feature]`
-- `[confirmed feature]`
+- Desktop system-audio capture on the tested Windows path.
+- Rust Opus encoding and WebRTC sender flow.
+- QR pairing and LAN discovery.
+- Explicit desktop approval and denial.
+- Multiple receiver session structure.
+- Native Android receiver work.
+- A browser fallback with hosted signaling and TURN support.
+- Structured diagnostics for audio and connection stages.
 
-### Still being validated
+The work still requiring stronger validation includes:
 
-- First real setup-time measurement.
-- Repeatable end-to-end latency measurement on real Windows hardware and a real Android phone.
-- Final Windows capture backend choice after comparing the tested options.
-- Multi-device scaling limits.
+- Repeatable setup-time measurement.
+- End-to-end latency measurement on real Windows hardware and a real Android phone.
+- Multi-device scaling under realistic Wi-Fi conditions.
+- Final capture-backend decisions across supported desktop platforms.
 - Background playback behavior under Android limits.
 
-### Validation table
+`[Replace the list above with the exact status at publication time. Link each important claim to a demo, test, commit, or screenshot.]`
 
-| Claim | Evidence | Confidence / next test |
+| Claim | Evidence | Next verification |
 | --- | --- | --- |
-| Desktop captures system audio | `[test/log/video]` | `[high/medium/low]` |
+| Desktop captures system audio | `[test, log, or demo]` | `[next test]` |
 | Approved Android device receives audio | `[real-device evidence]` | `[next test]` |
-| Direct LAN path works | `[selected candidate evidence]` | `[next test]` |
-| TURN fallback works | `[relay test / selected relay evidence]` | `[next test]` |
-| Latency is under target | `[repeatable measurement]` | `[next test]` |
+| Direct LAN media works | `[selected ICE path]` | `[next test]` |
+| TURN fallback works | `[relay-selected evidence]` | `[next test]` |
+| Latency meets the target | `[repeatable measurement]` | `[next test]` |
 
-This table prevents accidental overclaiming and gives readers a credible view of the project.
+This table is worth keeping. It makes the article more credible and gives the project a clear path from prototype to production quality.
 
 ---
 
 ## 13. What I would build next
 
-Keep this roadmap short and technically meaningful.
+The next stage is less about adding features and more about making the existing experience measurable and dependable.
 
-1. Add repeatable real-device latency and setup-time measurements.
-2. Add clearer development graphs for latency, jitter, buffer, packet loss, state changes, and errors.
+1. Add repeatable real-device setup-time and latency measurements.
+2. Add clearer development graphs for latency, jitter, buffering, packet loss, state changes, and errors.
 3. Expand automated coverage for approval, denial, unblock, disconnect, and stop-stream cleanup.
-4. Test multi-device behavior under realistic Wi-Fi conditions.
-5. Harden release and update flows after the media path is stable.
+4. Test multiple receivers under realistic Wi-Fi conditions.
+5. Harden release, update, and recovery flows.
 
-For each item, add why it matters and how you would measure success.
+`[For each item you keep, add one sentence describing how success will be measured.]`
 
 ---
 
-## 14. Closing
+## 14. Closing thoughts
 
-End with a concise reflection rather than a generic “thanks for reading.”
+Eko began as a practical attempt to make one desktop audio source useful across several nearby devices. It became a much deeper lesson in real-time systems.
 
-**Draft prompt:**
+I learned that the hardest problems are often found at the boundaries: between desktop and mobile, discovery and authorization, signaling and media, direct networking and relays, or a passing test and real user-facing proof.
 
-> Eko started as a way to make one desktop audio source useful across several nearby devices. It became a lesson in where real-time systems actually break: not only in the audio code, but at the boundaries between platforms, permissions, signaling, network paths, and evidence.
->
-> The most important result was not a single framework choice. It was learning to ask which stage had actually made progress, which device was truly authorized, and which test had really proved the user-facing behavior.
->
-> `[Add your final personal sentence: what Eko changed about how you build software.]`
+The most valuable habit I developed was to ask which stage had actually made progress. That question helped me avoid changing the wrong part of the system, and it made every failure more useful.
 
-End links:
+There is still work ahead, especially around real-device measurements and production hardening. That is part of what makes the project exciting. Eko is not only a finished feature; it is a record of learning how to build software that interacts with hardware, networks, and people in the real world.
+
+`[Add your final personal sentence here. Keep it sincere and specific.]`
+
+### Links
 
 - Source code: `[GitHub repository]`
-- Demo video: `[link]`
-- Architecture notes: `[link]`
-- Relevant issue or write-up: `[link]`
+- Demo video: `[demo link]`
+- Architecture notes: `[architecture link]`
+- Privacy policy: `[privacy-policy link]`
+- Relevant debugging issue: `[issue or pull-request link]`
 
 ---
 
-## 15. Medium publishing checklist
+## 15. Publishing checklist
 
-### Drafting order
+### Before publishing
 
-Write in this order, even if the final article is read from the top:
+- [ ] Replace every `[personal prompt]` with your own experience.
+- [ ] Replace every `[measurement]` with a repeatable result, including hardware and network details.
+- [ ] Draw and export the nine Excalidraw diagrams in article order.
+- [ ] Add one strong hero image or project screenshot.
+- [ ] Link to the repository, demo, privacy policy, and relevant implementation.
+- [ ] Remove claims that are no longer true.
+- [ ] Confirm that screenshots contain no secrets, pairing tokens, private IP addresses, or sensitive logs.
+- [ ] Distinguish emulator validation from real-device validation.
+- [ ] Distinguish configured TURN fallback from a relay path observed in ICE statistics.
 
-1. Debugging story.
-2. Architecture and audio path.
-3. Motivation and product constraints.
-4. Lessons learned.
-5. Current status and conclusion.
+### Medium presentation
 
-This keeps the article grounded in a real problem instead of becoming a technology tour.
+- Use this title or a similarly direct one.
+- Keep the subtitle focused on the engineering story.
+- Keep paragraphs short and generous with whitespace.
+- Put the first architecture diagram early, after explaining the problem.
+- Put the debugging diagram near the strongest incident in the article.
+- Add captions beneath every diagram.
+- Use code snippets only when they explain a decision; link to the full source.
+- Add five focused tags such as `Rust`, `WebRTC`, `Android Development`, `Tauri`, and `Real-Time Systems`.
 
-### Recommended final shape
-
-- Target length: `[1,800–2,800 words]` for one focused article; split into a series if the debugging story needs more room.
-- One clear title and subtitle.
-- A strong first-screen hook.
-- Nine diagrams maximum unless each one earns its place.
-- Short paragraphs, usually two to four lines on desktop.
-- Code only when it explains a design choice; link to the full implementation.
-- Use captions under every diagram.
-- Put the repository and demo near the beginning and end.
-- Mention unfinished validation directly instead of burying it in a footnote.
-
-### Diagram export checklist
-
-- Use a consistent color meaning: blue for components, green for healthy flow, amber for fallback, red for failure, purple for authority/security.
-- Use the same names in diagrams and prose: `Desktop`, `Rust core`, `Android receiver`, `Browser client`, `Signaling`, and `TURN`.
-- Keep text large enough to read in Medium's inline image view.
-- Export both the editable Excalidraw source and a web image.
-- Name files in article order, for example:
-
-```text
-blog/diagrams/
-├── 01-problem-space.excalidraw
-├── 02-discovery-to-playback.excalidraw
-├── 03-high-level-architecture.excalidraw
-├── 04-audio-pipeline.excalidraw
-├── 05-approval-state-machine.excalidraw
-├── 06-pairing-signaling-sequence.excalidraw
-├── 07-android-playback-boundary.excalidraw
-├── 08-direct-vs-turn.excalidraw
-└── 09-debugging-checkpoints.excalidraw
-```
-
-### Final fact check before publishing
-
-- [ ] Every latency or setup-time number includes hardware, network, and measurement method.
-- [ ] “Connected” means media was actually verified, not only that signaling succeeded.
-- [ ] Android claims distinguish emulator tests from real-device tests.
-- [ ] TURN claims distinguish configured fallback from a relay path observed in selected ICE stats.
-- [ ] No secrets, pairing tokens, private IPs, raw audio, or sensitive logs appear in screenshots.
-- [ ] The repository link, demo link, and license are correct.
-- [ ] The final article says what is complete, what is experimental, and what is next.
-
-### Suggested Medium tags
-
-`Rust`, `WebRTC`, `Android Development`, `Tauri`, `Real-Time Systems`
-
-Use tags that match the final article, not every technology in the repository.
+`[Recommended final length: approximately 1,800–2,800 words. If the debugging story becomes much longer, publish it as a second article rather than weakening the first one.]`
