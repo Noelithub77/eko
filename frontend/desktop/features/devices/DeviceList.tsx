@@ -160,7 +160,7 @@ function DeviceRow({
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <span>{deviceStatusText(device)}</span>
             <span className="text-muted-foreground/60">•</span>
-            <span>{joinMethodText(device)}</span>
+            <span>{connectionPathText(device)}</span>
           </div>
         </div>
       </div>
@@ -222,7 +222,7 @@ function EmptySection({ text }: { text: string }) {
 
 function deviceStatusText(device: Device): string {
   if (device.state === "connected") {
-    return "Connected and sharing audio";
+    return "Connected";
   }
 
   if (device.state === "pending") {
@@ -244,6 +244,20 @@ function deviceStatusText(device: Device): string {
   return "Disconnected";
 }
 
-function joinMethodText(device: Device): string {
-  return device.joinMethod === "qr" ? "QR code" : "Nearby device";
+function connectionPathText(device: Device): string {
+  if (device.connectionPath === "local") {
+    return "Local network";
+  }
+
+  if (device.connectionPath === "direct") {
+    return "Direct connection";
+  }
+
+  if (device.connectionPath === "relayed") {
+    return "Relayed";
+  }
+
+  return device.state === "connected" || device.state === "connecting"
+    ? "Checking connection"
+    : "Connection path unavailable";
 }

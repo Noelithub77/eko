@@ -47,6 +47,8 @@ export type AudioProofStatus = {
 	note: string,
 };
 
+export type ConnectionPath = "local" | "direct" | "relayed";
+
 export type CoreProofStatus = {
 	audio: AudioProofStatus,
 	discovery: DiscoveryProofStatus,
@@ -78,6 +80,7 @@ export type Device = {
 	connectedAt: string | null,
 	webRtcState: string,
 	iceState: string,
+	connectionPath: ConnectionPath | null,
 };
 
 export type DeviceConnectionState = "pending" | "connecting" | "connected" | "disconnected" | "failed" | "denied";

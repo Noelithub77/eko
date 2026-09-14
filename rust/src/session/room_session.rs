@@ -1,8 +1,8 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::domain::{
-    DevEvent, DevMetric, Device, DeviceConnectionState, HostedPairingDetails, JoinMethod,
-    JoinRequest, LocalPairingDetails, QrPairingPayload, RoomSession, StartStreamResult,
+    ConnectionPath, DevEvent, DevMetric, Device, DeviceConnectionState, HostedPairingDetails,
+    JoinMethod, JoinRequest, LocalPairingDetails, QrPairingPayload, RoomSession, StartStreamResult,
     StreamStatus,
 };
 
@@ -127,6 +127,7 @@ impl SessionStore {
                     device.state = DeviceConnectionState::Pending;
                     device.web_rtc_state = "waiting".to_string();
                     device.ice_state = "waiting".to_string();
+                    device.connection_path = None;
                 });
                 self.session
                     .events
@@ -146,6 +147,7 @@ impl SessionStore {
             connected_at: None,
             web_rtc_state: "waiting".to_string(),
             ice_state: "waiting".to_string(),
+            connection_path: None,
         });
         self.session
             .events
@@ -172,6 +174,7 @@ impl SessionStore {
             device.connected_at = Some(now_string());
             device.web_rtc_state = "connecting".to_string();
             device.ice_state = "checking".to_string();
+            device.connection_path = None;
         });
         self.session.events.push(event("info", "Device allowed"));
         self.snapshot()
@@ -182,6 +185,7 @@ impl SessionStore {
             device.state = DeviceConnectionState::Denied;
             device.web_rtc_state = "closed".to_string();
             device.ice_state = "closed".to_string();
+            device.connection_path = None;
         });
         self.session.events.push(event("warn", "Device denied"));
         self.snapshot()
@@ -204,8 +208,20 @@ impl SessionStore {
             device.connected_at = None;
             device.web_rtc_state = "closed".to_string();
             device.ice_state = "closed".to_string();
+            device.connection_path = None;
         });
         self.push_limited_event("warn", "Device connection lost");
+        self.snapshot()
+    }
+
+    pub fn set_device_connection_path(
+        &mut self,
+        device_id: &str,
+        connection_path: ConnectionPath,
+    ) -> RoomSession {
+        self.update_device(device_id, |device| {
+            device.connection_path = Some(connection_path);
+        });
         self.snapshot()
     }
 

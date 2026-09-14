@@ -148,6 +148,7 @@ export function addDevJoinRequest(deviceName: string, method: JoinMethod): Promi
           connectedAt: null,
           webRtcState: "waiting",
           iceState: "waiting",
+          connectionPath: null,
         },
       ],
     };
