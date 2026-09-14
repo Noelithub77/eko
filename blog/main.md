@@ -1,21 +1,14 @@
 # From Bluetooth Limits to Live Audio on Your Phone
 
-## Index
-
-1. [Why I Built It](#1-why-i-built-it)
-2. [The Innovation](#2-the-innovation)
-3. [Architecture](#3-architecture)
-4. [What's Next](#4-whats-next)
-
 ---
 
-## 1. Why eko?
+## 1. Why Eko?
 
-The idea began with a situation that sounds simple but becomes surprisingly difficult in practice: a group of people wants to watch a movie together, but playing the audio through a speaker is not an option.
+The idea for Eko came to me while I was travelling on a train with my friends. We wanted to watch a movie together, and we had one shared screen, but playing the audio through a speaker was not really an option. It would disturb the people around us, and the laptop speakers were too quiet for everyone to hear clearly.
 
-Maybe the room is quiet, people are sleeping nearby, the neighbours are close, or the built-in laptop speakers are too weak for everyone to hear the dialogue clearly. Headphones solve the volume problem for one person, but they also isolate everyone from the shared experience. The ideal setup is simple: keep the movie on one shared screen, while each person listens through their own phone and headphones.
+The obvious solution was for everyone to use headphones. That solved the noise problem for one person, but it created another problem: how do you send the same audio to everyone's device while keeping the movie on one shared screen? Passing around one pair of headphones would defeat the whole point of watching together.
 
-That led to a simple question: why is it still so difficult to send one computer's audio to several nearby devices?
+That led me to a simple question: why is it still so difficult to send one computer's audio to several nearby devices?
 
 Bluetooth is excellent for connecting a device to a speaker or headphones, but it becomes much less flexible when the same audio needs to reach multiple receivers. Traditional Bluetooth setups are generally designed around one active audio stream, while multipoint support usually means switching between devices rather than broadcasting the same audio to all of them.
 
