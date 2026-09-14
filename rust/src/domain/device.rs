@@ -19,6 +19,14 @@ pub enum DeviceConnectionState {
     Denied,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum ConnectionPath {
+    Local,
+    Direct,
+    Relayed,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Device {
@@ -30,6 +38,7 @@ pub struct Device {
     pub connected_at: Option<String>,
     pub web_rtc_state: String,
     pub ice_state: String,
+    pub connection_path: Option<ConnectionPath>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Type)]

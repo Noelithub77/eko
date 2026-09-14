@@ -21,7 +21,7 @@ use crate::audio::frame::{AudioFrame, SAMPLE_RATE};
 use crate::audio::opus_codec::OpusAudioEncoder;
 use crate::audio::windows_capture::start_system_audio_source;
 use crate::domain::{IceCandidateMessage, SessionDescriptionMessage};
-use crate::webrtc_core::candidate_path::log_selected_candidate;
+use crate::webrtc_core::candidate_path::{connection_path_for, log_selected_candidate};
 
 pub type SharedMediaHub = Arc<MediaHub>;
 
@@ -149,6 +149,8 @@ impl MediaHub {
         );
         let (signal_sender, signal_receiver) = mpsc::unbounded_channel();
         let candidate_device_id = device_id.clone();
+        let session = self.session.clone();
+        let app = self.app.clone();
 
         peer.on_ice_candidate(Box::new(move |candidate| {
             let signal_sender = signal_sender.clone();
@@ -189,15 +191,38 @@ impl MediaHub {
         peer.on_ice_connection_state_change(Box::new({
             let device_id = device_id.clone();
             let stats_peer = Arc::clone(&peer);
+            let session = session.clone();
+            let app = app.clone();
             move |state| {
                 log::info!("ICE connection state for {device_id}: {state:?}");
                 let device_id = device_id.clone();
                 let stats_peer = Arc::clone(&stats_peer);
+                let session = session.clone();
+                let app = app.clone();
                 Box::pin(async move {
                     if state
                         == webrtc::ice_transport::ice_connection_state::RTCIceConnectionState::Connected
                     {
-                        log_selected_candidate(&stats_peer, &device_id).await;
+                        let Some(candidate_type) =
+                            log_selected_candidate(&stats_peer, &device_id).await
+                        else {
+                            return;
+                        };
+                        let Some(connection_path) = connection_path_for(&candidate_type) else {
+                            return;
+                        };
+                        let (Some(session), Some(app)) = (session.as_ref(), app.as_ref()) else {
+                            return;
+                        };
+                        if let Ok(mut store) = session.lock() {
+                            let snapshot =
+                                store.set_device_connection_path(&device_id, connection_path);
+                            crate::signaling::emit_room_session(app, snapshot);
+                        } else {
+                            log::warn!(
+                                "Could not update connection path for device {device_id}"
+                            );
+                        }
                     }
                 })
             }
