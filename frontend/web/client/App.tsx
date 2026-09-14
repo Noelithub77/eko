@@ -115,6 +115,7 @@ function App() {
     }
 
     reconnectInFlightRef.current = true;
+    toast.dismiss();
     pauseCurrentStream();
     streamRef.current = null;
     setStatus("waiting");
@@ -154,9 +155,13 @@ function App() {
           setDesktopMedia(media);
         },
         onConnectionLost: () => {
+          setStatus("failed");
           shouldRecoverRef.current = true;
           if (document.visibilityState === "visible") {
-            window.setTimeout(() => recoverConnectionRef.current(), 0);
+            window.setTimeout(
+              () => recoverConnectionRef.current(),
+              RECOVERY_COOLDOWN_MS,
+            );
           }
         },
         onStream: (nextStream) => {
