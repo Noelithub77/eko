@@ -1,0 +1,18 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://excalidraw.com",
+  "elements": [
+    {"type":"text","id":"t6","x":235,"y":35,"text":"Direct Path + TURN Fallback","fontSize":26},
+    {"type":"rectangle","id":"d6","x":45,"y":210,"width":150,"height":80,"roundness":{"type":3},"backgroundColor":"#a5d8ff","fillStyle":"solid","strokeColor":"#4a9eed","label":{"text":"Desktop","fontSize":20}},
+    {"type":"rectangle","id":"b6","x":605,"y":210,"width":150,"height":80,"roundness":{"type":3},"backgroundColor":"#b2f2bb","fillStyle":"solid","strokeColor":"#22c55e","label":{"text":"Browser\nreceiver","fontSize":18}},
+    {"type":"arrow","id":"direct6","x":195,"y":230,"width":410,"height":0,"points":[[0,0],[410,0]],"strokeColor":"#22c55e","strokeWidth":3,"endArrowhead":"arrow","label":{"text":"direct ICE · encrypted audio","fontSize":16}},
+    {"type":"rectangle","id":"turn6","x":305,"y":345,"width":190,"height":75,"roundness":{"type":3},"backgroundColor":"#ffd8a8","fillStyle":"solid","strokeColor":"#f59e0b","label":{"text":"TURN relay","fontSize":20}},
+    {"type":"arrow","id":"down6","x":195,"y":270,"width":110,"height":75,"points":[[0,0],[110,75]],"strokeColor":"#f59e0b","strokeStyle":"dashed","endArrowhead":"arrow"},
+    {"type":"arrow","id":"up6","x":495,"y":380,"width":110,"height":-75,"points":[[0,0],[110,-75]],"strokeColor":"#f59e0b","strokeStyle":"dashed","endArrowhead":"arrow"},
+    {"type":"text","id":"sig6","x":215,"y":470,"text":"Hosted signaling + short-lived credentials","fontSize":18,"strokeColor":"#b45309"},
+    {"type":"text","id":"pref6","x":235,"y":150,"text":"direct preferred · relay when needed","fontSize":18,"strokeColor":"#15803d"}
+  ],
+  "appState": {"viewBackgroundColor":"#ffffff"},
+  "files": {}
+}
