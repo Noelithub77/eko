@@ -1,0 +1,20 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://excalidraw.com",
+  "elements": [
+    {"type":"text","id":"t2","x":235,"y":35,"text":"The Innovation","fontSize":28},
+    {"type":"rectangle","id":"d2","x":45,"y":220,"width":145,"height":80,"roundness":{"type":3},"backgroundColor":"#a5d8ff","fillStyle":"solid","strokeColor":"#4a9eed","label":{"text":"Desktop\nmovie","fontSize":20}},
+    {"type":"rectangle","id":"w2","x":270,"y":220,"width":150,"height":80,"roundness":{"type":3},"backgroundColor":"#d0bfff","fillStyle":"solid","strokeColor":"#8b5cf6","label":{"text":"WebRTC\nmedia","fontSize":20}},
+    {"type":"arrow","id":"a2a","x":190,"y":260,"width":80,"height":0,"points":[[0,0],[80,0]],"strokeColor":"#8b5cf6","endArrowhead":"arrow"},
+    {"type":"rectangle","id":"ph21","x":505,"y":130,"width":145,"height":70,"roundness":{"type":3},"backgroundColor":"#b2f2bb","fillStyle":"solid","strokeColor":"#22c55e","label":{"text":"Phone A\nheadphones","fontSize":16}},
+    {"type":"rectangle","id":"ph22","x":505,"y":240,"width":145,"height":70,"roundness":{"type":3},"backgroundColor":"#b2f2bb","fillStyle":"solid","strokeColor":"#22c55e","label":{"text":"Phone B\nheadphones","fontSize":16}},
+    {"type":"rectangle","id":"ph23","x":505,"y":350,"width":145,"height":70,"roundness":{"type":3},"backgroundColor":"#b2f2bb","fillStyle":"solid","strokeColor":"#22c55e","label":{"text":"Phone C\nheadphones","fontSize":16}},
+    {"type":"arrow","id":"a2b","x":420,"y":250,"width":85,"height":-85,"points":[[0,0],[85,-85]],"strokeColor":"#22c55e","endArrowhead":"arrow"},
+    {"type":"arrow","id":"a2c","x":420,"y":260,"width":85,"height":15,"points":[[0,0],[85,15]],"strokeColor":"#22c55e","endArrowhead":"arrow"},
+    {"type":"arrow","id":"a2d","x":420,"y":270,"width":85,"height":115,"points":[[0,0],[85,115]],"strokeColor":"#22c55e","endArrowhead":"arrow"},
+    {"type":"text","id":"n2","x":85,"y":410,"text":"One shared screen, separate listening.","fontSize":20,"strokeColor":"#15803d"}
+  ],
+  "appState": {"viewBackgroundColor":"#ffffff"},
+  "files": {}
+}

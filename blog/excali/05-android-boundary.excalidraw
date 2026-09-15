@@ -1,0 +1,19 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://excalidraw.com",
+  "elements": [
+    {"type":"text","id":"t5","x":245,"y":35,"text":"Android Playback","fontSize":28},
+    {"type":"rectangle","id":"ui5","x":55,"y":170,"width":200,"height":95,"roundness":{"type":3},"backgroundColor":"#dbe4ff","fillStyle":"solid","strokeColor":"#4a9eed","label":{"text":"React / Tauri UI\nscan · status · controls","fontSize":17}},
+    {"type":"rectangle","id":"br5","x":300,"y":170,"width":200,"height":95,"roundness":{"type":3},"backgroundColor":"#e5dbff","fillStyle":"solid","strokeColor":"#8b5cf6","label":{"text":"Native bridge\nmedia service","fontSize":18}},
+    {"type":"rectangle","id":"rx5","x":545,"y":170,"width":200,"height":95,"roundness":{"type":3},"backgroundColor":"#b2f2bb","fillStyle":"solid","strokeColor":"#22c55e","label":{"text":"Rust receiver\n decode · playback","fontSize":18}},
+    {"type":"arrow","id":"u5b","x":255,"y":218,"width":45,"height":0,"points":[[0,0],[45,0]],"strokeColor":"#4a9eed","endArrowhead":"arrow"},
+    {"type":"arrow","id":"b5r","x":500,"y":218,"width":45,"height":0,"points":[[0,0],[45,0]],"strokeColor":"#8b5cf6","endArrowhead":"arrow"},
+    {"type":"rectangle","id":"out5","x":545,"y":370,"width":200,"height":75,"roundness":{"type":3},"backgroundColor":"#c3fae8","fillStyle":"solid","strokeColor":"#06b6d4","label":{"text":"Native audio output","fontSize":18}},
+    {"type":"arrow","id":"r5o","x":645,"y":265,"width":0,"height":105,"points":[[0,0],[0,105]],"strokeColor":"#22c55e","endArrowhead":"arrow"},
+    {"type":"text","id":"cmd5","x":105,"y":370,"text":"pause · resume · stop","fontSize":18,"strokeColor":"#2563eb"},
+    {"type":"arrow","id":"cmd5a","x":220,"y":350,"width":245,"height":-65,"points":[[0,0],[245,-65]],"strokeColor":"#4a9eed","strokeStyle":"dashed","endArrowhead":"arrow"}
+  ],
+  "appState": {"viewBackgroundColor":"#ffffff"},
+  "files": {}
+}

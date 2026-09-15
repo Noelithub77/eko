@@ -1,0 +1,26 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://excalidraw.com",
+  "elements": [
+    {"type":"text","id":"t3","x":470,"y":35,"text":"Audio Pipeline","fontSize":28},
+    {"type":"rectangle","id":"c3","x":40,"y":200,"width":160,"height":90,"roundness":{"type":3},"backgroundColor":"#a5d8ff","fillStyle":"solid","strokeColor":"#4a9eed","label":{"text":"Desktop\noutput","fontSize":20}},
+    {"type":"rectangle","id":"l3","x":245,"y":200,"width":175,"height":90,"roundness":{"type":3},"backgroundColor":"#fff3bf","fillStyle":"solid","strokeColor":"#f59e0b","label":{"text":"Loopback\ncapture","fontSize":20}},
+    {"type":"rectangle","id":"o3","x":465,"y":200,"width":160,"height":90,"roundness":{"type":3},"backgroundColor":"#d0bfff","fillStyle":"solid","strokeColor":"#8b5cf6","label":{"text":"Opus\nencode","fontSize":20}},
+    {"type":"rectangle","id":"w3","x":670,"y":200,"width":160,"height":90,"roundness":{"type":3},"backgroundColor":"#d0bfff","fillStyle":"solid","strokeColor":"#8b5cf6","label":{"text":"WebRTC\ntrack","fontSize":20}},
+    {"type":"rectangle","id":"r3","x":875,"y":200,"width":160,"height":90,"roundness":{"type":3},"backgroundColor":"#c3fae8","fillStyle":"solid","strokeColor":"#06b6d4","label":{"text":"Receiver\ndecode","fontSize":20}},
+    {"type":"rectangle","id":"s3","x":1080,"y":200,"width":100,"height":90,"roundness":{"type":3},"backgroundColor":"#b2f2bb","fillStyle":"solid","strokeColor":"#22c55e","label":{"text":"Phone\nspeaker","fontSize":18}},
+    {"type":"arrow","id":"x31","x":200,"y":245,"width":45,"height":0,"points":[[0,0],[45,0]],"endArrowhead":"arrow"},
+    {"type":"arrow","id":"x32","x":420,"y":245,"width":45,"height":0,"points":[[0,0],[45,0]],"endArrowhead":"arrow"},
+    {"type":"arrow","id":"x33","x":625,"y":245,"width":45,"height":0,"points":[[0,0],[45,0]],"endArrowhead":"arrow"},
+    {"type":"arrow","id":"x34","x":830,"y":245,"width":45,"height":0,"points":[[0,0],[45,0]],"endArrowhead":"arrow"},
+    {"type":"arrow","id":"x35","x":1035,"y":245,"width":45,"height":0,"points":[[0,0],[45,0]],"endArrowhead":"arrow"},
+    {"type":"text","id":"m31","x":55,"y":370,"text":"Diagnostic checkpoints","fontSize":22},
+    {"type":"rectangle","id":"q31","x":55,"y":430,"width":210,"height":70,"roundness":{"type":3},"backgroundColor":"#fff3bf","fillStyle":"solid","strokeColor":"#f59e0b","label":{"text":"frames received","fontSize":18}},
+    {"type":"rectangle","id":"q32","x":300,"y":430,"width":210,"height":70,"roundness":{"type":3},"backgroundColor":"#d0bfff","fillStyle":"solid","strokeColor":"#8b5cf6","label":{"text":"packets encoded","fontSize":18}},
+    {"type":"rectangle","id":"q33","x":545,"y":430,"width":210,"height":70,"roundness":{"type":3},"backgroundColor":"#ffd8a8","fillStyle":"solid","strokeColor":"#f59e0b","label":{"text":"ICE connected","fontSize":18}},
+    {"type":"rectangle","id":"q34","x":790,"y":430,"width":210,"height":70,"roundness":{"type":3},"backgroundColor":"#b2f2bb","fillStyle":"solid","strokeColor":"#22c55e","label":{"text":"samples written","fontSize":18}}
+  ],
+  "appState": {"viewBackgroundColor":"#ffffff"},
+  "files": {}
+}
