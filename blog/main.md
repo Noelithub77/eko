@@ -1,10 +1,10 @@
-# Building eko: how I learned Rust by streaming one movie to everyone's headphones
+# Building eko: streaming one movie to everyone's headphones
 
 ![eko: one laptop, many private headphones](images/00-cover.png)
 
-This is the story of eko, a small app that takes whatever your laptop is playing and streams it live to your friends' phones, so everyone can listen on their own headphones. It is also the story of how I finally learned Rust, because I picked a project where the language actually mattered.
+This is the story of eko, a small app that takes whatever your laptop is playing and streams it live to your friends' phones, so everyone can listen on their own headphones.
 
-I am still early in both journeys. But I learned more from this project than from any tutorial I have followed, and I want to share how it works while it is still fresh.
+Building it meant learning how sound actually travels: how you capture it, squeeze it into packets, get those packets across a Wi-Fi network and turn them back into sound in someone's ears without an awkward delay. I knew almost none of this when I started. I learned a lot, and I want to share how it all fits together while it is still fresh.
 
 ## It started on a train
 
@@ -43,13 +43,11 @@ The biggest mental shift for me was realising that WebRTC is really two conversa
 
 This separation saved me hours later. More than once the signaling worked perfectly while no sound arrived at all. Once I understood they were two different conversations, I stopped staring at the WebSocket logs and started asking the right question: did WebRTC actually find a path for the audio?
 
-## Why Rust
+## The shape of the app
 
 The desktop app is built with **Tauri 2**: a **React** interface on top of a **Rust** core. React handles the buttons, the QR code and the list of devices. Rust owns everything that has to keep running while you are watching: capturing audio, encoding it, signaling, discovery, WebRTC and the session itself.
 
-I had played with Rust before, but only through small exercises, and it never really stuck. I wanted a project where performance was not an abstract idea. Real time audio is perfect for that. A new chunk of sound arrives fifty times a second, forever, and any unnecessary copy, lock or blocking call can turn into a glitch you can actually hear.
-
-That made ownership, threads and memory feel like real tools rather than rules I had to memorise.
+Choosing Rust was also a small side goal of mine. I had only ever tried it through little exercises, and real time audio felt like the right place to learn it properly: a new chunk of sound arrives fifty times a second, and any wasted copy or blocking call can become a glitch you can hear.
 
 ## Following 20 milliseconds of sound
 
@@ -67,15 +65,15 @@ pub const FRAME_MS: u64 = 20;
 pub const FRAMES_PER_PACKET: usize = 960;
 ```
 
-Each chunk is sent through a **bounded channel with room for 8 frames** to an async task that encodes it with **Opus** at 128 kbps. This is where Rust started teaching me things I did not expect to learn.
+Each chunk is sent through a **bounded channel with room for 8 frames** to an async task that encodes it with **Opus** at 128 kbps. A few things here surprised me.
 
-**A bounded channel is a design decision, not a detail.** If the encoder ever falls behind, the capture thread simply waits for space instead of quietly filling memory with audio that is already too old to be useful. The channel also handles shutdown for free. When the stream stops and the receiving end is dropped, the next send fails and the capture thread exits on its own. I did not write any special "please stop now" logic. Ownership did it for me.
+**A bounded channel is a design decision, not a detail.** If the encoder ever falls behind, the capture thread simply waits for space instead of quietly filling memory with audio that is already too old to be useful. The channel also handles shutdown for free. When the stream stops and the receiving end is dropped, the next send fails and the capture thread exits on its own. I did not write any special "please stop now" logic; Rust's ownership rules did it for me, which was one of my favourite moments with the language.
 
 **Encode once, send many.** My first mental model was one encoder per phone. The actual design writes each Opus packet exactly once into a single shared track, and every phone's WebRTC connection reads from it. Adding a fifth listener does not add a fifth encoder. Each phone still gets its own independent connection, so one person with a bad signal does not drag everyone else down.
 
-**Real hardware is messy.** People plug in headphones in the middle of a movie, and Windows changes the default output device. eko listens for that change through a Windows notification callback, which flips an atomic flag. The capture loop notices, reconnects to the new device, and retries with a growing delay if something goes wrong. Writing that callback meant meeting `unsafe`, COM and `Arc<Mutex<...>>` all at once, and I understood each of them far better afterwards.
+**Real hardware is messy.** People plug in headphones in the middle of a movie, and Windows changes the default output device. eko listens for that change through a Windows notification callback, which flips an atomic flag. The capture loop notices, reconnects to the new device, and retries with a growing delay if something goes wrong. Hardware events turned out to be one of the trickiest parts of the whole project, because they arrive whenever they like.
 
-One rule I held myself to: **no `unwrap()` in runtime code.** Every failure becomes a `Result` with a readable message that ends up in the log or the interface. It felt slow at first. Then I noticed that when something broke, the app told me what it was instead of just disappearing.
+Across all of this I kept one rule: every failure becomes a readable error in the log or the interface, never a silent crash. When something broke, the app told me what it was.
 
 ## Letting someone in
 
@@ -88,7 +86,7 @@ Finding the laptop is easy. A phone can scan the QR code or find it on the local
 
 Every receiver starts as **Pending** until the person at the laptop approves it. Only then does WebRTC negotiation begin. A denied device stays blocked until the host unblocks it, so nobody can keep spamming join requests. Connections that fail can retry, and a stopped stream cleans every device up.
 
-Rust enums made this surprisingly pleasant. Each state is a variant, the compiler forces me to handle all of them, and with `specta` the same types are generated for the TypeScript interface. The React side literally cannot invent a state the Rust side does not know about.
+Each state is a variant of one Rust enum, and the same type is generated for the TypeScript interface, so the desktop, the phone and the UI always agree on what state a device is in.
 
 ## The phone side
 
@@ -127,7 +125,9 @@ TURN works almost everywhere, but it adds a hop, latency and bandwidth, so it is
 
 eko started as a small annoyance on a train. It ended up teaching me how audio moves from a sound card to a network packet and back into someone's ears, and why every buffer along the way is a trade between smoothness and delay.
 
-It also taught me Rust the way I had always hoped to learn it. Not by memorising rules, but by running into real problems: threads that need to stop cleanly, data shared between an audio callback and a decoder, devices that disappear halfway through a movie. Every time the compiler pushed back, it was usually pointing at a bug I would otherwise have met at 2 AM.
+It taught me that most of the interesting problems live between the pieces: between signaling and media, between the decoder and the speaker, between a phone's clock and the laptop's. Getting each piece working was the easy part. Making them agree with each other was where the learning happened.
+
+And the side goal worked out too. I came away much more comfortable with Rust, not from memorising rules but from real problems like threads that need to stop cleanly and devices that disappear halfway through a movie.
 
 ## What comes next
 
