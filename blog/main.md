@@ -1,141 +1,93 @@
-# Building eko: streaming one movie to everyone's headphones
+# One Laptop, Every Pair of Headphones, Zero Bluetooth
+
+*How a train ride turned into eko, a small app that streams your laptop's audio to everyone's phone*
 
 ![eko: one laptop, many private headphones](images/00-cover.png)
 
-This is the story of eko, a small app that takes whatever your laptop is playing and streams it live to your friends' phones, so everyone can listen on their own headphones.
+## 1. Why eko?
 
-Building it meant learning how sound actually travels: how you capture it, squeeze it into packets, get those packets across a Wi-Fi network and turn them back into sound in someone's ears without an awkward delay. I knew almost none of this when I started. I learned a lot, and I want to share how it all fits together while it is still fresh.
+The idea for eko started on a train journey with my friends. We wanted to watch a movie together, but playing it out loud would have annoyed everyone around us. We all had phones and headphones, so it felt like this should be easy.
 
-## It started on a train
-
-A few friends and I were on a long train journey and wanted to watch a movie together on one laptop. Playing it through the speakers would have annoyed everyone around us. Everyone had a phone and a pair of headphones, and yet there was no simple way to use them.
-
-Bluetooth was the obvious first try. It is great for one pair of headphones, but it is not built to send the same stream to several independent listeners. Bluetooth LE Audio and Auracast do solve this properly, but only when every device involved supports them. None of ours did.
+It wasn't. Bluetooth is great with one pair of headphones, but sending the same audio to several of them needs Bluetooth LE Audio or Auracast, and none of our devices supported either.
 
 ![Bluetooth sends sound to one device; eko sends it to every phone on the network](images/01-problem.png)
-*Bluetooth gives the sound to one device. eko turns every phone on the network into a headphone jack.*
+*Bluetooth gives the sound to one device. eko gives it to every phone.*
 
-So the question became: **how far can I get with the devices people already carry?**
-
-## What I wanted it to feel like
-
-Before writing any code, I wrote down how using it should feel. No accounts. No typing IP addresses. The person with the laptop stays in control of who listens. And the audio has to feel live, because a movie where the voices arrive after the lips move is not a movie anyone wants to watch.
-
-That turned into four steps:
+So I wondered how far I could get with the devices people already carry. No accounts, no typing IP addresses, and the person with the laptop decides who gets in.
 
 ![Start, scan, approve, listen](images/02-four-steps.png)
-*The whole experience: start the stream, scan the code, approve the phone, listen.*
+*Start, scan, approve, listen. That's the whole thing.*
 
-Everything in the rest of this post exists to make those four steps feel that simple.
+## 2. Exploring the Approach
 
-## Not reinventing the wire
+I didn't want to invent my own streaming protocol, so eko uses **WebRTC**, the same thing behind video calls in your browser. It already handles encryption, finding a route between devices, congestion and low latency audio with the **Opus** codec.
 
-My first instinct was to open a socket and start pushing audio bytes through it. I am glad I did not. Real time audio over a network needs encryption, a way for two devices to find a route to each other, a way to cope with congestion, and a codec designed for speech and music at low delay. **WebRTC** already does all of that, and it is the same technology behind video calls in the browser.
-
-The biggest mental shift for me was realising that WebRTC is really two conversations:
+What took me a while to understand is that WebRTC is really two conversations. A WebSocket where the devices agree on who is joining and how to reach each other, and then the audio itself. The first one working tells you nothing about the second. I learned that the hard way, more than once.
 
 ![Signaling over WebSocket, media over WebRTC](images/03-two-conversations.png)
-*Signaling decides who connects and how. Media carries the actual sound.*
+*Signaling sets things up. Media carries the sound.*
 
-**Signaling** is a small WebSocket conversation where the phone asks to join, the laptop approves it, and both sides swap the technical details WebRTC needs: an SDP offer and answer that describe the audio, and ICE candidates that describe possible network routes.
+## 3. Architecture
 
-**Media** is the audio itself, flowing as small encrypted Opus packets directly between the two devices.
+eko has three parts: a desktop app that captures and sends the audio, an Android app that plays it, and a browser page as a fallback for iPhones. On a local network everything talks directly. Cloudflare only steps in for the browser when a direct connection isn't possible.
 
-This separation saved me hours later. More than once the signaling worked perfectly while no sound arrived at all. Once I understood they were two different conversations, I stopped staring at the WebSocket logs and started asking the right question: did WebRTC actually find a path for the audio?
+![eko architecture: desktop, Android and browser clients](images/09-architecture.png)
+*The whole system on one page.*
 
-## The shape of the app
+### Why Rust?
 
-The desktop app is built with **Tauri 2**: a **React** interface on top of a **Rust** core. React handles the buttons, the QR code and the list of devices. Rust owns everything that has to keep running while you are watching: capturing audio, encoding it, signaling, discovery, WebRTC and the session itself.
+Learning Rust properly was a side goal of mine. I had only tried it through small exercises, and live audio felt like the right place to learn it for real, because every wasted copy or blocking call turns into a glitch you can actually hear.
 
-Choosing Rust was also a small side goal of mine. I had only ever tried it through little exercises, and real time audio felt like the right place to learn it properly: a new chunk of sound arrives fifty times a second, and any wasted copy or blocking call can become a glitch you can hear.
+### Desktop
 
-## Following 20 milliseconds of sound
+The desktop app uses **Tauri 2**. React draws the screens, and Rust owns everything that has to keep running while the movie plays.
 
-The easiest way to explain the core of eko is to follow one small slice of audio from the laptop to a phone.
+![React handles the interface, Rust handles everything live](images/10-desktop-split.png)
+*The UI only asks. Rust does the work.*
+
+### Audio Pipeline
+
+On Windows, eko records whatever the speakers are playing with **WASAPI loopback**, cuts it into 20 ms chunks and encodes each one as **48 kHz stereo Opus**. Each packet is encoded once and shared by every phone, so the fifth listener doesn't cost a fifth encoder.
 
 ![The audio pipeline on the desktop](images/04-pipeline.png)
-*From the speakers to every phone: capture, a small channel, one encoder, one shared track.*
+*From the speakers to every phone.*
 
-On Windows, eko uses **WASAPI loopback**, which lets an app record exactly what the default speakers are playing. A dedicated thread pulls that audio in chunks of 20 ms: 960 samples for each of the two stereo channels at 48 kHz.
+This is where latency stopped being an abstract number for me. Smaller packets mean less waiting but more overhead. Bigger buffers survive bad Wi-Fi but add delay. The whole game is finding the smallest numbers that still sound smooth.
 
-```rust
-pub const SAMPLE_RATE: u32 = 48_000;
-pub const CHANNELS: usize = 2;
-pub const FRAME_MS: u64 = 20;
-pub const FRAMES_PER_PACKET: usize = 960;
-```
+### Pairing and Session Control
 
-Each chunk is sent through a **bounded channel with room for 8 frames** to an async task that encodes it with **Opus** at 128 kbps. A few things here surprised me.
-
-**A bounded channel is a design decision, not a detail.** If the encoder ever falls behind, the capture thread simply waits for space instead of quietly filling memory with audio that is already too old to be useful. The channel also handles shutdown for free. When the stream stops and the receiving end is dropped, the next send fails and the capture thread exits on its own. I did not write any special "please stop now" logic; Rust's ownership rules did it for me, which was one of my favourite moments with the language.
-
-**Encode once, send many.** My first mental model was one encoder per phone. The actual design writes each Opus packet exactly once into a single shared track, and every phone's WebRTC connection reads from it. Adding a fifth listener does not add a fifth encoder. Each phone still gets its own independent connection, so one person with a bad signal does not drag everyone else down.
-
-**Real hardware is messy.** People plug in headphones in the middle of a movie, and Windows changes the default output device. eko listens for that change through a Windows notification callback, which flips an atomic flag. The capture loop notices, reconnects to the new device, and retries with a growing delay if something goes wrong. Hardware events turned out to be one of the trickiest parts of the whole project, because they arrive whenever they like.
-
-Across all of this I kept one rule: every failure becomes a readable error in the log or the interface, never a silent crash. When something broke, the app told me what it was.
-
-## Letting someone in
-
-Finding the laptop is easy. A phone can scan the QR code or find it on the local network through mDNS. But I wanted one rule to be impossible to break:
-
-> **Pairing identifies a device. Approval authorises it.**
+A phone can find the laptop through a QR code or on the local network, but finding it doesn't let it in. Pairing identifies a device. Approval authorizes it.
 
 ![Receiver states from pending to connected](images/05-approval-states.png)
-*Every receiver moves through the same states, whichever way it found the laptop.*
+*Nobody gets in without the host's nod.*
 
-Every receiver starts as **Pending** until the person at the laptop approves it. Only then does WebRTC negotiation begin. A denied device stays blocked until the host unblocks it, so nobody can keep spamming join requests. Connections that fail can retry, and a stopped stream cleans every device up.
+### Android Receiver
 
-Each state is a variant of one Rust enum, and the same type is generated for the TypeScript interface, so the desktop, the phone and the UI always agree on what state a device is in.
+On Android I wanted the audio to skip the browser completely. React handles scanning, status and buttons, while native Rust receives the stream, decodes it and plays it through **Oboe**.
 
-## The phone side
+![React controls, native Rust plays the audio](images/11-android-split.png)
+*The audio never touches the UI.*
 
-Android is the main receiver, and I wanted its audio path to be native rather than relying on a browser. The fun part: the phone runs **the same Rust core**. The React interface handles scanning, status and controls, while Rust receives the WebRTC audio, decodes the Opus packets and hands the sound to **Oboe**, Android's low latency audio library.
+A nice side effect: pausing clears the buffer, so pressing play takes you back to live instead of replaying the last few seconds.
 
-Between decoding and playback sits a queue, and this is where latency stopped being an abstract number for me.
+### Browser Fallback and TURN
 
-![The playback queue on the phone](images/06-phone-buffer.png)
-*The playback queue is a balancing act between smooth and live.*
-
-Oboe calls eko whenever the speaker needs more samples, and eko pulls them from the front of the queue. If the queue runs dry, it plays silence instead of stalling. If it grows too long, you are listening to the past, so it is capped at one second and the oldest samples are dropped first.
-
-Pausing taught me a small but satisfying lesson. If you only silence the speaker and keep the queue, pressing play gives you a few seconds of the past. So pausing clears the queue, and resume jumps straight back to the live stream.
-
-## Making everyone hear it at the same time
-
-Once several phones could connect, a new problem showed up. Without coordination, each receiver starts playing whenever its own connection finishes, so the same explosion in the movie lands at slightly different moments in different headphones.
-
-![Scheduling a shared start time](images/07-in-sync.png)
-*Every phone agrees on the laptop's clock, then starts on the same half second mark.*
-
-The fix borrows a trick from network time protocols. Each browser receiver asks the laptop for the time three times, measures the round trip, and works out how far its own clock is from the laptop's. The laptop then announces a start time: the next half second mark that is at least 250 ms away. Every phone waits for that moment on the shared clock and starts together.
-
-It is a small feature, but it was the moment the project started to feel like something real rather than a demo. Bringing the same scheduling to the native Android player is next on my list.
-
-## When the network says no
-
-On a normal home Wi-Fi network, WebRTC connects the laptop and the phone directly. Some networks block that, especially public or company ones. For those cases there is a browser receiver (mainly for iPhones) which can fall back to a **TURN relay**, a server that forwards the encrypted audio when a direct path is impossible.
+Some networks, like public or office Wi-Fi, block direct connections. For those, the browser client can fall back to a **TURN relay**. It works almost anywhere, but it adds a hop and costs bandwidth, so it's the backup and never the plan. The app shows which path each device actually ended up on.
 
 ![Direct connection first, TURN relay as a fallback](images/08-direct-or-turn.png)
-*Direct when possible, relayed only when necessary, and the app tells you which one you got.*
+*Direct when possible, relayed only when needed.*
 
-TURN works almost everywhere, but it adds a hop, latency and bandwidth, so it is a fallback and never the default. The browser receives credentials that expire after an hour instead of a permanent secret. And because "it connected" does not tell you much, eko reads the WebRTC stats for the route it actually chose and shows it next to each device: **Local**, **Direct** or **Relayed**. That single label has saved me a lot of guessing.
+## 4. What I Want to Explore Next
 
-## What I am taking away
+So far everything has been about making it work. Next I want to measure it properly on real phones: setup time, end to end latency, jitter, packet loss, and how many listeners one laptop can handle before it struggles. I'd rather share honest numbers along with the hardware and network they came from than one nice looking figure.
 
-eko started as a small annoyance on a train. It ended up teaching me how audio moves from a sound card to a network packet and back into someone's ears, and why every buffer along the way is a trade between smoothness and delay.
+After that: better recovery when things drop, Android background behaviour, and audio capture beyond Windows.
 
-It taught me that most of the interesting problems live between the pieces: between signaling and media, between the decoder and the speaker, between a phone's clock and the laptop's. Getting each piece working was the easy part. Making them agree with each other was where the learning happened.
+## What Building eko Has Taught Me
 
-And the side goal worked out too. I came away much more comfortable with Rust, not from memorising rules but from real problems like threads that need to stop cleanly and devices that disappear halfway through a movie.
+eko started from a small annoyance on a train. It ended up teaching me how sound travels from a sound card to a Wi-Fi packet and back into someone's ears, and why every buffer along the way is a trade-off. And I finally got comfortable with Rust, which was a nice bonus.
 
-## What comes next
-
-So far I have built for correctness. The next step is to measure honestly on real devices: setup time, end to end latency, jitter, packet loss and how many listeners the laptop can handle before things degrade. My target is under 100 ms from speaker to headphones, and I want to publish the numbers along with the hardware and network they came from, rather than a single flattering figure.
-
-After that: better recovery when connections drop, more work on Android background behaviour, and audio capture beyond Windows.
-
-If you have ever wanted to watch something together without disturbing the people around you, I would love for you to try it, break it and tell me what happened.
+If you've ever wanted to watch something together without bothering the people around you, give it a try and tell me what breaks.
 
 **Source code:** [github.com/Noelithub77/eko](https://github.com/Noelithub77/eko)
 
