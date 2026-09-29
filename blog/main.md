@@ -1,45 +1,45 @@
-# eko : apshare audio for everyone
-
 ## 1. Why eko?
 
-eko started during a train journey with friends. We wanted to watch a movie playing it on the speakers which might disturb our neighbors, which gave us a fairly specific problem: **one media source, multiple private audio outputs**.
+The idea for eko started on a train journey with my friends.
 
-Bluetooth seemed like the natural solution. It is excellent until you ask it to behave like a small broadcast system.
+We wanted to watch a movie together without playing the audio out loud to not disturb others nearby.  
+left me with a simple question:
 
-Traditional Bluetooth audio is built primarily around direct device-to-device playback.
- **Bluetooth LE Audio** and **Auracast** introduce proper broadcast capabilities, but availability still depends on compatible hardware, operating systems, profiles, and receivers. None of our devices supported it too.
+**How can one computer stream the same live audio to several nearby phones?**
 
-I wanted to explore whether the same experience could be built using hardware people already have.
+Bluetooth was the obvious place to start looking. It works well for normal audio devices, but sending one stream to several independent receivers is less straightforward. Technologies such as **Bluetooth LE Audio** and **Auracast** address this, but support still depends on compatible hardware, operating systems, and receivers.
 
-That became eko: capture system audio on a desktop and stream it with low latency to approved nearby devices.
+I wanted to see how far I could get using devices people already had.
 
-The constraints were:
+That became eko: capture the audio playing on a desktop and stream it to approved nearby devices with as little setup as possible.
 
-* No account for local use.
-* QR and local-network discovery.
-* Explicit host approval.
-* Low-latency playback.
-* No dedicated receiver hardware.
+The basic requirements were:
 
-The resulting interaction is intentionally small: start a stream, discover it, approve the receiver, and listen.
+- No account for local use.
+    
+- No manually entering IP addresses or ports.
+    
+- QR or local-network discovery.
+    
+- The host decides who can connect.
+    
+- Low enough latency to feel live.
+    
+- No dedicated receiving hardware.
+    
 
-> [Diagram 01 — Why Eko](./excali/01-why-eko.excalidraw): Desktop audio source → Bluetooth output versus Eko distributing the audio to several phones over the local network.
+The intended flow is simply: start the stream, scan a QR code, approve the device, and listen.
 
+![[Pasted image 20260916113204.png]]
 ---
 
-## 2. Choosing the Transport
+## 2. Exploring the Approach
 
-I chose **WebRTC** for the media layer.
+I ended up using **WebRTC** for the audio transport.
 
-It already provides most of the machinery a real-time stream needs:
+It already solves many of the problems I would otherwise have to build myself: peer connections, encryption, connectivity negotiation, congestion handling, and real-time codecs such as **Opus**.
 
-* Peer-to-peer media transport
-* Encryption
-* Connectivity negotiation
-* Congestion handling
-* Real-time codecs such as **Opus**
-
-The audio path is:
+The pipeline is:
 
 ```text
 Desktop audio
@@ -50,106 +50,117 @@ Opus
     ↓
 WebRTC
     ↓
-Receiver
+Phone
 ```
 
-Each receiver gets an independent peer connection. This keeps connection state isolated and lets receivers join or leave independently.
+Each receiver gets an independent WebRTC connection, so devices can join or leave without affecting the others.
 
-Discovery happens separately through a QR code or LAN discovery.
+Before creating that connection, the receiver first has to find the host. eko supports QR pairing and LAN discovery, but neither grants access by itself.
 
-I deliberately kept discovery and authorization separate:
+The distinction I settled on was:
 
 > **Pairing identifies a device. Approval authorizes it.**
 
-Only after approval does signaling begin.
+After approval, WebSocket signaling exchanges the information WebRTC needs to establish its media connection.
 
-A **WebSocket** carries SDP and ICE information between peers, while **WebRTC** handles the actual media.
+That separation also cleared up something I initially found confusing: signaling can work perfectly while the media connection still fails. A working WebSocket tells me the peers can coordinate; it does not tell me that WebRTC found a path for the audio.
 
-This distinction became important surprisingly quickly. A healthy signaling connection says almost nothing about whether media can actually flow. WebRTC still has to negotiate a usable network path.
-
-> [Diagram 02 — The innovation](./excali/02-innovation.excalidraw): Discover → Request → Approve → Negotiate WebRTC → Stream audio.
+> _[Excalidraw diagram 02: Discover → Request → Approve → Negotiate WebRTC → Play audio.]_
 
 ---
 
 ## 3. Architecture
 
-The desktop application uses **Tauri 2**, with **React** for the interface and **Rust** for the core.
+The desktop application uses **Tauri 2**, with a **React** interface and a **Rust** core.
 
 ### Why Rust?
 
-I also wanted eko to be a serious Rust learning project.
+One of my goals with eko was to properly learn Rust.
 
-I had already experimented with Rust, but I wanted to use it somewhere performance was a real constraint rather than a theoretical advantage.
+I had experimented with the language before, but I wanted to use it somewhere performance actually mattered rather than learning it entirely through small exercises.
 
-Real-time audio provides that nicely.
+Real-time audio seemed like a good fit. Capture, encoding, buffering, and networking happen continuously, so unnecessary allocations, copies, blocking work, or poor concurrency decisions can directly affect latency and playback.
 
-Capture, encoding, buffering, and networking run continuously. Extra copies, allocations, blocking work, and poor concurrency decisions can become latency, CPU usage, or broken playback.
+That gives me a practical reason to learn concepts such as ownership, memory management, concurrency, and efficient data movement instead of treating them as language features in isolation.
 
-That makes concepts such as ownership, borrowing, concurrency, memory layout, and efficient data movement much less academic.
+I am still learning Rust, which is part of the reason I chose it here: this project forces me to think more carefully about how the code behaves rather than only whether it works.
 
-I wanted a project where writing reasonably efficient Rust was part of making the system work, not an optional optimization pass at the end.
+### Desktop
 
-### Desktop Core
+React handles the interface:
 
-React handles the user-facing state:
+- Stream controls
+    
+- QR pairing
+    
+- Device management
+    
+- Approval
+    
+- Connection status
+    
+- Settings
+    
 
-* Stream controls
-* Pairing
-* Receiver management
-* Approval
-* Connection status
-* Settings
+Rust owns the underlying session:
 
-Rust owns:
+- Audio capture
+    
+- Opus encoding
+    
+- WebRTC connections
+    
+- WebSocket signaling
+    
+- Device and session state
+    
+- Pairing
+    
+- Connection control
+    
+- Diagnostics
+    
 
-* Audio capture
-* Opus encoding
-* WebRTC connections
-* WebSocket signaling
-* Session state
-* Receiver state
-* Pairing
-* Connection lifecycle
-* Diagnostics
-
-The UI therefore controls the session without owning the media pipeline.
+This keeps the media and authorization logic independent from the UI.
 
 ### Audio Pipeline
 
-On Windows, system audio is captured using **WASAPI loopback**.
+On Windows, eko captures the default system output using **WASAPI loopback**.
 
 ```text
 WASAPI loopback
       ↓
 PCM
       ↓
-Opus
+Opus encoder
       ↓
 WebRTC
       ↓
-Decode
+Decoder
       ↓
 Native audio output
 ```
 
-The current stream uses **48 kHz stereo Opus with 20 ms frames**.
+The current stream uses **48 kHz stereo Opus with 20 ms packets**.
 
-Latency here is mostly a collection of small trade-offs.
+This part of the project made latency feel much less abstract.
 
-Shorter frames and smaller buffers reduce delay, but leave less room for scheduling variation and network jitter. Larger buffers make playback more tolerant but move it further away from live.
+Smaller packets can reduce waiting time but increase overhead. Larger playback buffers tolerate jitter better but add delay.
 
-So the useful target is not simply *minimum buffering*. It is the minimum buffering that remains stable under realistic conditions.
+So the problem is not simply making everything as small as possible. It is finding the smallest buffers and packet sizes that still keep playback stable.
 
-> [Diagram 03 — Audio pipeline](./excali/03-audio-pipeline.excalidraw): WASAPI → PCM → Opus → WebRTC → Decode → Speaker, with buffering and diagnostic checkpoints.
+> _[Excalidraw diagram 03: WASAPI → PCM → Opus → WebRTC → Decode → Speaker, with buffering shown around the transport and playback stages.]_
 
 ### Pairing and Session Control
 
-Receivers can discover a host through:
+A receiver can find a host through:
 
-* QR pairing
-* LAN discovery
+- A QR code
+    
+- LAN discovery
+    
 
-Both enter the same session state machine:
+Both lead into the same state flow:
 
 ```text
 Join requested
@@ -163,24 +174,17 @@ Negotiating
 Connected
 ```
 
-Other terminal or recovery states include denial, disconnection, stop, and retry.
+Sessions can also be denied, disconnected, stopped, or retried.
 
-After approval, SDP and ICE candidates are exchanged through signaling and WebRTC establishes the media path.
+Once approved, the peers exchange **SDP** and **ICE candidates** through WebSocket signaling while WebRTC carries the audio itself.
 
-> [Diagram 04 — Approval state](./excali/04-approval-state.excalidraw): Join requested → Waiting → Approved → Negotiating → Connected, with denial and disconnection branches.
+> _[Excalidraw diagram 04: Join requested → Waiting → Approved → Negotiating → Connected, with Denied and Disconnected branches.]_
 
 ### Android Receiver
 
-Android is the primary mobile target, so its playback path is native rather than browser-driven.
+Android is the main mobile target, so I wanted its audio path to be native rather than relying entirely on browser playback.
 
-React handles:
-
-* Discovery
-* Pairing
-* Connection state
-* Playback controls
-
-The native layer handles:
+The React interface handles discovery, pairing, status, and controls. The native layer handles WebRTC reception, decoding, buffering, and audio output.
 
 ```text
 WebRTC
@@ -192,54 +196,58 @@ Playback buffer
 Native audio output
 ```
 
-This gives the receiver explicit control over buffering and lifecycle behaviour.
+This also gives the receiver better control over playback behaviour.
 
-For example, pausing discards stale buffered samples. Resuming returns to the current live position rather than replaying whatever accumulated in the meantime.
+For example, pausing should discard stale buffered audio so resuming returns to the live stream instead of playing audio from several seconds ago.
 
-The media engine therefore remains independent of the UI lifecycle.
+Keeping the media engine outside the UI also makes Android lifecycle behaviour easier to reason about.
 
-> [Diagram 05 — Android playback boundary](./excali/05-android-boundary.excalidraw): React UI controlling a native media layer while WebRTC audio flows to native output.
+> _[Excalidraw diagram 05: React UI controlling a native media layer, with the WebRTC audio path going directly through the native layer to audio output.]_
 
 ### Browser Fallback and TURN
 
-A browser receiver provides a fallback for platforms where the native client is unavailable, particularly iOS.
+There is also a browser receiver, mainly as a fallback for platforms such as iOS.
 
-The preferred WebRTC path is direct:
+Whenever possible, WebRTC connects the peers directly:
 
 ```text
 Desktop → Receiver
 ```
 
-When ICE cannot establish a direct connection, the stream can use a **TURN relay**:
+Some networks prevent that, so eko can fall back to a **TURN relay**:
 
 ```text
 Desktop → TURN → Receiver
 ```
 
-TURN improves reachability at the cost of an additional network hop, relay bandwidth, and infrastructure dependency, so it remains a fallback.
+TURN improves connectivity but adds bandwidth, cost, and another network hop, so it is a fallback rather than the normal path.
 
-TURN access also uses short-lived credentials rather than distributing the service's long-lived secret to clients.
+The client also receives short-lived TURN credentials instead of exposing a long-lived service secret.
 
-> [Diagram 06 — Direct path and TURN fallback](./excali/06-turn-fallback.excalidraw): Direct WebRTC as the preferred route, with TURN when direct ICE connectivity fails.
-
-> [Diagram 07 — Debugging by evidence](./excali/07-debugging.excalidraw): Healthy capture and encoding followed by a missing ICE path, showing why audio did not reach the receiver.
+> _[Excalidraw diagram 06: Direct WebRTC path as the preferred route, with TURN shown as the fallback when ICE cannot establish a direct connection.]_
 
 ---
 
 ## 4. What I Want to Explore Next
 
-The next phase is mostly about replacing assumptions with measurements.
+The next step is less about adding features and more about measuring how well the current system actually works.
 
-I want to benchmark:
+The main things I want to measure on real devices are:
 
-* Connection setup time
-* End-to-end audio latency
-* Jitter
-* Packet loss
-* Buffer behaviour
-* Connection stability
+- Connection setup time
+    
+- End-to-end latency
+    
+- Jitter
+    
+- Packet loss
+    
+- Buffer behaviour
+    
+- Connection stability
+    
 
-Results should include enough context to reproduce them:
+I also want to record the test environment instead of publishing isolated numbers:
 
 ```text
 Hardware
@@ -249,40 +257,41 @@ Median latency
 Worst-case latency
 ```
 
-I also want to measure how the architecture behaves as receivers are added.
+Another important test is scaling the number of receivers.
 
-Each receiver currently has an independent WebRTC connection, so scaling will eventually be limited by some combination of encoding work, CPU usage, bandwidth, Wi-Fi behaviour, packet loss, and buffering.
+Every receiver currently has its own WebRTC connection, so the practical limit will depend on CPU usage, encoding, bandwidth, Wi-Fi conditions, packet loss, and buffering.
 
-Finding that limit experimentally is considerably more useful than guessing it from the architecture.
+Rather than estimate that limit, I want to measure where the system actually starts to degrade.
 
-Other areas I want to explore include:
+Other areas I want to explore are:
 
-1. Better latency, jitter, packet-loss, and buffering diagnostics.
-2. More complete connection lifecycle testing.
-3. Android background and lifecycle behaviour.
-4. Audio capture backends beyond Windows.
-5. Recovery from network and device failures.
+1. Better latency, jitter, packet-loss, and buffer diagnostics.
+    
+2. More testing around joining, approval, disconnection, and cleanup.
+    
+3. Android lifecycle and background behaviour.
+    
+4. Audio capture on operating systems beyond Windows.
+    
+5. Better recovery when connections or devices fail.
+    
 
 ---
 
 ## What Building eko Has Taught Me
 
-eko has been useful because it connects several topics I had previously explored separately.
+eko started from a small inconvenience, but it gave me a reason to explore several areas I had only understood individually before.
 
-The complete path,
+Working on the whole path from **system audio → encoding → networking → decoding → playback** made the relationship between them much clearer.
 
-**system audio → PCM → encoding → networking → decoding → playback**
+It has also been a useful way to learn Rust. Instead of optimizing code because a benchmark says it is faster, I can see why efficiency matters when extra work becomes latency, buffering, or CPU usage.
 
-makes interactions between systems programming, networking, and real-time media much easier to understand than studying each in isolation.
-
-It has also been a much better way for me to learn Rust. Performance decisions have visible consequences: unnecessary work eventually becomes CPU usage, buffering, or latency.
-
-There is still plenty of the system I want to improve, which is exactly why I find the project useful. Each limitation exposes another layer worth understanding.
+There is still quite a lot I want to improve. That is also what makes the project useful to me: every limitation gives me another part of the system to understand.
 
 ---
 
-**Source code:**
-https://github.com/Noelithub77/eko
+**Source code:**  
+[https://github.com/Noelithub77/eko](https://github.com/Noelithub77/eko)
 
-**Privacy policy:**
-https://github.com/Noelithub77/eko/blob/main/docs/Privacy_Policy.md
+**Privacy policy:**  
+[https://github.com/Noelithub77/eko/blob/main/docs/Privacy_Policy.md](https://github.com/Noelithub77/eko/blob/main/docs/Privacy_Policy.md)
