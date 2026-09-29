@@ -5,6 +5,8 @@
   "version": "0.4.1",
   "type": "module",
   "scripts": {
+    "blog:diagrams": "node blog/scripts/export-diagrams.mjs",
+    "blog:medium": "node blog/scripts/medium.mjs",
     "start": "pnpm dev:desktop",
     "dev:web": "cross-env PLATFORM=desktop vite",
     "dev:web:desktop": "cross-env PLATFORM=desktop vite",
