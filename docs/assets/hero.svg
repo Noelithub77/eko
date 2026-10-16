@@ -10,7 +10,7 @@
 <rect width="1200" height="380" rx="24" fill="#101010"/>
 <rect x="1" y="1" width="1198" height="378" rx="23" fill="none" stroke="#252525"/>
 <ellipse cx="600" cy="140" rx="470" ry="235" fill="url(#glow)"/>
-<g fill="none" stroke-width="1.5"><circle class="echo" cx="600" cy="106" r="115" stroke="#ff6b5b"/><circle class="echo second" cx="600" cy="106" r="115" stroke="#2ec4b6"/></g>
+<g fill="none" stroke-width="1.5"><circle class="echo" opacity="0" cx="600" cy="106" r="115" stroke="#ff6b5b"/><circle class="echo second" opacity="0" cx="600" cy="106" r="115" stroke="#2ec4b6"/></g>
 <g transform="translate(536 42) scale(2)"><g fill="none" stroke-width="5" stroke-linecap="round"><path d="M21.2 35.3A11 11 0 1 1 35.8 23.1" stroke="#ff6b5b"/><circle cx="25" cy="25" r="3.5" fill="#ff6b5b" stroke="none"/><circle cx="39" cy="39" r="3.5" fill="#2ec4b6" stroke="none"/><path d="M42.8 28.7A11 11 0 1 1 28.2 40.9" stroke="#2ec4b6"/></g></g>
 <g text-anchor="middle" font-family="Nunito,ui-rounded,system-ui,sans-serif">
 <text x="600" y="228" fill="#ededed" font-size="54" font-weight="700">One laptop. <tspan fill="#2ec4b6">Every headphone.</tspan></text>
