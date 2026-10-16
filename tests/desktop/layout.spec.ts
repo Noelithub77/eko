@@ -7,7 +7,7 @@ for (const viewport of [{ width: 900, height: 600 }, { width: 1280, height: 800 
     await page.addInitScript(() => {
       let callback = 0;
       const session = { status: "running", roomId: "fixture", host: "192.168.1.20", port: 44000, devices: [], metrics: [], events: [] };
-      const qrPayload = { version: 1, local: { host: "192.168.1.20", port: 44000 }, hosted: { roomId: "fixture", joinToken: "fixture", socketUrl: "wss://eko.allpyq.in/v1/rooms/fixture/socket", clientUrl: "https://eko.allpyq.in/client/" } };
+      const qrPayload = { version: 1, local: { host: "192.168.1.20", port: 44000 }, hosted: { roomId: "11111111-2222-4333-8444-555555555555", joinToken: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", socketUrl: "wss://eko.allpyq.in/v1/rooms/fixture/socket", clientUrl: "https://eko.allpyq.in/client/" } };
       Object.defineProperty(window, "__TAURI_INTERNALS__", { value: {
         metadata: { currentWindow: { label: "main" }, currentWebview: { windowLabel: "main", label: "main" } },
         transformCallback: () => ++callback,

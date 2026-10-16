@@ -34,7 +34,7 @@ export function QrPairingCard({ payload }: QrPairingCardProps) {
           tooltip="Pairing uses eko’s hosted service. Audio uses a direct path when possible and Cloudflare TURN when the network blocks direct media."
         />
       </div>
-      <div className="mt-8 flex aspect-square w-full max-w-[min(46vh,460px)] items-center justify-center">
+      <div className="mt-8 flex aspect-square w-full max-w-[min(38vh,360px)] items-center justify-center opacity-80">
         {qrValue ? (
           <StyledPairingQr value={qrValue} />
         ) : (
