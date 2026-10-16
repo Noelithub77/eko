@@ -8,16 +8,16 @@ import { fileURLToPath } from "node:url";
 const blogDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 const imageBase = process.env.IMAGE_BASE ?? "https://raw.githubusercontent.com/Noelithub77/eko/main/blog/";
 
-const escape = (text) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const escapeHtml = (text) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 function inline(text) {
   const codes = [];
-  let out = escape(text).replace(/`([^`]+)`/g, (_, code) => `\u0000${codes.push(code) - 1}\u0000`);
+  let out = escapeHtml(text).replace(/`([^`]+)`/g, (_, code) => `\uE000${codes.push(code) - 1}\uE000`);
   out = out
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/\*([^*]+)\*/g, "<em>$1</em>");
-  return out.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${codes[Number(i)]}</code>`);
+  return out.replace(/\uE000(\d+)\uE000/g, (_, i) => `<code>${codes[Number(i)]}</code>`);
 }
 
 function render(markdown) {
@@ -35,13 +35,13 @@ function render(markdown) {
       flush();
       const code = [];
       while (++i < lines.length && !lines[i].startsWith("```")) code.push(lines[i]);
-      html.push(`<pre><code>${escape(code.join("\n"))}</code></pre>`);
+      html.push(`<pre><code>${escapeHtml(code.join("\n"))}</code></pre>`);
     } else if (image) {
       flush();
       const src = /^https?:/.test(image[2]) ? image[2] : imageBase + image[2];
       const caption = lines[i + 1]?.match(/^\*([^*].*)\*$/);
       if (caption) i++;
-      html.push(`<figure><img src="${src}" alt="${escape(image[1])}">${caption ? `<figcaption>${inline(caption[1])}</figcaption>` : ""}</figure>`);
+      html.push(`<figure><img src="${src}" alt="${escapeHtml(image[1])}">${caption ? `<figcaption>${inline(caption[1])}</figcaption>` : ""}</figure>`);
     } else if (/^#{1,3} /.test(line)) {
       flush();
       const level = line.indexOf(" ");
@@ -68,7 +68,7 @@ function render(markdown) {
 const markdown = await readFile(join(blogDir, "main.md"), "utf8");
 const title = markdown.match(/^# (.+)$/m)?.[1] ?? "eko";
 const page = `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>${escape(title)}</title>
+<html lang="en"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 body { max-width: 720px; margin: 48px auto; padding: 0 16px; font: 19px/1.6 Georgia, serif; color: #242424; background: #fff; }
