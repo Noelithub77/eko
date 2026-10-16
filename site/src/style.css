@@ -19,6 +19,9 @@ kbd { display: inline-grid; place-items: center; min-width: 22px; height: 22px; 
 .nav { display: flex; gap: 4px; padding: 4px; border: 1px solid #ffffff0f; border-radius: 999px; background: #151515b3; font-size: 14px; color: var(--muted); }
 .nav a { padding: 7px 14px; border-radius: 999px; transition: color .2s, background .2s; }
 .nav a:hover { color: var(--fg); background: #222; }
+.bar-end { display: flex; align-items: center; gap: 4px; }
+.blog { padding: 7px 12px; border-radius: 999px; font-size: 14px; color: var(--muted); transition: color .2s, background .2s; }
+.blog:hover { color: var(--fg); background: #1c1c1c; }
 .github { display: grid; place-items: center; width: 40px; height: 40px; color: var(--amber); border-radius: 999px; transition: background .2s; }
 .github:hover { background: #1c1c1c; }
 /* The page as a signal: amber at the source, cyan at the echo. */
