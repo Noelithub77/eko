@@ -4,7 +4,7 @@
 
 - The first paint is plain HTML with inline hero CSS and a small download entry module.
 - GSAP (ScrollTrigger, SplitText, DrawSVG), Lenis, rough.js scenes, and an OGL ripple shader load on idle. React with Sonner loads only for toasts.
-- The design follows leet: Vesper black, Nunito titles, and Liberation Sans body text. Eko's own amber `#ffc131` and cyan `#24c8db` replace mint and peach.
+- The design follows leet: Vesper black, Nunito titles, and Liberation Sans body text. Eko's coral `#ff6b5b` (the sound) and teal `#2ec4b6` (its echo) replace mint and peach; see `plan/brand-revamp/`.
 - The page explains the product rather than showing the app UI. Hand-drawn scenes in the Excalidraw style (rough.js with Excalifont) draw themselves as you scroll.
 
 Other options considered:

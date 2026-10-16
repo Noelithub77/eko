@@ -16,19 +16,19 @@ export const build: Build = (svg, narrow) => {
 
   const relayPackets = s.group(null);
   const directPackets = s.group(null);
-  const relay = s.arrow([at([210, 262], [110, 368]), [sky[0], sky[1] + 30], at([800, 262], [318, 368])], { stroke: ink.cyan, width: 2 });
-  const direct = s.arrow([at([225, 318], [128, 420]), [mid, desk[1] + (narrow ? 8 : 12)], at([815, 318], [308, 420])], { stroke: ink.cyan, width: 2.4 });
+  const relay = s.arrow([at([210, 262], [110, 368]), [sky[0], sky[1] + 30], at([800, 262], [318, 368])], { stroke: ink.teal, width: 2 });
+  const direct = s.arrow([at([225, 318], [128, 420]), [mid, desk[1] + (narrow ? 8 : 12)], at([815, 318], [308, 420])], { stroke: ink.teal, width: 2.4 });
 
   const ends = s.group(null, () => {
-    laptop(s, desk[0], desk[1], narrow ? 96 : 140, { stroke: ink.amber });
+    laptop(s, desk[0], desk[1], narrow ? 96 : 140, { stroke: ink.coral });
     phone(s, hand[0], hand[1], narrow ? 84 : 120);
   });
   const turn = s.group(null, () => {
     cloud(s, sky[0], sky[1], narrow ? 180 : 270);
     s.text(sky[0], sky[1] - 2, narrow ? "TURN" : "Cloudflare TURN", { size: narrow ? 19 : 21, color: ink.soft });
   });
-  const directLabel = s.text(mid, desk[1] + (narrow ? 92 : 70), narrow ? "direct" : "direct, on the same network", { size: 20, color: ink.cyan });
-  const relayLabel = s.text(narrow ? sky[0] : sky[0] + 150, narrow ? 250 : 82, narrow ? "relay" : "encrypted relay", { size: 20, color: ink.cyan, anchor: narrow ? "middle" : "start" });
+  const directLabel = s.text(mid, desk[1] + (narrow ? 92 : 70), narrow ? "direct" : "direct, on the same network", { size: 20, color: ink.teal });
+  const relayLabel = s.text(narrow ? sky[0] : sky[0] + 150, narrow ? 250 : 82, narrow ? "relay" : "encrypted relay", { size: 20, color: ink.teal, anchor: narrow ? "middle" : "start" });
 
   const wall = s.group(null, () => {
     const w = narrow ? 34 : 46;
@@ -49,11 +49,11 @@ export const build: Build = (svg, narrow) => {
   drawOn(story, ends, "step0", 0.8);
   drawOn(story, turn, "step0+=0.3", 0.8);
   drawOn(story, [direct.group, directLabel], ">-0.2", 0.8);
-  travel(story, s, direct.guide, ink.amber, ">-0.2", 0.9);
+  travel(story, s, direct.guide, ink.coral, ">-0.2", 0.9);
   story.to({}, { duration: 0.3 });
 
-  s.into(directPackets, () => stream(loop, s, direct.guide, ink.amber, 5, 2, 6));
-  s.into(relayPackets, () => stream(loop, s, relay.guide, ink.amber, 6, 3, 6));
+  s.into(directPackets, () => stream(loop, s, direct.guide, ink.coral, 5, 2, 6));
+  s.into(relayPackets, () => stream(loop, s, relay.guide, ink.coral, 6, 3, 6));
 
   let current = "direct";
   const act = (value: string) => {

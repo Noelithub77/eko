@@ -23,25 +23,25 @@
       @font-face{font-family:"Liberation Sans";src:url(/fonts/liberation-sans-bold.woff2) format("woff2");font-weight:700;font-display:swap}
       @font-face{font-family:"Nunito";src:url(/fonts/nunito-bold.woff2) format("woff2");font-weight:700;font-display:swap}
       @font-face{font-family:"Excalifont";src:url(/fonts/excalifont.woff2) format("woff2");font-weight:400;font-display:swap}
-      :root{--bg:#101010;--fg:#ededed;--muted:#9a9a9a;--line:#232323;--card:#151515;--amber:#ffc131;--cyan:#24c8db;--ink:#06191c;--radius:22px;--ease:cubic-bezier(.22,1,.36,1);--shadow:0 1px 0 #ffffff0a inset,0 24px 60px -30px #000c,0 2px 6px -2px #0008;font-family:"Liberation Sans",Arimo,Arial,sans-serif;color:var(--fg);background:var(--bg);color-scheme:dark;-webkit-text-size-adjust:100%;-webkit-font-smoothing:antialiased}
+      :root{--bg:#101010;--fg:#ededed;--muted:#9a9a9a;--line:#232323;--card:#151515;--coral:#ff6b5b;--teal:#2ec4b6;--ink:#04201d;--radius:22px;--ease:cubic-bezier(.22,1,.36,1);--shadow:0 1px 0 #ffffff0a inset,0 24px 60px -30px #000c,0 2px 6px -2px #0008;font-family:"Liberation Sans",Arimo,Arial,sans-serif;color:var(--fg);background:var(--bg);color-scheme:dark;-webkit-text-size-adjust:100%;-webkit-font-smoothing:antialiased}
       *{box-sizing:border-box}body{margin:0;overflow-x:clip}a{color:inherit;text-decoration:none}[hidden]{display:none!important}
       .bar{position:fixed;inset:0 0 auto;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:max(14px,env(safe-area-inset-top)) clamp(16px,4vw,40px) 14px}
       .brand{display:inline-flex;align-items:center;gap:10px;font:700 21px/1 "Nunito","Liberation Sans",sans-serif;letter-spacing:-.02em}
       .hero{position:relative;min-height:100svh;display:grid;place-items:center;padding:104px 20px 120px;text-align:center;isolation:isolate;overflow:hidden}
-      .hero-backdrop{position:absolute;inset:0;z-index:-3;background:radial-gradient(55% 45% at 38% 40%,#ffc1310f,transparent 70%),radial-gradient(50% 45% at 62% 62%,#24c8db12,transparent 70%)}
+      .hero-backdrop{position:absolute;inset:0;z-index:-3;background:radial-gradient(55% 45% at 38% 40%,#ff6b5b0f,transparent 70%),radial-gradient(50% 45% at 62% 62%,#2ec4b612,transparent 70%)}
       .hero-canvas{position:absolute;inset:0;z-index:-2;width:100%;height:100%;opacity:0;transition:opacity 1.4s ease}.hero-canvas.is-live{opacity:1}
       .hero-inner{position:relative;width:min(100%,860px);display:grid;justify-items:center}
       .mark{display:block;overflow:visible}
       .hero .mark{width:clamp(132px,19vw,196px);height:auto}
-      .mark .echo{transform-box:view-box;transform-origin:256px 255.5px;color:var(--cyan)}
+      .mark .echo{transform-box:view-box;transform-origin:256px 256px;color:var(--teal)}
       .js .mark .src{animation:src .8s var(--ease) both}
       .js .mark .echo{animation:echo 1.6s .35s cubic-bezier(.65,0,.35,1) both}
       @keyframes src{from{opacity:0;transform:scale(.9)}}
-      @keyframes echo{0%{transform:rotate(0);color:var(--amber);opacity:0}12%{opacity:1}100%{transform:rotate(180deg);color:var(--cyan)}}
-      .mark .src{transform-box:view-box;transform-origin:256px 255.5px}
+      @keyframes echo{0%{transform:rotate(0);color:var(--coral);opacity:0}12%{opacity:1}100%{transform:rotate(180deg);color:var(--teal)}}
+      .mark .src{transform-box:view-box;transform-origin:256px 256px}
       h1{margin:34px 0 0;font:700 clamp(44px,8vw,100px)/1.04 "Nunito","Liberation Sans",sans-serif;letter-spacing:-.045em}
       .h1-echo{position:relative;display:inline-block;color:var(--fg)}
-      .h1-echo::before,.h1-echo::after{content:attr(data-text);position:absolute;inset:0;pointer-events:none;color:var(--cyan);z-index:-1}
+      .h1-echo::before,.h1-echo::after{content:attr(data-text);position:absolute;inset:0;pointer-events:none;color:var(--teal);z-index:-1}
       .h1-echo::before{opacity:.2;transform:translateY(.1em)}.h1-echo::after{opacity:.08;transform:translateY(.2em)}
       .js .h1-echo::before{animation:ring1 1.4s 1.1s var(--ease) both}.js .h1-echo::after{animation:ring2 1.6s 1.25s var(--ease) both}
       @keyframes ring1{from{opacity:0;transform:none}}@keyframes ring2{from{opacity:0;transform:none}}
@@ -51,8 +51,8 @@
       .platforms button{border:0;border-radius:999px;padding:6px 14px;background:none;color:var(--muted);font:inherit;font-size:13px;cursor:pointer}
       .platforms [aria-selected=true]{background:#262626;color:var(--fg);box-shadow:0 1px 2px #0006}
       .get-row{display:flex;align-items:center;gap:12px;padding:8px 8px 8px 16px;border-radius:16px;background:#0e0e0e;border:1px solid #1f1f1f}
-      .get-row code{flex:1;min-width:0;font:13px/1.6 ui-monospace,"SF Mono","JetBrains Mono","Liberation Mono",Consolas,monospace;color:#d3eef1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      .download{display:inline-flex;align-items:center;gap:9px;padding:11px 16px 11px 18px;border-radius:12px;background:var(--cyan);color:var(--ink);font-weight:700;font-size:14px;white-space:nowrap;box-shadow:0 8px 24px -10px #24c8db99}
+      .get-row code{flex:1;min-width:0;font:13px/1.6 ui-monospace,"SF Mono","JetBrains Mono","Liberation Mono",Consolas,monospace;color:#d6f1ed;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .download{display:inline-flex;align-items:center;gap:9px;padding:11px 16px 11px 18px;border-radius:12px;background:var(--teal);color:var(--ink);font-weight:700;font-size:14px;white-space:nowrap;box-shadow:0 8px 24px -10px #2ec4b699}
       .download svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
       .note{margin:18px 0 0;color:#727272;font-size:13.5px}
       @media (max-width:640px){.hero{padding:88px 18px 104px}.hero .mark{width:clamp(112px,32vw,150px)}h1{margin-top:28px;font-size:clamp(38px,11vw,56px)}.lede{margin-top:34px}.getcard{margin-top:28px}.platforms{margin-inline:auto}.get-row{flex-direction:column;align-items:stretch;padding:12px}.get-row code{text-align:center}.download{justify-content:center}}
@@ -80,8 +80,8 @@
         <canvas class="hero-canvas" data-shader aria-hidden="true"></canvas>
         <div class="hero-inner" data-hero>
           <svg class="mark" data-mark viewBox="0 0 512 512" role="img" aria-label="The eko mark: one ring and its echo">
-            <g class="src" fill="#ffc131"><path d="M148.3 148.8A150 150 0 1 1 321 344.8A104 104 0 0 0 324.8 297.1A105 105 0 1 0 207.1 133.6A180 180 0 0 0 148.3 148.8Z" /><circle cx="290" cy="198" r="40" data-dot="src" /></g>
-            <g class="echo" fill="currentColor"><path d="M148.3 148.8A150 150 0 1 1 321 344.8A104 104 0 0 0 324.8 297.1A105 105 0 1 0 207.1 133.6A180 180 0 0 0 148.3 148.8Z" /><circle cx="290" cy="198" r="40" data-dot="echo" /></g>
+            <g class="src" fill="#ff6b5b" stroke="#ff6b5b"><path d="M169.6 282.4A88 88 0 1 1 286.4 184.8" fill="none" stroke-width="40" stroke-linecap="round" /><circle cx="200" cy="200" r="28" stroke="none" data-dot="src" /></g>
+            <g class="echo" fill="currentColor" stroke="currentColor"><path d="M169.6 282.4A88 88 0 1 1 286.4 184.8" fill="none" stroke-width="40" stroke-linecap="round" /><circle cx="200" cy="200" r="28" stroke="none" data-dot="echo" /></g>
           </svg>
           <h1>One laptop.<br /><span class="h1-echo" data-text="Every headphone.">Every headphone.</span></h1>
           <p class="lede">eko echoes your computer's audio to every phone nearby over Wi‑Fi, so everyone listens on their own headphones. No accounts, no cables, and you approve every device.</p>
@@ -132,8 +132,8 @@
             <div class="name-mark">
               <svg class="mark" data-name-mark viewBox="0 0 512 512" aria-hidden="true">
                 <g class="name-rings" fill="none" stroke-width="2"></g>
-                <g class="src" fill="#ffc131"><path d="M148.3 148.8A150 150 0 1 1 321 344.8A104 104 0 0 0 324.8 297.1A105 105 0 1 0 207.1 133.6A180 180 0 0 0 148.3 148.8Z" /><circle cx="290" cy="198" r="40" /></g>
-                <g class="echo" fill="currentColor"><path d="M148.3 148.8A150 150 0 1 1 321 344.8A104 104 0 0 0 324.8 297.1A105 105 0 1 0 207.1 133.6A180 180 0 0 0 148.3 148.8Z" /><circle cx="290" cy="198" r="40" /></g>
+                <g class="src" fill="#ff6b5b" stroke="#ff6b5b"><path d="M169.6 282.4A88 88 0 1 1 286.4 184.8" fill="none" stroke-width="40" stroke-linecap="round" /><circle cx="200" cy="200" r="28" stroke="none" /></g>
+                <g class="echo" fill="currentColor" stroke="currentColor"><path d="M169.6 282.4A88 88 0 1 1 286.4 184.8" fill="none" stroke-width="40" stroke-linecap="round" /><circle cx="200" cy="200" r="28" stroke="none" /></g>
               </svg>
               <svg class="name-notes" data-scene="name" viewBox="0 0 520 520" aria-hidden="true"></svg>
             </div>
@@ -261,8 +261,8 @@
       <section class="get" id="get">
         <div class="wrap get-inner">
           <svg class="mark mark-lg" data-mark-final viewBox="0 0 512 512" aria-hidden="true">
-            <g class="src" fill="#ffc131"><path d="M148.3 148.8A150 150 0 1 1 321 344.8A104 104 0 0 0 324.8 297.1A105 105 0 1 0 207.1 133.6A180 180 0 0 0 148.3 148.8Z" /><circle cx="290" cy="198" r="40" /></g>
-            <g class="echo" fill="currentColor"><path d="M148.3 148.8A150 150 0 1 1 321 344.8A104 104 0 0 0 324.8 297.1A105 105 0 1 0 207.1 133.6A180 180 0 0 0 148.3 148.8Z" /><circle cx="290" cy="198" r="40" /></g>
+            <g class="src" fill="#ff6b5b" stroke="#ff6b5b"><path d="M169.6 282.4A88 88 0 1 1 286.4 184.8" fill="none" stroke-width="40" stroke-linecap="round" /><circle cx="200" cy="200" r="28" stroke="none" /></g>
+            <g class="echo" fill="currentColor" stroke="currentColor"><path d="M169.6 282.4A88 88 0 1 1 286.4 184.8" fill="none" stroke-width="40" stroke-linecap="round" /><circle cx="200" cy="200" r="28" stroke="none" /></g>
           </svg>
           <h2>Get eko.</h2>
           <p class="after">Install it on the laptop, open eko on your phone, and scan the QR code.</p>

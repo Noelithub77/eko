@@ -18,8 +18,8 @@ export const build: Build = (svg, narrow) => {
     denied: at([680, 330], [310, 440]),
   };
   const size = { w: narrow ? 150 : 170, h: 64 };
-  const colors: Record<State, string> = { pending: ink.amber, connecting: ink.line, connected: ink.cyan, denied: ink.red };
-  const fills: Record<State, string> = { pending: ink.amberFill, connecting: ink.greyFill, connected: ink.cyanFill, denied: ink.redFill };
+  const colors: Record<State, string> = { pending: ink.coral, connecting: ink.line, connected: ink.teal, denied: ink.red };
+  const fills: Record<State, string> = { pending: ink.coralFill, connecting: ink.greyFill, connected: ink.tealFill, denied: ink.redFill };
 
   const names: readonly State[] = ["pending", "connecting", "connected", "denied"];
 
@@ -60,9 +60,9 @@ export const build: Build = (svg, narrow) => {
     s.into(arrow.group, () => s.text(bend[0] + (narrow ? nudge : -34), bend[1] + (narrow ? -14 : nudge * 0.4), label, { size: 19, color }));
     return arrow;
   };
-  const allow = route("pending", "connecting", "allow", ink.cyan, at([560, 120], [140, 330]), -42);
+  const allow = route("pending", "connecting", "allow", ink.teal, at([560, 120], [140, 330]), -42);
   const deny = route("pending", "denied", "deny", ink.red, at([560, 315], [290, 330]), 42);
-  const settle = s.arrow(narrow ? [[110, 474], [110, 576]] : [[768, 105], [852, 105]], { stroke: ink.cyan, width: 1.8 });
+  const settle = s.arrow(narrow ? [[110, 474], [110, 576]] : [[768, 105], [852, 105]], { stroke: ink.teal, width: 1.8 });
 
   const token = s.group("token", () => phone(s, 0, 0, 40, { stroke: ink.line, fill: ink.bg }));
   const place = (point: Point) => gsap.set(token, { x: point[0], y: point[1] - size.h / 2 - 30 });

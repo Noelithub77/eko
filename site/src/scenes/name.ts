@@ -19,15 +19,15 @@ export const build: Build = (svg) => {
   const s = new Sketch(svg, 512 + pad * 2, 512 + pad * 2, 41);
   const at = (x: number, y: number): [number, number] => [x + pad, y + pad];
   const sound = s.group(null, () => {
-    s.text(...at(470, 116), "a sound", { size: 30, color: ink.amber });
-    s.arrow([at(452, 128), at(430, 165), at(408, 186)], { stroke: ink.amber });
+    s.text(...at(-26, 262), "a sound", { size: 30, color: ink.coral });
+    s.arrow([at(-12, 232), at(30, 212), at(76, 206)], { stroke: ink.coral });
   });
   const back = s.group(null, () => {
-    s.text(...at(36, 420), "its echo", { size: 30, color: ink.cyan });
-    s.arrow([at(60, 386), at(84, 352), at(104, 326)], { stroke: ink.cyan });
+    s.text(...at(524, 400), "its echo", { size: 30, color: ink.teal });
+    s.arrow([at(518, 370), at(476, 346), at(434, 338)], { stroke: ink.teal });
   });
   const turn = s.group(null, () => {
-    const c = at(256, 255.5);
+    const c = at(256, 256);
     const r = 300;
     const a = (-150 * Math.PI) / 180;
     const b = (-60 * Math.PI) / 180;
@@ -35,10 +35,10 @@ export const build: Build = (svg) => {
     s.text(c[0] - 150, c[1] - 296, "turned around", { size: 26, color: ink.soft, anchor: "end" });
   });
 
-  const ripples = [ink.amber, ink.amber, ink.cyan, ink.cyan].map((color) => {
+  const ripples = [ink.coral, ink.coral, ink.teal, ink.teal].map((color) => {
     const circle = document.createElementNS(NS, "circle");
     circle.setAttribute("cx", "256");
-    circle.setAttribute("cy", "255.5");
+    circle.setAttribute("cy", "256");
     circle.setAttribute("r", "160");
     circle.setAttribute("stroke", color);
     circle.setAttribute("opacity", "0");
@@ -48,12 +48,12 @@ export const build: Build = (svg) => {
   const ripple = (circle: SVGCircleElement, at: gsap.Position) =>
     story.fromTo(circle, { scale: 0.9, opacity: 0.7, transformOrigin: "50% 50%" }, { scale: 1.65, opacity: 0, duration: 0.9, ease: "power1.out" }, at);
 
-  story.set(echo, { "--turn": "0deg", color: ink.amber }, 0);
+  story.set(echo, { "--turn": "0deg", color: ink.coral }, 0);
   story.set(echoWord, { opacity: 0 }, 0);
   ripple(ripples[0], 0);
   ripple(ripples[1], 0.25);
   drawOn(story, sound, 0.2, 0.6);
-  story.to(echo, { "--turn": "180deg", color: ink.cyan, duration: 1.2, ease: "power2.inOut" }, 0.6);
+  story.to(echo, { "--turn": "180deg", color: ink.teal, duration: 1.2, ease: "power2.inOut" }, 0.6);
   drawOn(story, turn, 0.6, 0.9);
   ripple(ripples[2], 1.5);
   ripple(ripples[3], 1.75);

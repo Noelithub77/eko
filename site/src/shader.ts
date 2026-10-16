@@ -1,4 +1,4 @@
-// Hero field: the amber dot sends a ring, the cyan dot answers with its echo, and quiet listeners light up as rings pass.
+// Hero field: the coral dot sends a ring, the teal dot answers with its echo, and quiet listeners light up as rings pass.
 import { Mesh, Program, Renderer, Triangle } from "ogl";
 
 export const period = 3.2;
@@ -16,8 +16,8 @@ uniform vec2 uRes;
 uniform vec2 uSource;
 uniform vec2 uEcho;
 uniform vec3 uPointer;
-const vec3 amber = vec3(1.0, 0.757, 0.192);
-const vec3 cyan = vec3(0.141, 0.784, 0.859);
+const vec3 coral = vec3(1.0, 0.420, 0.357);
+const vec3 teal = vec3(0.180, 0.769, 0.714);
 const float period = ${period.toFixed(2)};
 const float speed = 0.55;
 
@@ -36,7 +36,7 @@ void main() {
   vec2 p = gl_FragCoord.xy / scale;
   float a = ring(distance(p, uSource / scale), uTime);
   float c = ring(distance(p, uEcho / scale), uTime - ${echoDelay.toFixed(2)});
-  vec3 color = amber * a * 0.16 + cyan * c * 0.2;
+  vec3 color = coral * a * 0.16 + teal * c * 0.2;
   float alpha = a * 0.16 + c * 0.2;
 
   // Listeners: scattered dots that glow when a ring reaches them.
@@ -48,7 +48,7 @@ void main() {
     float glow = smoothstep(26.0, 0.0, d) * 0.5;
     float la = ring(distance(spot, uSource / scale), uTime);
     float lc = ring(distance(spot, uEcho / scale), uTime - ${echoDelay.toFixed(2)});
-    vec3 lit = amber * la + cyan * lc;
+    vec3 lit = coral * la + teal * lc;
     color += vec3(0.16) * core + lit * (core + glow) * 1.4;
     alpha += 0.16 * core + (la + lc) * (core + glow) * 1.4;
   }
@@ -58,7 +58,7 @@ void main() {
   float pa = ring(distance(uPointer.xy / scale, uSource / scale), uTime);
   float pc = ring(distance(uPointer.xy / scale, uEcho / scale), uTime - ${echoDelay.toFixed(2)});
   float halo = smoothstep(46.0, 0.0, pd) * uPointer.z;
-  color += (amber * pa + cyan * pc) * halo;
+  color += (coral * pa + teal * pc) * halo;
   alpha += (pa + pc) * halo;
 
   gl_FragColor = vec4(color, clamp(alpha, 0.0, 1.0));

@@ -29,10 +29,10 @@ const drawings: Record<string, (s: Sketch) => void> = {
     s.arrow([[100, 36], [118, 46]], { stroke: ink.soft, width: 1.3 });
   },
   eko: (s) => {
-    laptop(s, 34, 52, 46, { stroke: ink.amber });
+    laptop(s, 34, 52, 46, { stroke: ink.coral });
     for (const y of [20, 52, 84]) {
-      s.arrow([[64, 52], [112, y]], { stroke: ink.cyan, width: 1.4 });
-      phone(s, 128, y, 26, { stroke: ink.cyan });
+      s.arrow([[64, 52], [112, y]], { stroke: ink.teal, width: 1.4 });
+      phone(s, 128, y, 26, { stroke: ink.teal });
     }
   },
 };

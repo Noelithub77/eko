@@ -45,15 +45,15 @@ export const build: Build = (svg, narrow) => {
 
   // 3. eko reaches every phone in the room.
   const guides: SVGPathElement[] = [];
-  const eko = panel(2, "eko", ink.cyan, "everyone, on their own headphones", (x, y) => {
-    laptop(s, x, y - 40, 104, { stroke: ink.amber });
-    wifi(s, x, y - 100, 36, ink.amber);
+  const eko = panel(2, "eko", ink.teal, "everyone, on their own headphones", (x, y) => {
+    laptop(s, x, y - 40, 104, { stroke: ink.coral });
+    wifi(s, x, y - 100, 36, ink.coral);
     for (const [dx, dy] of seats) {
       const tip: Point = [x + dx * 0.92 + (dx > 0 ? 24 : -24) * 0.2, y + dy - 30];
-      guides.push(s.arrow([[x + dx * 0.3, y - 2], tip], { stroke: ink.cyan, width: 1.6 }).guide);
+      guides.push(s.arrow([[x + dx * 0.3, y - 2], tip], { stroke: ink.teal, width: 1.6 }).guide);
     }
-    crowd(x, y, ["smile", "smile", "smile", "smile"], [ink.cyan, ink.cyan, ink.cyan, ink.cyan]);
-    for (const [dx, dy] of seats) phone(s, x + dx + 27, y + dy + 34, 30, { stroke: ink.cyan });
+    crowd(x, y, ["smile", "smile", "smile", "smile"], [ink.teal, ink.teal, ink.teal, ink.teal]);
+    for (const [dx, dy] of seats) phone(s, x + dx + 27, y + dy + 34, 30, { stroke: ink.teal });
   });
 
   story.addLabel("step0", 0);
@@ -67,10 +67,10 @@ export const build: Build = (svg, narrow) => {
   story.to(bt, { opacity: 0.35, duration: 0.4 }, "step2");
   drawOn(story, eko, "step2", 1);
   guides.forEach((guide, i) => {
-    travel(story, s, guide, ink.amber, `step2+=${0.9 + i * 0.08}`, 0.7);
+    travel(story, s, guide, ink.coral, `step2+=${0.9 + i * 0.08}`, 0.7);
   });
   story.to({}, { duration: 0.4 });
 
-  for (const guide of guides) stream(loop, s, guide, ink.amber, 2, 1.6, 5);
+  for (const guide of guides) stream(loop, s, guide, ink.coral, 2, 1.6, 5);
   return { story, loop };
 };

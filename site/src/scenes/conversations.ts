@@ -32,22 +32,22 @@ export const build: Build = (svg, narrow) => {
 
   const labelAt = (lane: [Point, Point], dy: number): Point => (narrow ? [lane[0][0], lane[0][1] - 44] : [(lane[0][0] + lane[1][0]) / 2, lane[0][1] + dy]);
   const talk = s.group(null, () => {
-    s.line(signal[0], signal[1], { stroke: ink.amber, width: 1.6 });
+    s.line(signal[0], signal[1], { stroke: ink.coral, width: 1.6 });
     const [x, y] = labelAt(signal, -48);
-    s.text(x, y, "WebSocket", { size: 24, color: ink.amber });
+    s.text(x, y, "WebSocket", { size: 24, color: ink.coral });
     s.text(x, y + 26, narrow ? "who and how" : "who is joining, and how to reach them", { size: narrow ? 15 : 18, color: ink.soft });
   });
   const wire = s.group(null, () => {
     s.line(media[0], media[1], { stroke: ink.faint, dash: true });
     const [x, y] = labelAt(media, 58);
-    s.text(x, y, "WebRTC", { size: 24, color: ink.cyan });
+    s.text(x, y, "WebRTC", { size: 24, color: ink.teal });
     s.text(x, y + 26, narrow ? "the music" : "the music: Opus, encrypted", { size: narrow ? 15 : 18, color: ink.soft });
   });
-  const music = s.arrow(media, { stroke: ink.cyan, width: 2.6 }, "none");
+  const music = s.arrow(media, { stroke: ink.teal, width: 2.6 }, "none");
 
   const bubbles = messages.map((message) => {
     const width = message.text.length * 9.5 + 34;
-    const color = message.from === "desktop" ? ink.amber : ink.line;
+    const color = message.from === "desktop" ? ink.coral : ink.line;
     const group = s.group("bubble", () => {
       s.rect(-width / 2, -18, width, 36, { stroke: color, fill: ink.bg }, 16);
       s.text(0, 6, message.text, { size: 17, color });
@@ -70,9 +70,9 @@ export const build: Build = (svg, narrow) => {
   });
   story.addLabel("step2", ">");
   drawOn(story, music.group, "step2", 0.8);
-  travel(story, s, music.guide, ink.cyan, "step2+=0.5", 0.8);
+  travel(story, s, music.guide, ink.teal, "step2+=0.5", 0.8);
   story.to({}, { duration: 0.3 });
 
-  stream(loop, s, music.guide, ink.cyan, 6, 2.2, 6);
+  stream(loop, s, music.guide, ink.teal, 6, 2.2, 6);
   return { story, loop };
 };

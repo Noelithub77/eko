@@ -163,7 +163,7 @@ const finalSource = document.querySelector("[data-mark-final] .src");
 if (!calm && finalEcho && finalSource) {
   const turn = gsap.timeline({ paused: true });
   turn.from(finalSource, { scale: 0.9, opacity: 0, transformOrigin: "50% 50%", duration: 0.7, ease: "power3.out" });
-  turn.fromTo(finalEcho, { "--turn": "0deg", color: "#ffc131", opacity: 0 }, { "--turn": "180deg", color: "#24c8db", opacity: 1, duration: 1.4, ease: "power2.inOut" }, 0.2);
+  turn.fromTo(finalEcho, { "--turn": "0deg", color: "#ff6b5b", opacity: 0 }, { "--turn": "180deg", color: "#2ec4b6", opacity: 1, duration: 1.4, ease: "power2.inOut" }, 0.2);
   ScrollTrigger.create({ trigger: "[data-mark-final]", start: "top 85%", once: true, onEnter: () => turn.play() });
 }
 

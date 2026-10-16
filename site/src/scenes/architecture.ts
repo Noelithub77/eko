@@ -22,8 +22,8 @@ export const build: Build = (svg, narrow) => {
     s.rect(desktop.cx - desktop.w / 2, desktop.cy - desktop.h / 2, desktop.w, desktop.h, { stroke: ink.soft }, 22);
     s.text(desktop.cx, desktop.cy - desktop.h / 2 - 16, "desktop app · Tauri", { size: 22, color: ink.soft });
     box(s, ui.cx, ui.cy, ui.w, ui.h, "React: buttons, QR, devices", { stroke: ink.blue }, narrow ? 17 : 19);
-    s.rect(core.cx - core.w / 2, core.cy - core.h / 2, core.w, core.h, { stroke: ink.amber, fill: ink.amberFill });
-    s.text(core.cx, core.cy - core.h / 2 + 34, "Rust core", { size: 24, color: ink.amber });
+    s.rect(core.cx - core.w / 2, core.cy - core.h / 2, core.w, core.h, { stroke: ink.coral, fill: ink.coralFill });
+    s.text(core.cx, core.cy - core.h / 2 + 34, "Rust core", { size: 24, color: ink.coral });
     s.text(core.cx, core.cy + 6, "capture · Opus · WebRTC", { size: narrow ? 17 : 19 });
     s.text(core.cx, core.cy + 36, "approval · sessions · signaling", { size: narrow ? 17 : 19 });
     s.arrow([[ui.cx, ui.cy + ui.h / 2 + 4], [core.cx, core.cy - core.h / 2 - 4]], { stroke: ink.soft, width: 1.4 }, "both");
@@ -35,18 +35,18 @@ export const build: Build = (svg, narrow) => {
       s.text(f.cx, f.cy - 12, title, { size: 22, color });
       s.text(f.cx, f.cy + 22, line, { size: narrow ? 15 : 18, color: ink.soft });
     });
-  const phones = listener(android, "Android app", narrow ? "Rust → Oboe" : "native Rust → Oboe", ink.cyan);
+  const phones = listener(android, "Android app", narrow ? "Rust → Oboe" : "native Rust → Oboe", ink.teal);
   const web = listener(browser, narrow ? "browser" : "browser · iPhone", narrow ? "Safari WebRTC" : "Safari WebRTC from the QR", ink.blue);
 
   const send = (to: Frame, lean: number) => {
     const start: Point = narrow ? [core.cx + lean * 0.4, core.cy + core.h / 2 + 4] : [core.cx + core.w / 2 + 4, core.cy + lean * 0.25];
     const end: Point = narrow ? [to.cx, to.cy - to.h / 2 - 6] : [to.cx - to.w / 2 - 6, to.cy];
     const bend: Point = [(start[0] + end[0]) / 2 + (narrow ? lean * 0.2 : 0), (start[1] + end[1]) / 2 + (narrow ? 0 : lean * 0.3)];
-    return s.arrow([start, bend, end], { stroke: ink.cyan, width: 2 });
+    return s.arrow([start, bend, end], { stroke: ink.teal, width: 2 });
   };
   const toAndroid = send(android, narrow ? -100 : -80);
   const toBrowser = send(browser, narrow ? 100 : 80);
-  const label = s.text(narrow ? 210 : 590, narrow ? 445 : 330, "signaling + audio", { size: 18, color: ink.cyan });
+  const label = s.text(narrow ? 210 : 590, narrow ? 445 : 330, "signaling + audio", { size: 18, color: ink.teal });
 
   const standby = s.group(null, () => {
     cloud(s, sky[0], sky[1], narrow ? 180 : 190, { stroke: ink.soft });
@@ -62,13 +62,13 @@ export const build: Build = (svg, narrow) => {
   story.addLabel("step1", ">-0.2");
   drawOn(story, [toAndroid.group, toBrowser.group, label], "step1", 0.7);
   drawOn(story, [phones, web], ">-0.3", 0.7);
-  travel(story, s, toAndroid.guide, ink.amber, "<", 0.7);
-  travel(story, s, toBrowser.guide, ink.amber, "<", 0.7);
+  travel(story, s, toAndroid.guide, ink.coral, "<", 0.7);
+  travel(story, s, toBrowser.guide, ink.coral, "<", 0.7);
   story.addLabel("step2", ">");
   drawOn(story, standby, "step2", 0.8);
   story.to({}, { duration: 0.3 });
 
-  stream(loop, s, toAndroid.guide, ink.amber, 3, 1.8, 5);
-  stream(loop, s, toBrowser.guide, ink.amber, 3, 1.8, 5);
+  stream(loop, s, toAndroid.guide, ink.coral, 3, 1.8, 5);
+  stream(loop, s, toBrowser.guide, ink.coral, 3, 1.8, 5);
   return { story, loop };
 };
