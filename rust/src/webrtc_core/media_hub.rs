@@ -108,6 +108,7 @@ impl MediaHub {
         session: Option<crate::signaling::SharedSession>,
         app: Option<tauri::AppHandle>,
     ) -> Result<SharedMediaHub, String> {
+        crate::crypto::initialize()?;
         let track = Arc::new(TrackLocalStaticSample::new(
             RTCRtpCodecCapability {
                 mime_type: MIME_TYPE_OPUS.to_string(),

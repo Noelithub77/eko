@@ -1703,6 +1703,7 @@ dependencies = [
  "reqwest",
  "rubato",
  "rust-embed",
+ "rustls",
  "serde",
  "serde_json",
  "smtc-suite",

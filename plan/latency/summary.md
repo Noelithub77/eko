@@ -2,7 +2,7 @@
 
 User chose balanced tuning: low delay with protection against crackles.
 
-**[chosen]** Repair profiling, compare real paths, bound stale queues and use a modest browser target. Retain native Android, existing approval and TURN fallback. No new dependencies.
+**[chosen]** Repair profiling, compare real paths, bound stale queues and use a modest browser target. Retain native Android, existing approval and TURN fallback. The user approved a direct declaration of the already-locked Rustls library to select its existing `ring` provider.
 
 Alternatives: zero buffers minimize deliberate waiting but increase dropouts; large fixed buffers smooth unstable networks but hurt lip sync. Browser receiver rewrites and protocol changes add risk without first isolating the delay.
 
@@ -20,8 +20,10 @@ Implement recent interval stats, selected-pair RTT, a labeled partial estimate, 
 - Six statistics/profiler regressions, two latency UI tests and existing desktop layout/core checks passed. Rust unit tests passed; native hardware playback is not proved.
 - Full aggregate data and stage timelines: `docs/reports/latency-2026-10-16.html`.
 
-## Pending native encryption decision
+## Native encryption initialization
 
-The production Rust-to-browser TURN fixture compiles and reaches answer exchange, but the library panics because `ring` and `aws-lc-rs` both enable Rustls without choosing a process provider. The proposed fix is a direct declaration of the already-locked Rustls library and explicit `ring` initialization before networking. This needs dependency approval under AGENTS.md; no new package has been added. The native TURN route remains unverified until that fix is approved and tested. This is separate from the successful browser-to-browser real TURN runs.
+The user approved the direct Rustls 0.23.40 declaration. Startup and standalone media initialization now select `ring` before networking, with idempotent handling of concurrent initialization. The locked package version is unchanged. `cargo check --offline` and 21 library tests passed, including a regression constructing both TLS builders with both provider features enabled.
+
+The production Rust-to-browser direct and forced UDP TURN workflows passed without a crypto panic. Both endpoints selected relay candidates for UDP TURN; audio packets, approval, pause/resume and profile delivery were verified. Forced TCP and TLS native trials reached answer exchange but failed to connect. The pinned upstream `webrtc-ice` 0.17.1 relay gatherer implements UDP only and explicitly leaves TCP/TLS unimplemented. This transport limitation needs a separate implementation or library decision; browser-to-browser TCP/TLS success does not prove native support.
 
 Windows optimization and the global headless Windows VM skill remain queued after the Linux phase, following the user's priority correction.

@@ -51,7 +51,9 @@ The same isolated workflow can use the actual Rust sender instead of the synthet
 pnpm --silent ops latency media --sender native --path turn --protocol udp --targets 40 --seconds 12 --client-url http://127.0.0.1:5190 --json
 ```
 
-**Current native prerequisite:** the standalone native TURN test exposed ambiguous Rustls crypto providers. Its initialization fix requires the approved direct dependency declaration before the route can be verified. A native test failure is not a successful measurement.
+The native startup explicitly initializes Rustls with the existing `ring` provider before networking. This prevents a panic when transitive dependencies enable both Rustls providers. Rustls 0.23.40 was already locked; the direct declaration uses that version without introducing another library version.
+
+**Native transport limit:** direct and forced UDP TURN workflows passed after initialization was fixed. Forced native TCP and TLS TURN trials reached answer exchange but did not connect. The pinned `webrtc-ice` 0.17.1 implementation only gathers UDP TURN relays; TCP/TLS handling remains unimplemented in [the upstream relay gatherer](https://github.com/webrtc-rs/webrtc/blob/v0.17.1/ice/src/agent/agent_gather.rs). Browser-to-browser TCP/TLS results do not establish native transport support. Adding Rustls initialization does not add these transports.
 
 This builds a cached ignored test harness, reads the system monitor using the production capture code, encodes with the production Opus encoder, and negotiates through the real hosted approval protocol into the real browser receiver. The native fixture carries SDP and ICE only through an in-memory child-process pipe; never log that pipe or the credential environment. Its result includes native stage timings and selected peer counters. There is no physical desktop window and Chromium's headless output is muted. No raw audio is saved.
 
