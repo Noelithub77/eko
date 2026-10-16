@@ -87,8 +87,8 @@ jobs:
             exit 1
           fi
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "Noel Georgi"
+          git config user.email "noelmcv7@gmail.com"
           npm version minor --no-git-tag-version
           pnpm run release:sync-version
           git add package.json rust/Cargo.toml rust/tauri.conf.json
