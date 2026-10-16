@@ -11,6 +11,8 @@ pnpm --silent ops platforms status --run RUN_ID --json
 
 Reusing the same reference with an identical tree locates the existing run without another push. A different tree requires a new reference; there is no force push. If GitHub has not registered the run yet, the result says `awaiting-workflow`, and repeating the same command is safe.
 
+For a targeted retry, use `build/android/NAME`, `build/windows/NAME`, `build/linux/NAME` or `build/web/NAME`. Other `build/` references select all targets. This lets a failed platform retry without discarding successful builds or recompiling unrelated platforms.
+
 `status` returns the selected run's jobs and up to 100 artifacts, including their expiry flags. A running job is separate from a completed package; a completed failed run returns a failed result. Build artifacts are retained for 14 days.
 
 | Target | Artifact |

@@ -11,7 +11,9 @@ export const platformBuildHelp = `pnpm ops platforms <start|status> [options] [-
 
 Uses the configured origin and authenticated gh CLI. Start leaves the local
 branch unchanged, publishes no release, and does not bump the app version.
-The workflow builds Windows, Linux, Android debug APK/AAB and hosted web.
+By default builds Windows, Linux, Android debug APK/AAB and hosted web.
+Use build/android/NAME, build/windows/NAME, build/linux/NAME or build/web/NAME
+to retry only that target after a failure; other build/ references build all.
 Artifacts expire after 14 days; running jobs are not finished builds.`;
 
 const runSchema = z.object({
@@ -61,8 +63,11 @@ export async function platformBuildOperator(args: string[]): Promise<Record<stri
     const run = viewSchema.parse(json("gh", ["run", "view", id, "--repo", repository, "--json", "databaseId,headSha,url,status,conclusion,workflowName,jobs"]));
     if (run.workflowName !== "Platform builds") throw new Error("This run is not the platform build workflow.");
     const artifacts = artifactsSchema.parse(json("gh", ["api", `repos/${repository}/actions/runs/${id}/artifacts?per_page=100`]));
+    const complete = run.status === "completed";
+    const failed = run.jobs.some((job) => ["failure", "cancelled", "timed_out", "action_required"].includes(job.conclusion ?? ""));
     return {
-      environment: "github-actions", repository, success: run.status !== "completed" || run.conclusion === "success", run,
+      environment: "github-actions", repository, success: !failed && (!complete || run.conclusion === "success"), run,
+      buildComplete: complete, buildPassed: failed ? false : complete ? run.conclusion === "success" : null,
       artifacts: artifacts.artifacts, artifactsTruncated: artifacts.total_count > artifacts.artifacts.length,
     };
   }

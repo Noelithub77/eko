@@ -15,18 +15,40 @@ env:
   CARGO_BUILD_JOBS: 2
 
 jobs:
+  plan:
+    name: Select build targets
+    runs-on: ubuntu-22.04
+    outputs:
+      desktop: ${{ steps.targets.outputs.desktop }}
+      android: ${{ steps.targets.outputs.android }}
+      web: ${{ steps.targets.outputs.web }}
+    steps:
+      - id: targets
+        env:
+          BUILD_REF: ${{ github.ref_name }}
+        run: |
+          windows='{"platform":"Windows","os":"windows-latest","bundle":"nsis"}'
+          linux='{"platform":"Linux","os":"ubuntu-22.04","bundle":"appimage"}'
+          target="$(printf '%s' "$BUILD_REF" | cut -d/ -f2)"
+          desktop="[$windows,$linux]"; android=true; web=true
+          case "$target" in
+            windows) desktop="[$windows]"; android=false; web=false ;;
+            linux) desktop="[$linux]"; android=false; web=false ;;
+            android) desktop='[]'; web=false ;;
+            web) desktop='[]'; android=false ;;
+          esac
+          echo "desktop=$desktop" >> "$GITHUB_OUTPUT"
+          echo "android=$android" >> "$GITHUB_OUTPUT"
+          echo "web=$web" >> "$GITHUB_OUTPUT"
+
   desktop:
     name: Build ${{ matrix.platform }}
+    needs: plan
+    if: needs.plan.outputs.desktop != '[]'
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: Windows
-            os: windows-latest
-            bundle: nsis
-          - platform: Linux
-            os: ubuntu-22.04
-            bundle: appimage
+        include: ${{ fromJSON(needs.plan.outputs.desktop) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
@@ -65,6 +87,8 @@ jobs:
 
   android:
     name: Build Android APK and AAB
+    needs: plan
+    if: needs.plan.outputs.android == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     env:
@@ -84,6 +108,9 @@ jobs:
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
       - name: Install Android build packages
         run: |
           sdkmanager 'platforms;android-36' 'build-tools;36.0.0' "ndk;$ANDROID_NDK_VERSION"
@@ -112,6 +139,8 @@ jobs:
 
   web:
     name: Build hosted web
+    needs: plan
+    if: needs.plan.outputs.web == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     steps:
