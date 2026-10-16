@@ -3,6 +3,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { summarizeDevice } from "../../frontend/shared/utils/latency-summary.ts";
+import { nativeTestArguments } from "./native-test-runner.mjs";
 
 export const latencyHelp = `pnpm ops latency <status|capture|pipeline|media|check> [options] [--json]
 
@@ -69,7 +70,7 @@ export async function latencyOperator(args: string[]): Promise<Record<string, un
   }
   if (command === "pipeline") {
     const stallMs = options.has("--stall-ms") ? integer(options, "--stall-ms", 500, 100, 2000) : null;
-    const child = spawnSync("cargo", ["test", "--offline", "-j", "2", "--lib", stallMs === null ? "profile_native_audio_pipeline" : "profile_native_capture_recovery", "--", "--ignored", "--nocapture"], { cwd: fileURLToPath(new URL("../../rust", import.meta.url)), env: { ...process.env, CARGO_TARGET_DIR: process.env.CARGO_TARGET_DIR ?? "target/desktop-dev", ...(stallMs === null ? {} : { EKO_BENCH_STALL_MS: String(stallMs) }) }, encoding: "utf8", stdio: ["ignore", "pipe", 2], timeout: 180000, maxBuffer: 1024 * 1024 });
+    const child = spawnSync("cargo", ["test", ...nativeTestArguments(), "--offline", "-j", "2", "--lib", stallMs === null ? "profile_native_audio_pipeline" : "profile_native_capture_recovery", "--", "--ignored", "--nocapture"], { cwd: fileURLToPath(new URL("../../rust", import.meta.url)), env: { ...process.env, CARGO_TARGET_DIR: process.env.CARGO_TARGET_DIR ?? "target/desktop-dev", ...(stallMs === null ? {} : { EKO_BENCH_STALL_MS: String(stallMs) }) }, encoding: "utf8", stdio: ["ignore", "pipe", 2], timeout: 180000, maxBuffer: 1024 * 1024 });
     if (child.error) throw new Error(child.error.message);
     const line = child.stdout.split("\n").find((line) => line.startsWith("EKO_PIPELINE_RESULT="));
     if (!line) throw new Error(`Native probe failed (exit ${child.status})`);

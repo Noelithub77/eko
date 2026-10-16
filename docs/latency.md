@@ -62,6 +62,8 @@ The native startup explicitly initializes Rustls with the existing `ring` provid
 
 This builds a cached ignored test harness, reads the system monitor using the production capture code, encodes with the production Opus encoder, and negotiates through the real hosted approval protocol into the real browser receiver. The native fixture carries SDP and ICE only through an in-memory child-process pipe; never log that pipe or the credential environment. Its result includes native stage timings and selected peer counters. There is no physical desktop window and Chromium's headless output is muted. No raw audio is saved.
 
+On Windows, the native operators use a Cargo runner to embed the same Common Controls v6 dependency used by Tauri's application manifest into the library test executable. The Windows SDK's `mt.exe` must be installed with the C++ build tools; `EKO_MANIFEST_TOOL` can select its explicit path. Without this test manifest, the Windows loader can fail on `TaskDialogIndirect` before Rust starts. This changes only the test executable, and its signaling pipe remains in memory. Set `EKO_CHROMIUM_PATH` to the installed Chrome/Chromium executable when testing browser media in Windows.
+
 Both peers are forced to relay for TURN tests. The native test-only policy override is compiled only into tests. Native runs do not synthesize frequency-coded markers; their `softwareMarkerDelay` is unknown, and full physical delay remains unmeasured. The normal synthetic browser experiment remains useful for those controlled software marker comparisons.
 
 ## Reading the UI
