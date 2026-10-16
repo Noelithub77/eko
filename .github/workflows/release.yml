@@ -108,6 +108,13 @@ jobs:
           if ! git ls-remote --exit-code --tags origin "refs/tags/${RELEASE_TAG}" >/dev/null 2>&1; then
             git tag "${RELEASE_TAG}" "${RELEASE_SHA}"
             git push origin "${RELEASE_TAG}"
+          else
+            git fetch origin "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+            if ! git diff --quiet "${RELEASE_TAG}" HEAD -- frontend rust package.json pnpm-lock.yaml; then
+              echo "This version tag has different application build inputs; choose a new version."
+              exit 1
+            fi
+            RELEASE_SHA="$(git rev-parse "${RELEASE_TAG}^{commit}")"
           fi
 
           if ! gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
@@ -118,7 +125,7 @@ jobs:
               --draft
           fi
 
-          RELEASE_ID="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq ".id")"
+          RELEASE_ID="$(gh release view "${RELEASE_TAG}" --json databaseId --jq .databaseId)"
 
           echo "app_version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
           echo "release_id=${RELEASE_ID}" >> "$GITHUB_OUTPUT"
@@ -390,7 +397,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.prepare.outputs.release_sha }}
+          ref: ${{ github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22

@@ -29,7 +29,9 @@ function main() {
   const tag = process.env.RELEASE_TAG;
   if (!repository || !version || tag !== `eko-v${version}`) throw new Error("Expected repository, app version and matching release tag");
   const gh = (args) => execFileSync("gh", args, { encoding: "utf8" }).trim();
-  const release = JSON.parse(gh(["api", `repos/${repository}/releases/tags/${tag}`]));
+  const releaseId = gh(["release", "view", tag, "--json", "databaseId", "--jq", ".databaseId"]);
+  if (!/^\d+$/.test(releaseId)) throw new Error("Release has no numeric database ID");
+  const release = JSON.parse(gh(["api", `repos/${repository}/releases/${releaseId}`]));
   if (!Array.isArray(release.assets)) throw new Error("Release has no asset list");
   const manifest = releaseManifest({ version, repository,
     windows: process.env.BUILD_WINDOWS === "true", linux: process.env.BUILD_LINUX === "true",
