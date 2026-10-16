@@ -16,19 +16,21 @@ const qrOptions: Options = {
   },
   dotsOptions: {
     type: "rounded",
-    color: "#86d5cd",
+    color: "#1f9e93",
     roundSize: true,
   },
   cornersSquareOptions: {
     type: "extra-rounded",
-    color: "#a7e4dd",
+    color: "#e8503f",
   },
   cornersDotOptions: {
     type: "dot",
-    color: "#a7e4dd",
+    color: "#e8503f",
   },
+  // Dark modules on white: the Android zxing scanner cannot read inverted codes.
+  // Brand colours are darkened so they still binarize as dark.
   backgroundOptions: {
-    color: "transparent",
+    color: "#ffffff",
   },
 };
 
@@ -73,11 +75,11 @@ export function StyledPairingQr({ value }: StyledPairingQrProps) {
       <div className="group relative aspect-square h-full max-w-full transition-transform duration-700 ease-out hover:scale-[1.008]">
         <div
           aria-label="Eko pairing QR code"
-          className="h-full max-w-full"
+          className="h-full max-w-full overflow-hidden rounded-3xl ring-1 ring-border"
           ref={containerRef}
           role="img"
         />
-        <div className="pointer-events-none absolute -inset-32 rounded-full bg-[radial-gradient(circle_at_center,rgba(134,213,205,0.04),rgba(134,213,205,0.032)_12%,rgba(134,213,205,0.024)_25%,rgba(134,213,205,0.016)_40%,rgba(134,213,205,0.009)_55%,rgba(134,213,205,0.004)_72%,rgba(134,213,205,0.001)_88%,transparent_100%)] transition-all duration-700 ease-out group-hover:bg-[radial-gradient(circle_at_center,rgba(134,213,205,0.22),rgba(134,213,205,0.18)_12%,rgba(134,213,205,0.13)_25%,rgba(134,213,205,0.085)_40%,rgba(134,213,205,0.045)_55%,rgba(134,213,205,0.02)_72%,rgba(134,213,205,0.005)_88%,transparent_100%)]" />
+        <div className="pointer-events-none absolute -inset-24 rounded-full bg-[radial-gradient(circle,rgba(46,196,182,0.06),transparent_65%)] transition-all duration-700 ease-out group-hover:bg-[radial-gradient(circle,rgba(46,196,182,0.16),transparent_65%)]" />
       </div>
     </div>
   );

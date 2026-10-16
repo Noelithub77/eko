@@ -22,7 +22,7 @@ export function NetworkBadge({
       <Tooltip>
         <TooltipTrigger asChild>
           <div
-            className="inline-flex shrink-0 cursor-help items-center gap-1.5 rounded-full border border-amber-300 bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 transition-colors hover:bg-amber-200/80 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300 dark:hover:bg-amber-500/25"
+            className="inline-flex shrink-0 cursor-help items-center gap-1.5 rounded-full border border-teal/30 bg-teal/10 px-2.5 py-1 text-xs font-semibold text-teal transition-colors hover:bg-teal/20"
             tabIndex={0}
           >
             <Wifi className="size-3.5" />

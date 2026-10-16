@@ -15,6 +15,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@shared/components/ui/collapsible";
+import { cn } from "@shared/lib/utils";
 import type { Device } from "@shared/types/device";
 
 type DeviceListProps = {
@@ -42,7 +43,7 @@ export function DeviceList({
   );
 
   return (
-    <Card className="flex min-h-[360px] flex-col rounded-2xl shadow-sm xl:min-h-0">
+    <Card className="flex min-h-[360px] flex-col rounded-2xl shadow-none xl:min-h-0">
       <CardHeader className="shrink-0">
         <CardTitle className="text-xl">Devices</CardTitle>
       </CardHeader>
@@ -150,28 +151,37 @@ function DeviceRow({
   const title = device.label ?? device.deviceName;
 
   return (
-    <div className="grid gap-4 rounded-2xl border bg-background p-4 md:grid-cols-[1fr_auto] md:items-center">
-      <div className="flex min-w-0 gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-3 rounded-2xl border bg-background p-4",
+        device.state === "pending" && "border-primary/40",
+      )}
+    >
+      <div className="flex min-w-0 flex-1 basis-52 items-center gap-3">
+        <div
+          className={cn(
+            "flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground",
+            device.state === "connected" && "bg-teal/15 text-teal",
+            device.state === "pending" && "bg-coral/15 text-coral",
+          )}
+        >
           <Smartphone className="size-5" />
         </div>
         <div className="min-w-0">
-          <div className="truncate text-lg font-semibold">{title}</div>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <span>{deviceStatusText(device)}</span>
-            <span className="text-muted-foreground/60">•</span>
-            <span>{connectionPathText(device)}</span>
+          <div className="truncate text-base font-semibold">{title}</div>
+          <div className="text-sm text-muted-foreground">
+            {[deviceStatusText(device), connectionPathText(device)].filter(Boolean).join(" · ")}
           </div>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 empty:hidden">
         {device.state === "pending" ? (
           <>
             <Button onClick={() => onAllow(device.deviceId)} size="sm">
               <Check />
               Allow
             </Button>
-            <Button onClick={() => onDeny(device.deviceId)} size="sm" variant="destructive">
+            <Button onClick={() => onDeny(device.deviceId)} size="sm" variant="outline">
               <X />
               Deny
             </Button>
@@ -226,7 +236,7 @@ function deviceStatusText(device: Device): string {
   }
 
   if (device.state === "pending") {
-    return "Waiting for your approval";
+    return "Wants to listen";
   }
 
   if (device.state === "connecting") {
@@ -244,7 +254,7 @@ function deviceStatusText(device: Device): string {
   return "Disconnected";
 }
 
-function connectionPathText(device: Device): string {
+function connectionPathText(device: Device): string | null {
   if (device.connectionPath === "local") {
     return "Local network";
   }
@@ -261,9 +271,5 @@ function connectionPathText(device: Device): string {
     return "Resolving connection";
   }
 
-  if (device.state === "pending") {
-    return "Awaiting approval";
-  }
-
-  return "Connection path unavailable";
+  return null;
 }

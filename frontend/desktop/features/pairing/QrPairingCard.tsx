@@ -34,10 +34,10 @@ export function QrPairingCard({ payload }: QrPairingCardProps) {
   };
 
   return (
-    <Card className="min-h-[360px] rounded-2xl shadow-sm xl:min-h-0">
+    <Card className="min-h-[360px] rounded-2xl shadow-none xl:min-h-0">
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-xl">QR Pairing</CardTitle>
+          <CardTitle className="text-xl">Pair a phone</CardTitle>
           <NetworkBadge
             label="Hosted + TURN"
             tooltip="Pairing uses Eko’s hosted service. Audio uses a direct path when possible and Cloudflare TURN when the network blocks direct media."

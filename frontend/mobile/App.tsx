@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { MobileLayout } from "./layouts/MobileLayout";
+import { EkoMark } from "@shared/components/EkoMark";
 import { Button } from "@shared/components/ui/button";
 import { Input } from "@shared/components/ui/input";
 import { useDeviceProfileStore } from "@shared/stores/device-profile-store";
@@ -33,7 +34,6 @@ function App() {
   const [nearbyHosts, setNearbyHosts] = useState<DiscoveredHost[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [connectedHost, setConnectedHost] = useState<ConnectedHost | null>(null);
-  const [latencyMs] = useState<number | null>(null);
   const deviceId = useDeviceProfileStore((state) => state.profiles.android.deviceId);
   const deviceName = useDeviceProfileStore((state) => state.profiles.android.name);
   const setReceiverName = useDeviceProfileStore((state) => state.setReceiverName);
@@ -120,41 +120,48 @@ function App() {
     }
   }, []);
 
+  const reset = () => {
+    void stopNativeReceiver();
+    void stopAndroidMediaSession();
+    setConnectedHost(null);
+    setStatus("disconnected");
+    setMessage("Scan or find a host.");
+  };
+
+  const isConnected = status === "connected" && connectedHost !== null;
+
   return (
     <MobileLayout>
-      <div className="grid gap-1">
-        <h1 className="text-2xl font-semibold leading-tight">Eko</h1>
-        <p className="text-sm leading-5 text-muted-foreground">{message}</p>
-      </div>
-      <label className="grid gap-2 text-sm font-medium" htmlFor="android-receiver-name">
-        Receiver name
-        <Input
-          id="android-receiver-name"
-          value={deviceName}
-          onBlur={() => finalReceiverName("android")}
-          onChange={(event) => setReceiverName("android", event.target.value)}
-          maxLength={40}
-          disabled={status === "connected" || status === "waiting" || status === "connecting"}
-        />
-      </label>
+      <header className="flex items-center gap-3 py-2">
+        <EkoMark animated className="size-11" />
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold leading-tight tracking-tight">eko</h1>
+          <p className="truncate text-sm text-muted-foreground">{message}</p>
+        </div>
+      </header>
+      {isConnected ? (
+        <ConnectionStatus connectedHost={connectedHost} onDisconnect={reset} status={status} />
+      ) : (
+        <>
+          {status !== "disconnected" ? <ConnectionStatus status={status} /> : null}
+          <label className="grid gap-2 text-sm font-medium" htmlFor="android-receiver-name">
+            Receiver name
+            <Input
+              id="android-receiver-name"
+              value={deviceName}
+              onBlur={() => finalReceiverName("android")}
+              onChange={(event) => setReceiverName("android", event.target.value)}
+              maxLength={40}
+              disabled={status === "waiting" || status === "connecting"}
+            />
+          </label>
+        </>
+      )}
       <ScanQrScreen
         compact={status !== "disconnected"}
         onScanned={(payload) => requestApproval(payload, "qr")}
       />
-      {status === "connected" && connectedHost ? (
-        <ConnectionStatus
-          connectedHost={connectedHost}
-          latencyMs={latencyMs}
-          onDisconnect={() => {
-            void stopNativeReceiver();
-            void stopAndroidMediaSession();
-            setConnectedHost(null);
-            setStatus("disconnected");
-            setMessage("Scan or find a host.");
-          }}
-          status={status}
-        />
-      ) : (
+      {isConnected ? null : (
         <>
           <NearbyHostList
             hosts={nearbyHosts}
@@ -167,19 +174,11 @@ function App() {
               )
             }
           />
-          <ConnectionStatus status={status} />
-          <Button
-            onClick={() => {
-              void stopNativeReceiver();
-              void stopAndroidMediaSession();
-              setConnectedHost(null);
-              setStatus("disconnected");
-              setMessage("Scan or find a host.");
-            }}
-            variant="outline"
-          >
-            Reset
-          </Button>
+          {status !== "disconnected" ? (
+            <Button className="h-11" onClick={reset} variant="outline">
+              Reset
+            </Button>
+          ) : null}
         </>
       )}
     </MobileLayout>
@@ -190,7 +189,7 @@ export default App;
 
 function hostFromPayload(payload: QrPairingPayload): ConnectedHost {
   return {
-    name: "Eko Desktop",
+    name: "eko desktop",
     address: `${payload.local.host}:${payload.local.port}`,
   };
 }

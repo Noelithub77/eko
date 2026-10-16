@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Bug, RefreshCw, Settings, Wifi, X } from "lucide-react";
+import { Bug, RefreshCw, Settings, X } from "lucide-react";
+import { cn } from "@shared/lib/utils";
 import { DesktopLayout } from "./layouts/DesktopLayout";
 import { useMonitorLogStore } from "@shared/stores/monitor-log-store";
 import { useSettingsStore } from "@shared/stores/settings-store";
@@ -82,8 +83,13 @@ function App() {
 
   const headerActions = (
     <TooltipProvider delayDuration={400}>
-      <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-1.5 text-sm">
-        <Wifi className="size-4 text-green-500" />
+      <div className="mr-2 flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-sm">
+        <span className="relative flex size-2">
+          {isRunning ? (
+            <span className="absolute inset-0 animate-ping rounded-full bg-teal opacity-60 motion-reduce:animate-none" />
+          ) : null}
+          <span className={cn("relative size-2 rounded-full", isRunning ? "bg-teal" : "bg-muted-foreground")} />
+        </span>
         <span className="text-muted-foreground">
           {isRunning ? "Ready for phones" : "Starting stream"}
         </span>
@@ -94,7 +100,7 @@ function App() {
           <button
             type="button"
             onClick={() => void restart()}
-            className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className={headerButton(false)}
             aria-label="Restart stream"
           >
             <RefreshCw className="size-5" />
@@ -109,7 +115,7 @@ function App() {
           <button
             type="button"
             onClick={() => setView((v) => (v === "settings" ? "stream" : "settings"))}
-            className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className={headerButton(view === "settings")}
             aria-label={view === "settings" ? "Close settings" : "Settings"}
           >
             {view === "settings" ? <X className="size-5" /> : <Settings className="size-5" />}
@@ -124,7 +130,7 @@ function App() {
           <button
             type="button"
             onClick={() => setView((v) => (v === "dev" ? "stream" : "dev"))}
-            className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className={headerButton(view === "dev")}
             aria-label={view === "dev" ? "Main view" : "Monitor"}
           >
             <Bug className="size-5" />
@@ -172,7 +178,7 @@ function App() {
         </div>
       ) : null}
       {errorMessage ? (
-        <div className="mt-4 rounded-md border border-destructive/30 p-3 text-sm">
+        <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm">
           {errorMessage}
         </div>
       ) : null}
@@ -183,3 +189,10 @@ function App() {
 }
 
 export default App;
+
+function headerButton(isActive: boolean): string {
+  return cn(
+    "inline-flex items-center justify-center rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+    isActive && "bg-muted text-foreground",
+  );
+}

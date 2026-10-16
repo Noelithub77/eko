@@ -9,7 +9,7 @@ type SettingsPanelProps = {
 
 export function SettingsPanel({ devMode, onDevModeChange }: SettingsPanelProps) {
   return (
-    <Card className="rounded-lg shadow-sm">
+    <Card className="rounded-2xl shadow-none">
       <CardHeader>
         <CardTitle>Settings</CardTitle>
       </CardHeader>

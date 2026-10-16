@@ -77,7 +77,7 @@ export function NowPlayingCard() {
 
   if (!media?.title) {
     return (
-      <Card className="rounded-2xl shadow-sm">
+      <Card className="rounded-2xl shadow-none">
         <CardContent className="flex items-center gap-3 p-4">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
             <Music className="size-5" />
@@ -117,18 +117,18 @@ export function NowPlayingCard() {
   };
 
   return (
-    <Card className="rounded-2xl shadow-sm">
+    <Card className="rounded-2xl shadow-none">
       <CardContent className="p-4">
         <div className="flex items-start gap-4">
-          <div className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+          <div className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-coral/15 text-coral">
             <Music className="size-8" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               {media.isPlaying ? (
-                <Play className="size-4 text-green-500" />
+                <Play className="size-4 text-teal" />
               ) : (
-                <Pause className="size-4 text-yellow-500" />
+                <Pause className="size-4 text-muted-foreground" />
               )}
               <span className="text-sm text-muted-foreground">
                 {media.isPlaying ? "Playing" : "Paused"}
@@ -160,7 +160,6 @@ export function NowPlayingCard() {
             <SkipBack className="size-4" />
           </Button>
           <Button
-            variant="ghost"
             size="icon"
             onClick={handleToggle}
             aria-label={media.isPlaying ? "Pause" : "Play"}

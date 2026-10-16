@@ -1,4 +1,4 @@
-import { Info, Radar } from "lucide-react";
+import { Info, Monitor, Radar } from "lucide-react";
 import { useState } from "react";
 import { NetworkBadge } from "@shared/components/NetworkBadge";
 import { Button } from "@shared/components/ui/button";
@@ -26,7 +26,7 @@ export function NearbyHostList({ hosts, isSearching, onFind, onSelect }: NearbyH
     <Card className="gap-4 rounded-2xl py-5 shadow-none">
       <CardHeader className="px-5">
         <div className="flex items-center justify-between gap-2">
-          <CardTitle>Nearby Host</CardTitle>
+          <CardTitle>Nearby host</CardTitle>
           <NetworkBadge label="Same network" />
         </div>
       </CardHeader>
@@ -52,7 +52,8 @@ export function NearbyHostList({ hosts, isSearching, onFind, onSelect }: NearbyH
                     onClick={() => onSelect(host)}
                     variant="outline"
                   >
-                    Eko Desktop
+                    <Monitor />
+                    eko desktop
                   </Button>
                   <Tooltip
                     onOpenChange={(open) => setOpenHostKey(open ? hostKey : null)}

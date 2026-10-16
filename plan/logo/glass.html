@@ -1,0 +1,123 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+:root{--card:#161616;--text:#ededed;--bg:#0d0e0f;--fg:#f2efe9}
+body.light{--card:#ebe7e0;--text:#151515;--bg:#f7f4ef;--fg:#141414}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--font-sans,system-ui);color:var(--foreground)}
+.top{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.chip{padding:6px 12px;border-radius:999px;border:1px solid var(--border);background:transparent;color:var(--foreground);font:inherit;font-size:13px;cursor:pointer}
+.chip[aria-pressed=true]{background:var(--secondary);border-color:var(--ring)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.card{border-radius:var(--radius,14px);background:var(--card);color:var(--text);padding:16px;display:grid;gap:12px}
+svg{display:block;overflow:visible}
+.tile{width:156px;height:156px;justify-self:center;border-radius:34px;box-shadow:0 24px 48px -26px #000,0 2px 6px -2px #0006}
+.tile svg,.app svg,.fav svg{width:100%;height:100%}
+.row{display:flex;align-items:center;gap:10px}
+.app{flex:none;width:44px;height:44px;border-radius:10px}.fav{flex:none;width:16px;height:16px}
+.lock{padding:12px 14px;border-radius:12px;background:var(--bg)}
+.lock svg{height:34px;width:auto}
+.name{font-weight:650;font-size:14px}.num{font-size:11px;opacity:.5}
+.idea{font-size:12.5px;opacity:.72;line-height:1.4}
+.word path{fill:none;stroke:var(--fg);stroke-width:4.6;stroke-linecap:round;stroke-linejoin:round}
+.vb{transform-box:fill-box;transform-origin:center}.view{transform-box:view-box}
+@keyframes beat{0%,100%{transform:scale(1)}14%{transform:scale(1.22)}34%{transform:scale(1)}}
+@keyframes echo{0%,20%{opacity:.06}45%{opacity:.5}100%{opacity:.06}}
+@keyframes ripple{0%{transform:scale(.3);opacity:.7}100%{transform:scale(1.08);opacity:0}}
+@keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+@keyframes catch{0%,40%{opacity:.45}55%{opacity:1}100%{opacity:.45}}
+@keyframes glowp{0%,100%{opacity:.35}50%{opacity:.75}}
+.anim .b1{animation:beat 2.6s infinite}.anim .b2{animation:beat 2.6s .18s infinite}.anim .b3{animation:beat 2.6s .36s infinite}
+.anim .e1{animation:echo 2.6s .45s infinite}.anim .e2{animation:echo 2.6s .7s infinite}
+.anim .rp{animation:ripple 2.6s .3s cubic-bezier(.2,.7,.3,1) infinite}
+.anim .br1{animation:breathe 3s infinite}.anim .br2{animation:breathe 3s .25s infinite}.anim .br3{animation:breathe 3s .5s infinite}
+.anim .c1{animation:catch 2.6s .5s infinite}.anim .c2{animation:catch 2.6s .8s infinite}.anim .c3{animation:catch 2.6s 1.1s infinite}
+.anim .gp{animation:glowp 2.6s .3s infinite}
+</style></head><body class="anim">
+<div class="top">
+  <button class="chip" data-toggle="light" aria-pressed="false">Light</button>
+  <button class="chip" data-toggle="anim" aria-pressed="true">Motion</button>
+</div>
+<div class="grid" id="grid"></div>
+<script>
+const r1=n=>Math.round(n*100)/100;
+const pt=(cx,cy,r,a)=>[r1(cx+r*Math.cos(a*Math.PI/180)),r1(cy+r*Math.sin(a*Math.PI/180))];
+const arc=(cx,cy,r,a0,a1)=>{const[x0,y0]=pt(cx,cy,r,a0),[x1,y1]=pt(cx,cy,r,a1);return `M${x0} ${y0}A${r} ${r} 0 ${a1-a0>180?1:0} 1 ${x1} ${y1}`};
+const C='#ff6b5b',T='#2ec4b6';
+const defs=k=>`<defs>
+<linearGradient id="ca${k}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffa587"/><stop offset="1" stop-color="#ff4f63"/></linearGradient>
+<linearGradient id="tb${k}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7af3e2"/><stop offset="1" stop-color="#1b9fc2"/></linearGradient>
+<linearGradient id="ct${k}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${C}"/><stop offset=".55" stop-color="#8fa596"/><stop offset="1" stop-color="${T}"/></linearGradient>
+<linearGradient id="au${k}" gradientUnits="userSpaceOnUse" x1="0" y1="9" x2="0" y2="55"><stop offset="0" stop-color="#7af3e2" stop-opacity="0"/><stop offset=".32" stop-color="#5fe6d6"/><stop offset=".68" stop-color="#2ec4b6"/><stop offset="1" stop-color="#2a8fd6" stop-opacity="0"/></linearGradient>
+<radialGradient id="orb${k}" cx=".34" cy=".3" r=".8"><stop offset="0" stop-color="#ffd9c7"/><stop offset=".32" stop-color="#ff8064"/><stop offset="1" stop-color="#c62f4a"/></radialGradient>
+<radialGradient id="res${k}"><stop offset="0" stop-color="${T}" stop-opacity=".42"/><stop offset="1" stop-color="${T}" stop-opacity="0"/></radialGradient>
+<radialGradient id="bgA${k}"><stop offset="0" stop-color="${C}" stop-opacity=".26"/><stop offset="1" stop-color="${C}" stop-opacity="0"/></radialGradient>
+<radialGradient id="bgB${k}"><stop offset="0" stop-color="${T}" stop-opacity=".22"/><stop offset="1" stop-color="${T}" stop-opacity="0"/></radialGradient>
+<linearGradient id="sheen${k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".07"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<filter id="glow${k}" filterUnits="userSpaceOnUse" x="-20" y="-20" width="104" height="104"><feGaussianBlur stdDeviation="2.4"/></filter>
+<filter id="grain${k}" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="2" seed="7" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1.4 -.62"/></filter>
+<clipPath id="clip${k}"><rect width="64" height="64" rx="14.5"/></clipPath>
+</defs>`;
+// Shared pieces: a glowing dot, a glass band (glow, gradient body, thin highlight).
+const glowDot=(k,x,y,r,fill,cls='')=>`<g class="vb ${cls}"><circle cx="${x}" cy="${y}" r="${r*1.5}" fill="${fill===T?T:C}" opacity=".55" filter="url(#glow${k})"/><circle cx="${x}" cy="${y}" r="${r}" fill="${fill===T?`url(#tb${k})`:`url(#ca${k})`}"/></g>`;
+const band=(k,d,w,paint,hi)=>`<path d="${d}" fill="none" stroke="${T}" stroke-width="${w+2}" opacity=".5" filter="url(#glow${k})" stroke-linecap="round" class="gp"/><path d="${d}" fill="none" stroke="${paint}" stroke-width="${w}" stroke-linecap="round"/>${hi?`<path d="${hi}" fill="none" stroke="#fff" stroke-opacity=".38" stroke-width="1" stroke-linecap="round"/>`:''}`;
+const marks=[
+ {name:'Swell',idea:'Beats build up and break into a glass wave, with fainter echoes still travelling out.',
+  inner:k=>`<g transform="translate(-3 0)">
+   <path class="e2" d="${arc(17,32,40,-36,36)}" fill="none" stroke="url(#tb${k})" stroke-width="1.6" stroke-linecap="round" opacity=".14"/>
+   <path class="e1" d="${arc(17,32,34,-42,42)}" fill="none" stroke="url(#tb${k})" stroke-width="2.4" stroke-linecap="round" opacity=".3"/>
+   ${band(k,arc(17,32,26,-50,50),6.5,`url(#tb${k})`,arc(17,32,23.9,-38,14))}
+   ${glowDot(k,16.5,32,2.1,C,'b1')}${glowDot(k,23.5,32,2.9,C,'b2')}${glowDot(k,31.5,32,3.8,C,'b3')}</g>`},
+ {name:'Chamber',idea:'The sound walks into a glass ring and resonates inside it. Coral turns teal as it goes round.',
+  inner:k=>`<circle cx="40" cy="32" r="12" fill="url(#res${k})" class="vb br1"/>
+   ${band(k,'M27.9 25A14 14 0 1 1 27.9 39',6.5,`url(#ct${k})`,arc(40,32,11.4,-140,-40))}
+   ${glowDot(k,11,32,2.2,C,'b1')}${glowDot(k,18.5,32,2.8,C,'b2')}${glowDot(k,26,32,3.3,C,'b3')}`},
+ {name:'Relay',idea:'Chamber, then out the other side: the ring sends the sound on to three listeners.',
+  inner:k=>`<g transform="translate(32 32) scale(.9) translate(-34 -32)">
+   ${band(k,'M18.5 26.5A11 11 0 1 1 18.5 37.5',5.5,`url(#ct${k})`,arc(28,32,8.8,-140,-50))}
+   <path class="e1" d="${arc(28,32,18,-38,38)}" fill="none" stroke="url(#tb${k})" stroke-width="2.2" stroke-linecap="round" opacity=".45"/>
+   <path class="e2" d="${arc(28,32,24,-34,34)}" fill="none" stroke="url(#tb${k})" stroke-width="1.6" stroke-linecap="round" opacity=".25"/>
+   ${glowDot(k,6.5,32,1.8,C,'b1')}${glowDot(k,11.5,32,2.2,C,'b2')}${glowDot(k,17,32,2.6,C,'b3')}
+   ${[[-32,'c1'],[0,'c2'],[32,'c3']].map(([a,c])=>{const[x,y]=pt(28,32,31,a);return glowDot(k,x,y,2.6,T,c)}).join('')}</g>`},
+ {name:'Broadcast',idea:'One glowing device, rings of sound, and listeners lighting up wherever they sit.',
+  inner:k=>`${[[13,2.6,.5],[20,2,.3],[27,1.5,.16]].map(([r,w,o])=>`<circle cx="32" cy="32" r="${r}" fill="none" stroke="url(#tb${k})" stroke-width="${w}" opacity="${o}"/>`).join('')}
+   <circle class="view rp" style="transform-origin:32px 32px" cx="32" cy="32" r="27" fill="none" stroke="${T}" stroke-width="1.4"/>
+   ${glowDot(k,...pt(32,32,13,200),2.3,T,'c1')}${glowDot(k,...pt(32,32,20,-40),2.3,T,'c2')}${glowDot(k,...pt(32,32,27,35),2.3,T,'c3')}
+   <circle cx="32" cy="32" r="10" fill="${C}" opacity=".6" filter="url(#glow${k})"/><circle cx="32" cy="32" r="7.5" fill="url(#orb${k})" class="vb b1"/>
+   <ellipse cx="29.6" cy="29" rx="2.4" ry="1.5" fill="#fff" opacity=".55"/>`},
+ {name:'Layers',idea:'The swell as overlapping glass discs: each echo bigger, cooler, and more see-through.',
+  inner:k=>`<g style="isolation:isolate">
+   <circle class="vb br3" cx="40.5" cy="32" r="14" fill="url(#tb${k})" opacity=".55" style="mix-blend-mode:screen"/>
+   <circle class="vb br2" cx="27.5" cy="32" r="9.5" fill="url(#ct${k})" opacity=".72" style="mix-blend-mode:screen"/>
+   <circle class="vb br1" cx="17.5" cy="32" r="6" fill="url(#ca${k})" opacity=".95" style="mix-blend-mode:screen"/>
+   ${[[17.5,6],[27.5,9.5],[40.5,14]].map(([x,r])=>`<path d="${arc(x,32,r-1.6,-150,-70)}" fill="none" stroke="#fff" stroke-opacity=".4" stroke-width=".9" stroke-linecap="round"/><circle cx="${x}" cy="32" r="${r}" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width=".6"/>`).join('')}</g>`},
+ {name:'Orbit',idea:'A glossy device with listeners circling it on a glass orbit.',
+  inner:k=>{const e='M9 33a23 8.5 0 1 0 46 0a23 8.5 0 1 0 -46 0';return `<g transform="rotate(-16 32 33)"><path d="${e}" fill="none" stroke="url(#tb${k})" stroke-width="1.6" opacity=".5"/></g>
+   <circle cx="32" cy="32" r="12.5" fill="${C}" opacity=".55" filter="url(#glow${k})"/><circle cx="32" cy="32" r="10" fill="url(#orb${k})"/><ellipse cx="28.6" cy="27.8" rx="3.2" ry="2" fill="#fff" opacity=".5"/>
+   <g transform="rotate(-16 32 33)"><path d="${e}" fill="none" stroke="url(#tb${k})" stroke-width="1.8" clip-path="inset(50% 0 0 0)" style="clip-path:polygon(0 33px,64px 33px,64px 64px,0 64px)"/>
+   ${[0,-2.2,-4.4].map(b=>`<g><circle r="2.5" fill="${T}" opacity=".6" filter="url(#glow${k})"/><circle r="2.1" fill="url(#tb${k})"/><animateMotion dur="6.6s" begin="${b}s" repeatCount="indefinite" path="${e}"/></g>`).join('')}</g>`}},
+ {name:'Reach',idea:'One source, a glass wave, and three listeners on the far side, each one listening.',
+  inner:k=>`<g transform="translate(3 0)">
+   <path class="e1" d="${arc(15,32,25,-46,46)}" fill="none" stroke="url(#tb${k})" stroke-width="2" stroke-linecap="round" opacity=".3"/>
+   ${band(k,arc(15,32,17,-55,55),5,`url(#ct${k})`,arc(15,32,15.2,-44,0))}
+   <circle cx="15" cy="32" r="7" fill="${C}" opacity=".6" filter="url(#glow${k})"/><circle cx="15" cy="32" r="5.5" fill="url(#orb${k})" class="vb b1"/><ellipse cx="13.4" cy="30" rx="1.7" ry="1.1" fill="#fff" opacity=".55"/>
+   ${[[-40,'c1'],[0,'c2'],[40,'c3']].map(([a,c])=>{const[x,y]=pt(15,32,33,a);return `<circle cx="${x}" cy="${y}" r="5" fill="none" stroke="${T}" stroke-opacity=".3" stroke-width=".8"/>`+glowDot(k,x,y,2.7,T,c)}).join('')}</g>`},
+ {name:'Aurora',idea:'The swell with a wave of light instead of a line: it fades in and out like sound does.',
+  inner:k=>`<g transform="translate(4 0)">
+   <path d="${arc(15,32,24,-66,66)}" fill="none" stroke="url(#au${k})" stroke-width="14" stroke-linecap="round" opacity=".5" filter="url(#glow${k})" class="gp"/>
+   <path d="${arc(15,32,24,-66,66)}" fill="none" stroke="url(#au${k})" stroke-width="7" stroke-linecap="round"/>
+   <path d="${arc(15,32,21.8,-30,16)}" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="1" stroke-linecap="round"/>
+   ${glowDot(k,13.5,32,2,C,'b1')}${glowDot(k,20.5,32,2.8,C,'b2')}${glowDot(k,29,32,3.7,C,'b3')}</g>`},
+];
+let n=0;
+const tile=(m)=>{const k=n++;return `<svg viewBox="0 0 64 64">${defs(k)}<g clip-path="url(#clip${k})"><rect width="64" height="64" fill="var(--bg)"/><circle cx="12" cy="10" r="34" fill="url(#bgA${k})"/><circle cx="56" cy="58" r="36" fill="url(#bgB${k})"/>
+ ${m.inner(k)}<rect width="64" height="64" fill="url(#sheen${k})"/><rect width="64" height="64" filter="url(#grain${k})" opacity=".09"/></g>
+ <rect x=".4" y=".4" width="63.2" height="63.2" rx="14.1" fill="none" stroke="#fff" stroke-opacity=".1" stroke-width=".8"/></svg>`};
+const word=['M6 36H22A8 8 0 1 0 19.66 41.66','M28 20V44','M38 28L29.5 36.5L38 44','M50 28A8 8 0 1 1 50 44A8 8 0 1 1 50 28'];
+const lockup=m=>{const k=n++;return `<svg viewBox="2 4 132 56">${defs(k)}${m.inner(k)}<g class="word" transform="translate(64 -6) scale(1.2)">${word.map((d,i)=>`<path d="${d}" ${i===3?`style="stroke:url(#ct${k})"`:''}/>`).join('')}</g></svg>`};
+document.getElementById('grid').innerHTML=marks.map((m,i)=>`<div class="card"><div class="tile">${tile(m)}</div>
+ <div class="row"><div class="app">${tile(m)}</div><div class="fav">${tile(m)}</div><div><div class="num">${String(i+1).padStart(2,'0')}</div><div class="name">${m.name}</div></div></div>
+ <div class="lock">${lockup(m)}</div><div class="idea">${m.idea}</div></div>`).join('');
+for(const b of document.querySelectorAll('[data-toggle]'))b.onclick=()=>{const v=document.body.classList.toggle(b.dataset.toggle);b.setAttribute('aria-pressed',v);
+ if(b.dataset.toggle==='anim')for(const s of document.querySelectorAll('svg'))v?s.unpauseAnimations():s.pauseAnimations()};
+</script></body></html>

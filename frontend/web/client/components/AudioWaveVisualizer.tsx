@@ -129,7 +129,12 @@ export function AudioWaveVisualizer({ stream, isPlaying, className }: AudioWaveV
 
         ctx2d.beginPath();
         ctx2d.roundRect(x, y, barWidth, barHeight, cornerRadius);
-        ctx2d.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        // Coral on the left fading to teal on the right: the sound and its echo.
+        const t = barCount > 1 ? i / (barCount - 1) : 0;
+        const r = Math.round(255 + (46 - 255) * t);
+        const g = Math.round(107 + (196 - 107) * t);
+        const b = Math.round(91 + (182 - 91) * t);
+        ctx2d.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
         ctx2d.fill();
       }
 

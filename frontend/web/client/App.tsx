@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pause, Pencil, Play, X } from "lucide-react";
 import { toast } from "sonner";
+import { EkoMark } from "@shared/components/EkoMark";
 import { Button } from "@shared/components/ui/button";
 import { Card, CardContent } from "@shared/components/ui/card";
 import { Toaster } from "@shared/components/ui/sonner";
@@ -283,10 +284,13 @@ function App() {
     <>
       <div className="mobile-shell bg-background text-foreground">
         <main className="mx-auto grid min-h-dvh w-full max-w-[430px] content-center gap-3 px-4">
-        <div className="grid gap-1">
-          <h1 className="text-2xl font-semibold leading-tight">Eko</h1>
-          <p className="text-sm leading-5 text-muted-foreground">Web receiver</p>
-        </div>
+        <header className="flex items-center gap-3 py-2">
+          <EkoMark animated className="size-11" />
+          <div>
+            <h1 className="text-2xl font-bold leading-tight tracking-tight">eko</h1>
+            <p className="text-sm text-muted-foreground">Web receiver</p>
+          </div>
+        </header>
 
         <Card className="gap-4 rounded-2xl py-5 shadow-none">
           <CardContent className="grid gap-4 px-5">
@@ -348,7 +352,7 @@ function App() {
 
             <div
               className={cn(
-                "relative h-32 w-full overflow-hidden rounded-xl bg-black/40 transition-opacity",
+                "relative h-32 w-full overflow-hidden rounded-xl bg-[#101010] transition-opacity",
                 isConnected ? "opacity-100" : "opacity-30",
               )}
             >
@@ -383,8 +387,8 @@ function App() {
                 onClick={disconnect}
                 disabled={!isConnected}
                 className={cn(
-                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive text-destructive-foreground transition-all",
-                  isConnected ? "hover:bg-destructive/90 active:scale-95" : "opacity-50",
+                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground transition-all",
+                  isConnected ? "hover:bg-muted active:scale-95" : "opacity-50",
                 )}
                 aria-label="Disconnect"
               >
@@ -401,7 +405,7 @@ function App() {
               </div>
             ) : !isConnected ? (
               <Button className="h-11" disabled={!payload} onClick={() => void connect()}>
-                Ask Desktop
+                Ask desktop
               </Button>
             ) : null}
           </CardContent>

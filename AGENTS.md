@@ -117,6 +117,7 @@ eko/
     SETUP.md
     TODO.md
   package.json
+  t3.json
   vite.config.ts
   biome.json
   components.json
@@ -155,6 +156,7 @@ eko/
         features/playback/
         components/
     shared/
+      assets/
       bindings/
       components/
       components/ui/
@@ -247,6 +249,8 @@ The web client is mainly for iOS and browser fallback. Do not make it the primar
 
 Shared frontend code lives in `frontend/shared/`.
 
+- `theme.css` holds the one coral/teal token set imported by every surface.
+- `assets/eko.svg` is the mark used as the favicon on every surface.
 - `bindings/tauri.ts` contains generated or shared Tauri binding types.
 - `components/` contains reusable UI pieces.
 - `components/ui/` contains shadcn-style UI primitives.
@@ -448,6 +452,7 @@ Prefer caching over repeated clean builds.
 ## Dev Workflow Notes
 
 - `npm run dev:desktop` uses `scripts/start-desktop-dev.mjs`.
+- `t3.json` gives T3 Code a `Dev` project action that runs `pnpm dev:desktop`.
 - Desktop dev uses `rust/target/desktop-dev/`.
 - `npm run dev:android` uses `scripts/start-android-dev.ps1`.
 - Android dev uses `rust/target/android-dev/`.
@@ -456,6 +461,13 @@ Prefer caching over repeated clean builds.
 - If no USB device is connected, Android dev falls back to the PC LAN IP.
 - When Android Studio opens, keep the Tauri dev terminal running.
 - If Android loads an old dev URL, rerun `npm run dev:android`; the script removes stale dev APKs on connected USB devices.
+
+## Brand
+
+- The mark is "Turn": a coral ring and dot (the sound) and the same shape turned 180° in teal (its echo). Use `EkoMark` from `frontend/shared/components/EkoMark.tsx`; do not redraw it.
+- Colours: coral `#ff6b5b` for primary actions, teal `#2ec4b6` for live or connected states, ink `#101010` for the dark surface. Use the `primary`, `coral`, and `teal` theme tokens instead of raw Tailwind palette colours.
+- Write the product name as lowercase "eko" in UI copy.
+- Icon sources live in `rust/icons/source/`. Regenerate with `pnpm tauri icon rust/icons/source/icon.json`, then delete `rust/icons/ios/`. Force-add new files under `rust/gen/android/app/src/main/res/` because `rust/gen/` is ignored.
 
 ## UI Rules
 

@@ -129,15 +129,15 @@ function formatValue(value: number | null, decimals: number): string {
 
 function getLevelClass(level: QualityLevel): string {
   if (level === "good") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-950";
+    return "border-teal/30 bg-teal/10 text-teal";
   }
 
   if (level === "okay") {
-    return "border-amber-200 bg-amber-50 text-amber-950";
+    return "border-coral/30 bg-coral/10 text-coral";
   }
 
   if (level === "poor") {
-    return "border-red-200 bg-red-50 text-red-950";
+    return "border-destructive/30 bg-destructive/10 text-destructive";
   }
 
   return "border-border bg-muted text-foreground";

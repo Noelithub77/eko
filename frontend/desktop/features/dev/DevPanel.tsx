@@ -64,11 +64,11 @@ function countLogLevels(events: DevEvent[]): LogLevelCount {
 function getLogStyle(level: string): string {
   switch (level) {
     case "error":
-      return "border-red-500 bg-red-500/10 text-red-700";
+      return "border-red-500 bg-red-500/10 text-red-700 dark:text-red-300";
     case "warn":
-      return "border-yellow-500 bg-yellow-500/10 text-yellow-700";
+      return "border-yellow-500 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300";
     default:
-      return "border-blue-500 bg-blue-500/10 text-blue-700";
+      return "border-blue-500 bg-blue-500/10 text-blue-700 dark:text-blue-300";
   }
 }
 
@@ -125,7 +125,7 @@ export function DevPanel({
 
   return (
     <div className="grid h-full min-h-0 gap-4 overflow-hidden lg:grid-cols-[1fr_1fr]">
-      <Card className="rounded-lg shadow-sm lg:col-span-2">
+      <Card className="rounded-2xl shadow-none lg:col-span-2">
         <CardHeader>
           <CardTitle>Monitor</CardTitle>
         </CardHeader>
@@ -139,7 +139,7 @@ export function DevPanel({
         </CardContent>
       </Card>
 
-      <Card className="rounded-lg shadow-sm lg:col-span-2">
+      <Card className="rounded-2xl shadow-none lg:col-span-2">
         <CardHeader>
           <CardTitle>Health</CardTitle>
         </CardHeader>
@@ -157,7 +157,7 @@ export function DevPanel({
         </CardContent>
       </Card>
 
-      <Card className="rounded-lg shadow-sm">
+      <Card className="rounded-2xl shadow-none">
         <CardHeader>
           <CardTitle>Stats</CardTitle>
           {showTestControls ? (
@@ -189,7 +189,7 @@ export function DevPanel({
         </CardContent>
       </Card>
 
-      <Card className="rounded-lg shadow-sm">
+      <Card className="rounded-2xl shadow-none">
         <CardHeader>
           <CardTitle>Logs</CardTitle>
           <CardAction className="flex gap-2">
@@ -237,7 +237,7 @@ function ProofItem({ label, status }: { label: string; status: ProofAreaStatus }
     <div className="rounded-md border bg-background p-3">
       <div className="flex items-center gap-2 text-sm font-medium">
         <CheckCircle2
-          className={ready ? "size-4 text-emerald-600" : "size-4 text-muted-foreground"}
+          className={ready ? "size-4 text-teal" : "size-4 text-muted-foreground"}
         />
         {label}
       </div>

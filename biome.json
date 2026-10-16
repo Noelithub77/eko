@@ -15,8 +15,7 @@
       "!**/gen",
       "!**/pnpm-lock.yaml",
       "!**/Cargo.lock",
-      "!**/.vscode",
-      "!public"
+      "!**/.vscode"
     ]
   },
   "formatter": {

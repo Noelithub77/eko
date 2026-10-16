@@ -1,0 +1,83 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+:root{--a:#ff6b5b;--b:#2ec4b6}
+body.soft{--a:#ffa08f;--b:#8ee8dd}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--font-sans,system-ui);color:var(--foreground)}
+.top{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.chip{padding:6px 12px;border-radius:999px;border:1px solid var(--border);background:transparent;color:var(--foreground);font:inherit;font-size:13px;cursor:pointer}
+.chip[aria-pressed=true]{background:var(--secondary);border-color:var(--ring)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.card{border-radius:var(--radius,14px);background:#161616;color:#ededed;padding:16px;display:grid;gap:12px}
+.tile{width:150px;height:150px;justify-self:center;border-radius:33px;background:#101010;box-shadow:0 0 0 1px #ffffff12,0 20px 40px -24px #000}
+.tile svg{width:100%;height:100%;display:block}
+.row{display:flex;align-items:center;gap:12px}
+.app,.fav,.lock .icon{flex:none}
+.app{width:44px;height:44px;border-radius:10px;background:#101010;box-shadow:0 0 0 1px #ffffff14}
+.fav{width:18px;height:18px;border-radius:4px;background:#101010;box-shadow:0 0 0 1px #ffffff14}
+.app svg,.fav svg{width:100%;height:100%;display:block}
+.lock{display:flex;align-items:center;gap:8px;font:800 19px/1 Nunito,ui-rounded,system-ui,sans-serif;letter-spacing:-.03em;padding:10px 12px;border-radius:12px;background:#101010}
+.lock .icon{width:26px;height:26px;border-radius:7px;background:#101010;box-shadow:0 0 0 1px #ffffff14}
+.lock svg{width:100%;height:100%;display:block}
+.name{font-weight:650;font-size:14px}.num{font-size:11px;opacity:.5}
+.idea{font-size:12.5px;opacity:.7;line-height:1.4}
+polyline{fill:none;stroke-linecap:round;stroke-linejoin:round}
+</style></head><body>
+<div class="top">
+  <button class="chip" id="soft" aria-pressed="false">Softer, like leet</button>
+  <button class="chip" id="motion" aria-pressed="true">Motion on</button>
+</div>
+<div class="grid" id="grid"></div>
+<svg id="probe" width="0" height="0" style="position:absolute"></svg>
+<script>
+// Every mark has four strokes that become e, the k stem, the k arm, and o. "ek" is coral, "o" teal.
+const word=[
+ {d:'M6 36H22A8 8 0 1 0 19.66 41.66',w:4.6},
+ {d:'M28 20V44',w:4.6},
+ {d:'M38 28L29.5 36.5L38 44',w:4.6},
+ {d:'M50 28A8 8 0 1 1 50 44A8 8 0 1 1 50 28',w:4.6},
+];
+const dot=(x,y,w)=>({dot:[x,y],w});
+const marks=[
+ {name:'Levels',from:11,idea:'Three coral levels and a quieter teal one: the sound, then its echo. They straighten into e, k, o.',
+  s:[{d:'M12 25V39',w:6},{d:'M23 16V48',w:6},{d:'M34 22V42',w:6},{d:'M47 27V37',w:6}]},
+ {name:'Two rings',from:3,idea:'A solid sound and the ring it leaves. The disc opens into "ek", the ring becomes the o.',
+  s:[dot(26,32,22),dot(26,32,22),dot(26,32,22),{d:'M42 21A11 11 0 1 1 42 43A11 11 0 1 1 42 21',w:6}]},
+ {name:'Delay trail',from:5,idea:'Each repeat later and smaller. The dots grow into the letters.',
+  s:[dot(15,32,16),dot(32,32,12),dot(32,32,12),dot(46,32,8)]},
+ {name:'Reflection',from:6,idea:'A coral wave and its teal mirror. The wave breaks into "ek", the mirror curls into o.',
+  s:[{d:'M8 22C12 12 20 12 24 22',w:5},{d:'M24 22C28 32 36 32 40 22',w:5},{d:'M40 22C44 12 52 12 56 22',w:5},{d:'M8 42C12 52 20 52 24 42C28 32 36 32 40 42C44 52 52 52 56 42',w:5}]},
+ {name:'Echo out',from:'leet',idea:'Like leet\'s dots and bracket: three coral beats, then the teal wave they send out.',
+  s:[dot(13,32,6.4),dot(22,32,6.4),dot(31,32,6.4),{d:'M37 9.5A26 26 0 0 1 37 54.5',w:5}]},
+ {name:'Ripple',from:3,idea:'The sound sits inside its own echo. The closest to the old mark\'s idea, without Tauri\'s shape.',
+  s:[dot(32,32,18),dot(32,32,18),dot(32,32,18),{d:'M32 13A19 19 0 1 1 32 51A19 19 0 1 1 32 13',w:5}]},
+];
+const N=48, probe=document.getElementById('probe');
+const sample=st=>{if(st.dot)return Array.from({length:N},()=>st.dot);
+ const p=document.createElementNS('http://www.w3.org/2000/svg','path');p.setAttribute('d',st.d);probe.append(p);
+ const L=p.getTotalLength();const pts=Array.from({length:N},(_,i)=>{const q=p.getPointAtLength(L*i/(N-1));return[q.x,q.y]});p.remove();return pts};
+const W=word.map(sample);
+const colors=['var(--a)','var(--a)','var(--a)','var(--b)'];
+const svgFor=()=>`<svg viewBox="0 0 64 64">${colors.map(c=>`<polyline stroke="${c}"/>`).join('')}</svg>`;
+const draw=(svg,m,p)=>[...svg.querySelectorAll('polyline')].forEach((pl,i)=>{
+ const A=m.pts[i],B=W[i];pl.setAttribute('points',A.map(([x,y],j)=>`${(x+(B[j][0]-x)*p).toFixed(2)},${(y+(B[j][1]-y)*p).toFixed(2)}`).join(' '));
+ pl.setAttribute('stroke-width',(m.s[i].w+(word[i].w-m.s[i].w)*p).toFixed(2))});
+const grid=document.getElementById('grid');
+marks.forEach((m,i)=>{m.pts=m.s.map(sample);
+ const c=document.createElement('div');c.className='card';
+ c.innerHTML=`<div class="tile">${svgFor()}</div><div class="row"><div class="app">${svgFor()}</div><div class="fav">${svgFor()}</div>
+ <div><div class="num">${String(i+1).padStart(2,'0')} · from ${m.from==='leet'?'leet':'option '+m.from}</div><div class="name">${m.name}</div></div>
+ </div><div class="lock"><span class="icon">${svgFor()}</span>eko</div><div class="idea">${m.idea}</div>`;
+ grid.append(c);m.svgs=[...c.querySelectorAll('svg')];for(const s of m.svgs)draw(s,m,0);});
+const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+let on=true,t0=performance.now();
+// Hold the mark, morph to the word, hold, morph back.
+const frame=now=>{const t=((now-t0)/1000)%5.2;
+ const p=t<1.4?0:t<2.4?ease((t-1.4)):t<4.2?1:ease(1-(t-4.2));
+ for(const m of marks)draw(m.svgs[0],m,on?p:0);
+ requestAnimationFrame(frame)};
+requestAnimationFrame(frame);
+document.getElementById('motion').onclick=e=>{on=!on;e.target.setAttribute('aria-pressed',on);e.target.textContent=on?'Motion on':'Motion off'};
+document.getElementById('soft').onclick=e=>{const v=document.body.classList.toggle('soft');e.target.setAttribute('aria-pressed',v)};
+</script></body></html>
