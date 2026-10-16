@@ -23,3 +23,16 @@ For a targeted retry, use `build/android/NAME`, `build/windows/NAME`, `build/lin
 | Hosted web | Built landing and browser receiver files |
 
 These validation artifacts use no production signing secrets. Android debug packages are for testing and do not replace the production-signed application. The existing manual `Release` workflow remains the entry point for signed public releases and version changes. macOS and iOS are not configured project targets.
+
+## Verified build on 16 October 2026
+
+The artifact workflow built the latency changes without publishing a release. Desktop/web source commit: `a07d3d6`; isolated build snapshot: `67ec06a`. The Android retry includes only the subsequent SDK setup/operator fix (`f751565`, snapshot `7e7719d`). Production audio code is identical between these snapshots.
+
+| Target | Job duration | Download |
+| --- | --- | --- |
+| Windows x64 | 17 min 17 sec | [Executable and NSIS installer](https://github.com/Noelithub77/eko/actions/runs/38895971974/artifacts/12044149277) |
+| Linux x64 | 8 min 11 sec | [AppImage](https://github.com/Noelithub77/eko/actions/runs/38895971974/artifacts/12044520527) |
+| Hosted web | 37 sec | [Landing and receiver files](https://github.com/Noelithub77/eko/actions/runs/38895971974/artifacts/12044226085) |
+| Android arm64 | 10 min 17 sec | [Debug APK and AAB](https://github.com/Noelithub77/eko/actions/runs/38896849858/artifacts/12045415042) |
+
+The first run's overall status is failed because Android requested Google's retired `tools` SDK package. Explicitly selecting `platform-tools` fixed setup; the Android-only retry passed. The Windows, Linux and web jobs in the first run passed. All four artifacts were downloaded and their expected files inspected locally. Android ZIP integrity checks also passed. APK/AAB production signing, installation and physical playback were not verified by these builds. GitHub artifact access requires repository access, and artifacts expire after 14 days.
