@@ -33,6 +33,7 @@ permissions:
   contents: write
 
 env:
+  CARGO_BUILD_JOBS: 2
   PNPM_VERSION: 11.5.0
   CMAKE_POLICY_VERSION_MINIMUM: "3.5"
   ANDROID_PLATFORM_PACKAGE: platforms;android-36
@@ -114,7 +115,7 @@ jobs:
               --title "Eko v${APP_VERSION}" \
               --notes "Manual Eko release." \
               --target "${RELEASE_SHA}" \
-              --latest
+              --draft
           fi
 
           RELEASE_ID="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq ".id")"
@@ -155,6 +156,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: ./rust -> target
+          shared-key: desktop-Windows
           prefix-key: v1-rust
           cache-on-failure: false
 
@@ -167,38 +169,6 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: pnpm tauri build --bundles nsis --ci
 
-      - name: Generate Windows updater metadata
-        shell: pwsh
-        env:
-          APP_VERSION: ${{ needs.prepare.outputs.app_version }}
-          GITHUB_SERVER_URL: ${{ github.server_url }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
-        run: |
-          $setupName = "eko_$env:APP_VERSION`_x64-setup.exe"
-          $setupPath = Join-Path "rust/target/release/bundle/nsis" $setupName
-          $releaseAssetsPath = Join-Path $env:RUNNER_TEMP "release-assets"
-          $signature = (Get-Content -LiteralPath "$setupPath.sig" -Raw).Trim()
-          $publicSetupUrl = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/releases/download/$env:RELEASE_TAG/$setupName"
-
-          New-Item -ItemType Directory -Force -Path $releaseAssetsPath | Out-Null
-
-          $platform = [ordered]@{
-            signature = $signature
-            url = $publicSetupUrl
-          }
-          $metadata = [ordered]@{
-            version = $env:APP_VERSION
-            notes = ""
-            pub_date = [DateTime]::UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'")
-            platforms = [ordered]@{
-              "windows-x86_64" = $platform
-              "windows-x86_64-nsis" = $platform
-            }
-          }
-
-          $metadata | ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8NoBOM -LiteralPath "$releaseAssetsPath/latest.json"
-
       - name: Upload Windows Tauri assets
         shell: bash
         env:
@@ -210,7 +180,6 @@ jobs:
           gh release upload "$RELEASE_TAG" \
             "$SETUP_PATH" \
             "${SETUP_PATH}.sig" \
-            "$RUNNER_TEMP/release-assets/latest.json" \
             --clobber
 
       - name: Upload Windows portable EXE
@@ -260,6 +229,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: ./rust -> target
+          shared-key: desktop-Linux
           prefix-key: v1-rust
           cache-on-failure: false
 
@@ -274,9 +244,11 @@ jobs:
         with:
           projectPath: .
           releaseId: ${{ needs.prepare.outputs.release_id }}
+          tagName: ${{ needs.prepare.outputs.release_tag }}
+          releaseDraft: true
           tauriScript: pnpm tauri
           args: --bundles appimage --ci
-          includeUpdaterJson: true
+          includeUpdaterJson: false
 
   android:
     name: Build Android
@@ -314,6 +286,8 @@ jobs:
 
       - name: Setup Gradle cache
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -336,6 +310,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: ./rust -> target
+          shared-key: android-arm64
           prefix-key: v1-rust
           cache-on-failure: false
 
@@ -357,13 +332,15 @@ jobs:
             echo "storeFile=$KEYSTORE_PATH"
           } > rust/gen/android/keystore.properties
 
-      - name: Build Android APK
-        if: inputs.android_apk == true
-        run: pnpm tauri android build --apk --target aarch64 --ci
-
-      - name: Build Android AAB
-        if: inputs.android_aab == true
-        run: pnpm tauri android build --aab --target aarch64 --ci
+      - name: Build selected Android packages together
+        env:
+          BUILD_APK: ${{ inputs.android_apk }}
+          BUILD_AAB: ${{ inputs.android_aab }}
+        run: |
+          packages=()
+          if [ "$BUILD_APK" = "true" ]; then packages+=(--apk); fi
+          if [ "$BUILD_AAB" = "true" ]; then packages+=(--aab); fi
+          pnpm tauri android build "${packages[@]}" --target aarch64 --ci
 
       - name: Collect Android packages
         env:
@@ -404,6 +381,29 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
         run: gh release upload "$RELEASE_TAG" "$RUNNER_TEMP"/release-assets/* --clobber
+
+  publish:
+    name: Verify assets and publish release
+    needs: [prepare, windows-exe, linux-appimage, android]
+    if: always() && needs.prepare.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.release_sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify all selected packages and merge updater platforms
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APP_VERSION: ${{ needs.prepare.outputs.app_version }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+          BUILD_WINDOWS: ${{ inputs.windows_exe }}
+          BUILD_LINUX: ${{ inputs.linux_appimage }}
+          BUILD_APK: ${{ inputs.android_apk }}
+          BUILD_AAB: ${{ inputs.android_aab }}
+        run: node scripts/finalize-release.mjs
 
   cleanup-empty-release:
     name: Cleanup empty failed release

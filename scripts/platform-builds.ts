@@ -11,8 +11,8 @@ export const platformBuildHelp = `pnpm ops platforms <start|status> [options] [-
 
 Uses the configured origin and authenticated gh CLI. Start leaves the local
 branch unchanged, publishes no release, and does not bump the app version.
-By default builds Windows, Linux, Android debug APK/AAB and hosted web.
-Use build/android/NAME, build/windows/NAME, build/linux/NAME or build/web/NAME
+By default builds Windows, Linux, macOS beta, Android debug APK/AAB and hosted web.
+Use build/android/NAME, build/windows/NAME, build/linux/NAME, build/macos/NAME or build/web/NAME
 to retry only that target after a failure; other build/ references build all.
 Artifacts expire after 14 days; running jobs are not finished builds.`;
 

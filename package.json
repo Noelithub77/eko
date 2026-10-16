@@ -2,7 +2,7 @@
   "name": "eko",
   "private": true,
   "license": "AGPL-3.0-or-later",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "type": "module",
   "scripts": {
     "blog:diagrams": "node blog/scripts/export-diagrams.mjs",
@@ -29,6 +29,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "npm run test:types && npm run test:core",
+    "test:release": "node --test tests/release-manifest.test.mjs",
     "test:types": "tsc --noEmit",
     "test:core": "tsx tests/core/session.test.ts",
     "test:desktop": "tsc --project tests/desktop/tsconfig.json && playwright test tests/desktop",
