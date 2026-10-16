@@ -1,99 +1,96 @@
-# Eko
+# eko
 
-[![License: AGPL v3+](https://img.shields.io/badge/License-AGPL%20v3%2B-blue.svg)](LICENSE)
-[![Latest release](https://img.shields.io/github/v/release/Noelithub77/eko?display_name=tag&sort=semver)](https://github.com/Noelithub77/eko/releases)
-[![Open issues](https://img.shields.io/github/issues/Noelithub77/eko)](https://github.com/Noelithub77/eko/issues)
-[![Last commit](https://img.shields.io/github/last-commit/Noelithub77/eko)](https://github.com/Noelithub77/eko/commits/main)
+<p align="center">
+  <a href="https://eko.allpyq.in/"><img src="docs/assets/hero.svg" alt="eko — one laptop, every headphone. The coral and teal Turn mark with animated echo rings." width="1000"></a>
+</p>
 
-Website and downloads: [eko.allpyq.in](https://eko.allpyq.in)
+<p align="center">
+  <a href="https://github.com/Noelithub77/eko/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Noelithub77/eko?style=flat&amp;color=2ec4b6&amp;labelColor=101010"></a>
+  <a href="LICENSE"><img alt="License: AGPL-3.0 or later" src="https://img.shields.io/badge/license-AGPL--3.0--or--later-ff6b5b?style=flat&amp;labelColor=101010"></a>
+  <a href="https://github.com/Noelithub77/eko/actions/workflows/release.yml"><img alt="Release builds" src="https://img.shields.io/github/actions/workflow/status/Noelithub77/eko/release.yml?branch=main&amp;label=release%20builds&amp;style=flat&amp;color=2ec4b6&amp;labelColor=101010"></a>
+  <a href="https://eko.allpyq.in/"><img alt="Website status" src="https://img.shields.io/website?url=https%3A%2F%2Feko.allpyq.in&amp;label=website&amp;style=flat&amp;up_message=up&amp;up_color=2ec4b6&amp;down_message=down&amp;down_color=ff6b5b&amp;labelColor=101010"></a>
+  <a href="https://github.com/Noelithub77/eko/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/Noelithub77/eko?style=flat&amp;color=ff6b5b&amp;labelColor=101010"></a>
+</p>
 
-Eko is a local desktop-to-device audio relay designed for group listening. It captures system audio on the desktop and streams it to multiple approved devices over the  network.
+Your computer’s audio, echoed to every phone nearby over Wi-Fi. Watch together on one screen while everyone listens on their own headphones. **No accounts, no cables, and you approve every device.**
 
-Bluetooth Classic audio commonly supports a single active audio output, while multi-device support varies by platform and manufacturer. Bluetooth LE Audio and Auracast can provide one-to-many broadcast audio, but only when all participating devices support the required hardware, profiles, and operating-system features and is generally not available and has 
+Built with **Rust + Tauri**, with native Android playback and a browser fallback for iPhones. The name is an echo; the mark is a sound and the same shape turned around.
 
-Eko bypasses the Bluetooth concurrency problem by using local-network WebRTC sessions. This allows the desktop to manage multiple receivers independently, with practical scaling determined by network bandwidth, device count, and desktop processing capacity.
-Each device joins through QR pairing or nearby discovery and must be approved by the desktop before receiving audio.
+## Download
 
-The Android app is the preferred client. A desktop-served browser client is available as an iOS and browser fallback. Eko does not require accounts or manual IP entry. Hosted browser pairing uses Cloudflare for signaling and TURN only when a direct media path is blocked.
+<p align="center">
+  <a href="https://github.com/Noelithub77/eko/releases/download/eko-v0.4.1/eko_0.4.1_x64-setup.exe"><img alt="Download Windows x64 installer" src="docs/assets/download-windows.svg" width="260" height="48"></a>
+  <a href="https://github.com/Noelithub77/eko/releases/download/eko-v0.4.1/eko_0.4.1_amd64.AppImage"><img alt="Download Linux x64 AppImage" src="docs/assets/download-linux.svg" width="260" height="48"></a>
+  <a href="https://github.com/Noelithub77/eko/releases/download/eko-v0.4.1/eko-0.4.1-android-aarch64.apk"><img alt="Download Android ARM64 APK" src="docs/assets/download-android.svg" width="260" height="48"></a>
+</p>
 
-> Eko is in active early development. Pairing and streaming work is still being tested on real devices, and latency results may change between releases.
+Windows: run the installer. Linux: make the AppImage executable, then open it. Android 8+: install the APK on your phone. On iPhone, scan the desktop’s QR code with the camera and open the browser client in Safari. **No macOS build.**
 
-## What Eko does
+[Website and interactive walkthrough](https://eko.allpyq.in/) · [All releases](https://github.com/Noelithub77/eko/releases) · [The story behind eko](https://medium.com/@noelmcv7/eko-share-audio-683aff638157)
 
-- Captures desktop audio and sends it over the local network.
-- Lets the desktop user approve each receiving device.
-- Supports QR pairing and nearby-host discovery.
-- Uses native Android playback for the Android client.
-- Serves a browser fallback from the desktop for iOS and modern browsers.
-- Keeps the desktop as the authority for sessions and device access.
+> Early development: Linux is experimental, and latency and device compatibility are still being tested. There is no fixed latency guarantee.
 
-Scanning a QR code or finding a host does not grant access by itself. The desktop user must approve a device before it can receive audio.
+## Start. Scan. Approve. Listen.
 
-## Architecture
+[![Start audio on the laptop, scan the QR code, approve the phone, and listen through headphones](blog/images/02-four-steps.png)](https://eko.allpyq.in/#how)
+
+1. **Start** eko on your computer and play your audio.
+2. **Scan** its QR code with eko on Android, or choose a nearby host. Keep both devices on the same local network for local listening.
+3. **Approve** the phone on the desktop. Scanning a code never grants access by itself.
+4. **Listen** through the phone’s headphones. Repeat for the other listeners.
+
+## One sound, shared your way
+
+- **Bring the headphones you already own.** Each phone receives the audio and plays through its own output; no shared Bluetooth broadcast hardware is required.
+- **The desktop decides.** Approve or deny requests, control sharing for each device, disconnect listeners, or stop the stream.
+- **Android first.** Native receive and playback, with Media3 media controls. Play and pause affect only that phone; resuming returns to the live stream.
+- **A browser when you need one.** iPhones and browsers join through the hosted `/client` page. Android’s in-app scanner stays on the native receiver path.
+- **Local when possible.** Android LAN discovery and native local listening can work without internet. The hosted browser path needs internet for signaling and short-lived TURN credentials.
+- **Encrypted media.** WebRTC prefers a direct connection. When direct browser media is blocked, Cloudflare TURN relays encrypted audio to approved receivers.
+
+<details>
+<summary>How the pieces fit</summary>
 
 ```text
-Desktop app
-  Rust core: capture, discovery, approval, signaling, WebRTC sender
-  React UI: controls, pairing, devices, settings, updates
-       |
-       +--> Approved Android device: native receiver and Media3 playback
-       |
-       +--> Browser client: WebRTC playback fallback
+Desktop · Rust + Tauri
+  System audio → capture → WebRTC → approved listeners
+  QR pairing · LAN discovery · approval · session controls
+                           |
+                           +→ Android: native receiver + media controls
+                           +→ iPhone / browser: hosted WebRTC client
 ```
 
-The desktop QR opens the hosted browser client. The hosted service exchanges
-approval and WebRTC signaling messages and supplies short-lived TURN
-credentials. WebRTC still prefers a direct connection; if the network blocks
-direct media, encrypted audio is relayed through Cloudflare TURN.
+Rust owns capture, signaling, discovery, approval, sessions, and media transport. React owns the screens. The hosted service exchanges signaling messages and supplies temporary TURN credentials; the desktop remains the authority for device access.
 
-## Current platform status
+Only pair devices you trust and keep pairing links private. See the [privacy policy](docs/Privacy_Policy.md) and [security policy](.github/SECURITY.md).
 
-| Platform | Role | Status |
-| --- | --- | --- |
-| Windows | Desktop capture and authority | Primary development target |
-| Android 8+ | Native receiver | Preferred client target |
-| iOS / modern browsers | Browser receiver | Fallback client |
-| Linux | Desktop development | Experimental |
+</details>
 
-## Quick start
+## Build and contribute
 
-### Requirements
-
-- Node.js and pnpm.
-- Rust and Cargo.
-- For Android: Android Studio, an Android SDK, and either an emulator or a device.
-- A desktop and receiver device on the same local network.
-
-See [.github/SETUP.md](.github/SETUP.md) for the complete Windows, Android, and development setup.
-
-For Linux runtime investigation, see [Linux operator diagnostics](docs/linux-operator.md).
-
-### Install and run the desktop app
+Install Node.js, pnpm, Rust, and the platform dependencies in the [setup guide](.github/SETUP.md), then:
 
 ```powershell
-corepack enable
+git clone https://github.com/Noelithub77/eko.git
+cd eko
 pnpm install
 pnpm dev:desktop
 ```
 
-### Run the Android client
+For Android development on Windows, install Android Studio, the SDK, and the NDK, then run `pnpm dev:android`. Keep the Tauri development terminal running while using Android Studio. [Linux diagnostics](docs/linux-operator.md) cover desktop audio and runtime investigation.
+
+<details>
+<summary>Previews and checks</summary>
+
+UI-only previews do not capture or stream native audio:
 
 ```powershell
-pnpm dev:android
-```
-
-Keep the desktop development process running while Android Studio or the Android device connects to it.
-
-### Preview the web clients
-
-```powershell
+pnpm dev:web:desktop
 pnpm dev:web:mobile
 pnpm dev:web:client
 ```
 
-## Checks for contributors
-
-Run the narrowest checks that match your change. The usual baseline is:
+Run checks for the layer you changed:
 
 ```powershell
 pnpm test:types
@@ -103,55 +100,23 @@ cd rust
 cargo check
 ```
 
-The complete test and device flow is documented in [.github/SETUP.md](.github/SETUP.md).
+See the [setup guide](.github/SETUP.md) for Android and device verification.
 
-## Project layout
+</details>
 
-```text
-frontend/
-  desktop/       Desktop controls and settings
-  mobile/        Android-facing pairing and status UI
-  web/client/    Browser playback fallback
-  shared/        Shared TypeScript types and UI pieces
-rust/src/
-  audio/         Desktop audio capture
-  discovery/     LAN discovery
-  domain/        Shared Rust data types
-  session/       Approval and session lifecycle
-  signaling/     Local signaling
-  web_client/    Desktop-served browser client
-  webrtc_core/   WebRTC media flow
-rust/plugins/    Native Android media integration
-tests/            Core, desktop, Android, and latency tests
-scripts/          Development and release helpers
+For the landing page:
+
+```powershell
+pnpm --dir site install --frozen-lockfile
+pnpm --dir site dev
+# http://localhost:4040/
+pnpm --dir site ops --help
 ```
 
-## Privacy and security
+Use a fork and open a pull request back to this repository. See [contributing](.github/CONTRIBUTING.md) and the [roadmap](.github/TODO.md).
 
-Eko is designed for local-network use but the hosted browser path can use
-Cloudflare TURN when direct WebRTC is unavailable. Audio remains protected by
-WebRTC encryption and is sent only to approved receivers. Only pair devices
-you trust, keep the desktop and client updated, and avoid sharing pairing
-links.
-
-Read the [privacy policy](docs/Privacy_Policy.md) and [security policy](.github/SECURITY.md) before deploying Eko beyond a development network.
-
-## Updates and releases
-
-Desktop releases are published through [GitHub Releases](https://github.com/Noelithub77/eko/releases). Release assets and updater metadata are produced by the release workflow. Do not use an unofficial binary or replace the updater signing key without checking the release instructions.
-
-## Contributing
-
-Contributions are welcome. Please use the fork workflow: fork Eko into your account, create a branch on your fork, and open a pull request back to this repository. New contributors should not create working branches on the upstream repository.
-
-Read [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md), [.github/CODE_OF_CONDUCT.md](.github/CODE_OF_CONDUCT.md), and [.github/SUPPORT.md](.github/SUPPORT.md) before opening a pull request or issue.
-
-## Roadmap
-
-The active work list is in [.github/TODO.md](.github/TODO.md). It includes real-device latency measurement, wider platform testing, and release hardening.
+[Changelog](.github/CHANGELOG.md) · [Report a bug](https://github.com/Noelithub77/eko/issues/new?template=bug_report.yml) · [Suggest a feature](https://github.com/Noelithub77/eko/issues/new?template=feature_request.yml) · [Support](.github/SUPPORT.md) · [Code of conduct](.github/CODE_OF_CONDUCT.md)
 
 ## License
 
-Eko is licensed under the [GNU Affero General Public License v3.0 or later](LICENSE). If you distribute a modified version or make it available for users to interact with over a network, the AGPL's corresponding-source requirements apply.
-
-Forks and modifications must keep the same AGPL license terms. See [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) for the collaboration rules.
+eko is licensed under **GNU AGPL v3 or later**, [`AGPL-3.0-or-later`](LICENSE). Forks and modifications must retain the license terms, including the applicable corresponding-source requirements. Fonts and dependencies retain their own licenses and attribution.

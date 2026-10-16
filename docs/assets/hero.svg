@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="380" viewBox="0 0 1200 380" role="img" aria-labelledby="title desc">
+<title id="title">eko — one laptop, every headphone</title>
+<desc id="desc">The coral and teal Turn mark with soft echo rings on an ink background. Start, scan, approve, listen.</desc>
+<style>
+.echo{transform-origin:600px 106px;animation:echo 5s ease-out infinite}.second{animation-delay:1s}
+@keyframes echo{0%{transform:scale(.35);opacity:0}15%{opacity:.35}70%,100%{transform:scale(1.4);opacity:0}}
+@media(prefers-reduced-motion:reduce){.echo{animation:none;opacity:0}}
+</style>
+<defs><radialGradient id="glow"><stop stop-color="#2ec4b6" stop-opacity=".09"/><stop offset="1" stop-color="#2ec4b6" stop-opacity="0"/></radialGradient></defs>
+<rect width="1200" height="380" rx="24" fill="#101010"/>
+<rect x="1" y="1" width="1198" height="378" rx="23" fill="none" stroke="#252525"/>
+<ellipse cx="600" cy="140" rx="470" ry="235" fill="url(#glow)"/>
+<g fill="none" stroke-width="1.5"><circle class="echo" cx="600" cy="106" r="115" stroke="#ff6b5b"/><circle class="echo second" cx="600" cy="106" r="115" stroke="#2ec4b6"/></g>
+<g transform="translate(536 42) scale(2)"><g fill="none" stroke-width="5" stroke-linecap="round"><path d="M21.2 35.3A11 11 0 1 1 35.8 23.1" stroke="#ff6b5b"/><circle cx="25" cy="25" r="3.5" fill="#ff6b5b" stroke="none"/><circle cx="39" cy="39" r="3.5" fill="#2ec4b6" stroke="none"/><path d="M42.8 28.7A11 11 0 1 1 28.2 40.9" stroke="#2ec4b6"/></g></g>
+<g text-anchor="middle" font-family="Nunito,ui-rounded,system-ui,sans-serif">
+<text x="600" y="228" fill="#ededed" font-size="54" font-weight="700">One laptop. <tspan fill="#2ec4b6">Every headphone.</tspan></text>
+<text x="600" y="279" fill="#a5a5a5" font-size="22">Your computer’s sound, echoed to every phone nearby.</text>
+<text x="600" y="337" fill="#ff6b5b" font-size="18">Start · Scan · Approve · Listen</text>
+</g>
+</svg>

@@ -1,10 +1,11 @@
 // Loaded on demand: React only powers Sonner's toasts.
 import { createRoot } from "react-dom/client";
 import { Toaster, toast } from "sonner";
+import markUrl from "./assets/eko.svg";
 import { builds, type Platform } from "./platform.ts";
 
 function Mark() {
-  return <img src="/eko.svg" alt="" width={20} height={20} />;
+  return <img src={markUrl} alt="" width={20} height={20} />;
 }
 
 const host = document.createElement("div");

@@ -183,3 +183,8 @@ svg:not(.is-live) .ambient { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
 }
+
+.download-burst{position:fixed;z-index:100;pointer-events:none;width:0;height:0}
+.download-spark{position:absolute;width:6px;height:10px;border-radius:2px;background:currentColor;opacity:0}
+.download-spark.is-ring{width:10px;height:10px;border:2px solid currentColor;border-radius:50%;background:none}
+.download-echo{position:absolute;width:260px;height:260px;border:2px solid currentColor;border-radius:50%;opacity:0}
