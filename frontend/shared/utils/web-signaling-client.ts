@@ -2,6 +2,7 @@ import type {
   IceCandidateMessage,
   JoinRequest,
   SignalServerMessage,
+  StreamProfilerSample,
 } from "@shared/bindings/tauri";
 import type { PairingLinkPayload } from "@shared/types/pairing-link";
 import { logAudioStats } from "@shared/utils/web-rtc-stats";
@@ -23,7 +24,7 @@ import {
   type SignalTransport,
 } from "@shared/utils/web-signaling-transport";
 
-const DEFAULT_JITTER_BUFFER_TARGET_MS = 60;
+const DEFAULT_JITTER_BUFFER_TARGET_MS = 40;
 const DIRECT_CONNECTION_ERROR =
   "Couldn’t establish the audio connection. This network may block direct peer-to-peer media.";
 const STUN_URLS = ["stun:stun.cloudflare.com:3478", "stun:stun.cloudflare.com:53"];
@@ -32,6 +33,7 @@ export type WebReceiverSession = {
   peer: RTCPeerConnection;
   needsReconnect: () => boolean;
   updateReceiverName: (name: string) => void;
+  sendProfilerSample: (sample: StreamProfilerSample) => void;
   close: () => void;
 };
 
@@ -211,6 +213,9 @@ export async function startWebReceiver(
 
   return {
     peer,
+    sendProfilerSample: (sample) => {
+      if (!isClosed && socket.readyState === WebSocket.OPEN) transport.send({ kind: "profilerSample", sample });
+    },
     needsReconnect: () =>
       !isClosed &&
       (socket.readyState !== WebSocket.OPEN ||

@@ -3,6 +3,7 @@ use std::thread;
 use std::time::Duration;
 
 use libpulse_binding::sample::{Format, Spec};
+use libpulse_binding::def::BufferAttr;
 use libpulse_binding::stream::Direction;
 use libpulse_simple_binding::Simple;
 use tokio::sync::mpsc;
@@ -43,7 +44,7 @@ fn capture_thread_loop(sender: mpsc::Sender<AudioFrame>) {
             "eko-system-audio",
             &spec,
             None,
-            None,
+            Some(&capture_buffer_attr()),
         ) {
             Ok(simple) => simple,
             Err(error) => {
@@ -72,64 +73,28 @@ fn capture_thread_loop(sender: mpsc::Sender<AudioFrame>) {
     }
 }
 
+fn capture_buffer_attr() -> BufferAttr {
+    let packet_bytes = (SAMPLES_PER_PACKET * std::mem::size_of::<i16>()) as u32;
+    // The server default can retain seconds of monitor audio.
+    BufferAttr { maxlength: packet_bytes * 3, fragsize: packet_bytes, tlength: u32::MAX, prebuf: u32::MAX, minreq: u32::MAX }
+}
+
 fn capture_loop(simple: &Simple, sender: &mpsc::Sender<AudioFrame>) -> Result<(), String> {
-    let mut accum: Vec<f32> = Vec::with_capacity(SAMPLES_PER_PACKET * 4);
     let mut buffer = vec![0u8; SAMPLES_PER_PACKET * std::mem::size_of::<i16>()];
-    let mut frames_sent: u64 = 0;
-    let mut max_sample: f32 = 0.0;
-
+    let mut frames_sent = 0_u64;
     loop {
-        match simple.read(&mut buffer) {
-            Ok(()) => {
-                let raw: &[i16] = unsafe {
-                    std::slice::from_raw_parts(
-                        buffer.as_ptr() as *const i16,
-                        buffer.len() / std::mem::size_of::<i16>(),
-                    )
-                };
-
-                if frames_sent == 0 && !raw.is_empty() {
-                    let max_raw = raw
-                        .iter()
-                        .map(|s| s.unsigned_abs() as u32)
-                        .max()
-                        .unwrap_or(0);
-                    log::info!(
-                        "PulseAudio capture: first read samples={} max_u16={}",
-                        raw.len(),
-                        max_raw
-                    );
-                }
-
-                for &s in raw {
-                    let normalized = s as f32 / 32768.0_f32;
-                    let abs = normalized.abs();
-                    if abs > max_sample {
-                        max_sample = abs;
-                    }
-                    accum.push(normalized);
-                }
-
-                while accum.len() >= SAMPLES_PER_PACKET {
-                    let packet: Vec<f32> = accum.drain(..SAMPLES_PER_PACKET).collect();
-                    let frame = AudioFrame::new(packet);
-                    if sender.blocking_send(frame).is_err() {
-                        return Ok(());
-                    }
-                    frames_sent += 1;
-                    if frames_sent == 100 || frames_sent % 500 == 0 {
-                        log::info!(
-                            "PulseAudio capture: sent {} frames, max_sample_level={:.6}",
-                            frames_sent,
-                            max_sample
-                        );
-                    }
-                }
-            }
-            Err(e) => {
-                return Err(format!("PulseAudio read error: {e:?}"));
-            }
+        if sender.is_closed() { return Ok(()); }
+        simple.read(&mut buffer).map_err(|error| format!("PulseAudio read error: {error:?}"))?;
+        // Byte decoding avoids relying on the alignment of a Vec<u8>.
+        let samples = buffer.chunks_exact(2)
+            .map(|pair| i16::from_le_bytes([pair[0], pair[1]]) as f32 / 32768.0)
+            .collect();
+        let mut frame = AudioFrame::new(samples);
+        if frames_sent % 50 == 0 {
+            frame.capture_latency_us = simple.get_latency().ok().map(|latency| latency.0);
         }
+        if sender.blocking_send(frame).is_err() { return Ok(()); }
+        frames_sent += 1;
     }
 }
 

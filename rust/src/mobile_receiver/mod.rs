@@ -463,6 +463,7 @@ mod android {
                 room_id: "local-session".to_string(),
                 sample_index: to_profiler_count(self.sample_index),
                 latency_ms: None,
+                round_trip_ms: None,
                 jitter_ms: None,
                 buffer_ms,
                 packet_loss_percent: if total_packets == 0 {
@@ -487,7 +488,6 @@ mod android {
             .unwrap_or(0.0)
     }
 }
-
 #[cfg(any(target_os = "android", test))]
 mod local_candidate_queue;
 #[cfg(target_os = "android")]
@@ -495,3 +495,5 @@ mod playback;
 #[cfg(any(target_os = "android", test))]
 #[cfg_attr(test, allow(dead_code))]
 mod signaling_transport;
+#[cfg(any(target_os = "android", test))]
+mod sample_buffer;

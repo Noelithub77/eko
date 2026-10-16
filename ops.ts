@@ -1,4 +1,5 @@
-// Operator entry for the eko website: `pnpm ops --help`.
+// Operator entry for eko: `pnpm ops --help`.
+import { latencyOperator, latencyHelp } from "./scripts/latency/operator.ts";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -7,6 +8,8 @@ import { builds, downloadUrl, type Platform } from "./frontend/web/landing/platf
 
 const help = `pnpm ops <command> [--json]
 
+  latency  Profile audio delay, compare capture and test real direct/TURN media.
+           Run pnpm ops latency --help for options.
   check    Run tests and the type-checked build, then confirm the release downloads exist.
   build    Build landing and receiver into dist/hosted/.
   assets   Confirm every download link on the page resolves on GitHub.
@@ -136,17 +139,18 @@ const commands: Record<string, () => Promise<Result>> = {
   status,
 };
 
-const action = commands[command];
-if (command === "--help" || command === "help") console.log(help);
-else if (!action || flags.some((flag) => flag !== "--json")) {
+const action = command === "latency" ? () => latencyOperator(flags) : commands[command];
+if (command === "--help" || command === "help") console.log(`${help}\n\n${latencyHelp}`);
+else if (!action || (command !== "latency" && flags.some((flag) => flag !== "--json"))) {
   console.error(`Unknown command or flag.\n\n${help}`);
   process.exitCode = 1;
 } else {
   try {
     const result = await action();
+    if (result.success === false) process.exitCode = 1;
     console.log(JSON.stringify({ command, environment: command === "build" || command === "check" ? "local" : "cloudflare-production", success: true, ...result }));
   } catch (error) {
-    console.error(JSON.stringify({ command, success: false, error: error instanceof Error ? error.message : String(error) }));
+    console.log(JSON.stringify({ command, success: false, error: error instanceof Error ? error.message : String(error) }));
     process.exitCode = 1;
   }
 }

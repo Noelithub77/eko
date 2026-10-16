@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   Check,
   ChevronDown,
@@ -15,10 +16,14 @@ import {
   CollapsibleTrigger,
 } from "@shared/components/ui/collapsible";
 import { cn } from "@shared/lib/utils";
+import { DeviceDelay } from "./DeviceDelay";
+import { useDeviceProfiler } from "./useDeviceProfiler";
+import type { StreamProfilerSample } from "@shared/bindings/tauri";
 import type { Device } from "@shared/types/device";
 
 type DeviceListProps = {
   devices: Device[];
+  roomId?: string | null;
   onAllow: (deviceId: string) => void;
   onDeny: (deviceId: string) => void;
   onUnblock: (deviceId: string) => void;
@@ -27,11 +32,26 @@ type DeviceListProps = {
 
 export function DeviceList({
   devices,
+  roomId = null,
   onAllow,
   onDeny,
   onUnblock,
   onDisconnect,
 }: DeviceListProps) {
+  const samples = useDeviceProfiler(roomId);
+  const warned = useRef(new Set<string>());
+  useEffect(() => { warned.current.clear(); }, [roomId]);
+  useEffect(() => {
+    for (const device of devices) {
+      const key = `${device.deviceId}:${device.connectedAt}`;
+      if (device.state !== "connected" || device.connectionPath !== "relayed" || warned.current.has(key)) continue;
+      warned.current.add(key);
+      toast.warning("Relay may add audio delay", {
+        description: "Use the same Wi-Fi or a mobile hotspot for a shorter path. Check this listener’s average delay after reconnecting.",
+        duration: 8000,
+      });
+    }
+  }, [devices]);
   const [previousOpen, setPreviousOpen] = useState(false);
   // Requests first: they are the only rows that need the user.
   const activeDevices = [
@@ -41,7 +61,7 @@ export function DeviceList({
   const previousDevices = devices.filter((device) =>
     ["denied", "disconnected", "failed"].includes(device.state),
   );
-  const rowActions = { onAllow, onDeny, onDisconnect, onUnblock };
+  const rowActions = { onAllow, onDeny, onDisconnect, onUnblock, samples, roomId };
 
   return (
     <section className="flex min-h-0 flex-col">
@@ -84,11 +104,13 @@ export function DeviceList({
 
 function DeviceRow({
   device,
+  samples,
+  roomId,
   onAllow,
   onDeny,
   onUnblock,
   onDisconnect,
-}: Omit<DeviceListProps, "devices"> & { device: Device }) {
+}: Omit<DeviceListProps, "devices"> & { device: Device; samples: StreamProfilerSample[] }) {
   const title = device.label ?? device.deviceName;
   const isPending = device.state === "pending";
 
@@ -113,6 +135,7 @@ function DeviceRow({
         <div className="truncate text-sm text-muted-foreground">
           {[deviceStatusText(device), connectionPathText(device)].filter(Boolean).join(" · ")}
         </div>
+        <DeviceDelay device={device} roomId={roomId ?? ""} samples={samples} />
       </div>
       <div className="flex shrink-0 gap-2 empty:hidden">
         {isPending ? (

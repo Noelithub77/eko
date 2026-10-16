@@ -2,6 +2,7 @@ use serde::Serialize;
 use specta::Type;
 
 pub mod frame;
+pub mod timing;
 #[cfg(target_os = "linux")]
 pub mod linux_capture;
 pub mod opus_codec;

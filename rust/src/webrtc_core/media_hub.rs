@@ -1,15 +1,12 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex as StdMutex};
-use std::time::Duration;
 
-use bytes::Bytes;
 use serde::Serialize;
 use tokio::sync::{mpsc, Mutex};
 use webrtc::api::media_engine::{MediaEngine, MIME_TYPE_OPUS};
 use webrtc::api::APIBuilder;
 use webrtc::ice_transport::ice_candidate::RTCIceCandidateInit;
 use webrtc::ice_transport::ice_server::RTCIceServer;
-use webrtc::media::Sample;
 use webrtc::peer_connection::configuration::RTCConfiguration;
 use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
 use webrtc::peer_connection::RTCPeerConnection;
@@ -17,13 +14,16 @@ use webrtc::rtp_transceiver::rtp_codec::RTCRtpCodecCapability;
 use webrtc::track::track_local::track_local_static_sample::TrackLocalStaticSample;
 use webrtc::track::track_local::TrackLocal;
 
-use crate::audio::frame::{AudioFrame, SAMPLE_RATE};
-use crate::audio::opus_codec::OpusAudioEncoder;
-use crate::audio::windows_capture::start_system_audio_source;
+use crate::audio::frame::SAMPLE_RATE;
+use crate::audio::timing::{AudioTiming, TimingSnapshot};
 use crate::domain::{IceCandidateMessage, SessionDescriptionMessage};
 use crate::webrtc_core::candidate_path::{
     connection_path_for, log_selected_candidate, selected_candidate_path,
 };
+
+mod audio_loop;
+#[cfg(test)]
+mod latency_probe;
 
 pub type SharedMediaHub = Arc<MediaHub>;
 
@@ -55,6 +55,11 @@ struct AudioCounters {
     frames_encoded: std::sync::atomic::AtomicU64,
     samples_written: std::sync::atomic::AtomicU64,
     write_errors: std::sync::atomic::AtomicU64,
+    stale_frames_dropped: std::sync::atomic::AtomicU64,
+    capture_timing: AudioTiming,
+    queue_timing: AudioTiming,
+    encode_timing: AudioTiming,
+    write_timing: AudioTiming,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -79,6 +84,11 @@ pub struct MediaOperatorStatus {
     pub audio_samples_written: u64,
     pub audio_write_errors: u64,
     pub peers: Vec<MediaPeerOperatorStatus>,
+    pub stale_frames_dropped: u64,
+    pub capture_timing: TimingSnapshot,
+    pub queue_timing: TimingSnapshot,
+    pub encode_timing: TimingSnapshot,
+    pub write_timing: TimingSnapshot,
 }
 
 #[derive(Debug)]
@@ -121,7 +131,7 @@ impl MediaHub {
             app,
         });
 
-        MediaHub::start_audio_loop(&hub)?;
+        audio_loop::start(&hub)?;
         Ok(hub)
     }
 
@@ -334,6 +344,11 @@ impl MediaHub {
         }
     }
 
+    pub async fn round_trip_ms(&self, device_id: &str) -> Option<f64> {
+        let peer = self.peers.lock().await.get(device_id).cloned()?;
+        crate::webrtc_core::candidate_path::round_trip_ms(&peer.connection).await
+    }
+
     pub async fn operator_status(&self) -> MediaOperatorStatus {
         use std::sync::atomic::Ordering;
 
@@ -395,69 +410,12 @@ impl MediaHub {
             audio_samples_written: self.audio_counters.samples_written.load(Ordering::Relaxed),
             audio_write_errors: self.audio_counters.write_errors.load(Ordering::Relaxed),
             peers: peer_statuses,
+            stale_frames_dropped: self.audio_counters.stale_frames_dropped.load(Ordering::Relaxed),
+            capture_timing: self.audio_counters.capture_timing.snapshot(),
+            queue_timing: self.audio_counters.queue_timing.snapshot(),
+            encode_timing: self.audio_counters.encode_timing.snapshot(),
+            write_timing: self.audio_counters.write_timing.snapshot(),
         }
-    }
-
-    fn start_audio_loop(hub: &SharedMediaHub) -> Result<(), String> {
-        let (sender, mut receiver) = mpsc::channel::<AudioFrame>(8);
-        let capture_thread = start_system_audio_source(sender)?;
-        let track = Arc::clone(&hub.track);
-        let counters = Arc::clone(&hub.audio_counters);
-        let session = hub.session.clone();
-        let app = hub.app.clone();
-        let task = tauri::async_runtime::spawn(async move {
-            let mut encoder = match OpusAudioEncoder::new() {
-                Ok(encoder) => encoder,
-                Err(error) => {
-                    log::error!("Opus encoder failed: {error}");
-                    if let Some(session) = &session {
-                        if let Ok(mut store) = session.lock() {
-                            let session = store
-                                .push_event("error", &format!("Audio encoder failed: {error}"));
-                            if let Some(app) = &app {
-                                crate::signaling::emit_room_session(app, session);
-                            }
-                        }
-                    }
-                    return;
-                }
-            };
-
-            while let Some(frame) = receiver.recv().await {
-                counters
-                    .frames_received
-                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                let Ok(encoded) = encoder.encode(frame) else {
-                    log::warn!("Audio loop: Opus encode failed");
-                    continue;
-                };
-                counters
-                    .frames_encoded
-                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                let sample = Sample {
-                    data: Bytes::from(encoded.data),
-                    duration: Duration::from_millis(encoded.duration_ms),
-                    ..Default::default()
-                };
-                if let Err(error) = track.write_sample(&sample).await {
-                    counters
-                        .write_errors
-                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    log::error!("Audio loop: write_sample error: {error}");
-                } else {
-                    counters
-                        .samples_written
-                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                }
-            }
-        });
-
-        *hub.audio_task.lock().map_err(|error| error.to_string())? = Some(task);
-        *hub.capture_thread
-            .lock()
-            .map_err(|error| error.to_string())? = Some(capture_thread);
-
-        Ok(())
     }
 
     fn stop_audio_tasks(&self) {
@@ -507,10 +465,12 @@ fn direct_ice_configuration(extra_ice_servers: &[RTCIceServer]) -> RTCConfigurat
         ..Default::default()
     }];
     ice_servers.extend_from_slice(extra_ice_servers);
-    RTCConfiguration {
-        ice_servers,
-        ..Default::default()
-    }
+    let config = RTCConfiguration { ice_servers, ..Default::default() };
+    #[cfg(test)]
+    let config = if std::env::var("EKO_BENCH_FORCE_RELAY").as_deref() == Ok("1") {
+        RTCConfiguration { ice_transport_policy: webrtc::peer_connection::policy::ice_transport_policy::RTCIceTransportPolicy::Relay, ..config }
+    } else { config };
+    config
 }
 
 fn describe_ice_candidate(candidate: &RTCIceCandidateInit) -> String {

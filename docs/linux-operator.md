@@ -155,3 +155,5 @@ The operator HTTP endpoint is `http://127.0.0.1:13370/__eko_operator`. It is
 loopback-only; it is not a LAN debugging API. The existing
 `/__eko_profiler` endpoint remains available to the web receiver for posting
 and reading session profiler samples.
+
+For latency analysis, use `pnpm ops latency --help` and [the latency workflow](latency.md). It covers real capture comparisons, native capture/Opus timings and full browser direct/TURN experiments.

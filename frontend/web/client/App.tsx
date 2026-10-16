@@ -147,8 +147,8 @@ function App() {
             return;
           }
           hasShownRelayWarningRef.current = true;
-          toast.warning("Using a longer connection path", {
-            description: "For lower latency, connect this device and the desktop to the same Wi-Fi.",
+          toast.warning("Relay may add audio delay", {
+            description: "Connect both devices to the same Wi-Fi or one mobile hotspot for a shorter path. The improvement depends on the network.",
             duration: 9000,
           });
         },
@@ -195,6 +195,7 @@ function App() {
           deviceId,
           payload,
           source: "web",
+          sendSample: session.sendProfilerSample,
         }),
       );
     } catch (error) {

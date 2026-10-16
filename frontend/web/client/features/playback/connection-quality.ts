@@ -1,5 +1,9 @@
+import { selectedCandidatePair, statsFields } from "../../../../shared/utils/web-rtc-stats";
+
 export type ConnectionQuality = {
+  // Partial one-way estimate: half network RTT plus recent receiver jitter buffer.
   latencyMs: number | null;
+  roundTripMs: number | null;
   jitterMs: number | null;
   bufferMs: number | null;
   packetLossPercent: number | null;
@@ -7,97 +11,55 @@ export type ConnectionQuality = {
   packetsLost: number | null;
 };
 
-type PacketSnapshot = {
-  packetsReceived: number;
-  packetsLost: number;
+type AudioSnapshot = {
+  id: unknown;
+  received: number | null;
+  lost: number | null;
+  delay: number | null;
+  emitted: number | null;
 };
 
-export type ConnectionQualityTracker = {
-  read: () => Promise<ConnectionQuality>;
-};
+export type ConnectionQualityTracker = { read: () => Promise<ConnectionQuality> };
 
-export function createConnectionQualityTracker(peer: RTCPeerConnection): ConnectionQualityTracker {
-  let lastPackets: PacketSnapshot | null = null;
-
-  return {
-    read: async () => {
-      const report = await peer.getStats();
-      let latencyMs: number | null = null;
-      let jitterMs: number | null = null;
-      let bufferMs: number | null = null;
-      let packetSnapshot: PacketSnapshot | null = null;
-
-      for (const item of report.values()) {
-        const fields = toStatsFields(item);
-
-        if (fields.type === "candidate-pair" && fields.state === "succeeded") {
-          latencyMs = secondsToMs(readNumber(fields, "currentRoundTripTime"));
-        }
-
-        if (fields.type === "inbound-rtp" && fields.kind === "audio") {
-          jitterMs = secondsToMs(readNumber(fields, "jitter"));
-          bufferMs = readAudioBufferMs(fields);
-          packetSnapshot = {
-            packetsReceived: readNumber(fields, "packetsReceived") ?? 0,
-            packetsLost: readNumber(fields, "packetsLost") ?? 0,
-          };
-        }
-      }
-
-      const packetLossPercent = calculatePacketLossPercent(lastPackets, packetSnapshot);
-      lastPackets = packetSnapshot;
-
-      return {
-        latencyMs,
-        jitterMs,
-        bufferMs,
-        packetLossPercent,
-        packetsReceived: packetSnapshot?.packetsReceived ?? null,
-        packetsLost: packetSnapshot?.packetsLost ?? null,
-      };
-    },
-  };
+export function createConnectionQualityTracker(peer: Pick<RTCPeerConnection, "getStats">): ConnectionQualityTracker {
+  let previous: AudioSnapshot | null = null;
+  return { read: async () => {
+    const reports = statsFields(await peer.getStats());
+    const pair = selectedCandidatePair(reports);
+    const roundTrip = pair ? number(pair, "currentRoundTripTime") : null;
+    const roundTripMs = roundTrip === null ? null : roundTrip * 1000;
+    const audio = reports.find((item) => item.type === "inbound-rtp" && item.kind === "audio");
+    const current = audio ? {
+      id: audio.id,
+      received: number(audio, "packetsReceived"), lost: number(audio, "packetsLost"),
+      delay: number(audio, "jitterBufferDelay"), emitted: number(audio, "jitterBufferEmittedCount"),
+    } : null;
+    const sameStream = previous?.id === current?.id;
+    const bufferMs = current && sameStream && previous
+      ? averageDelta(current.delay, previous.delay, current.emitted, previous.emitted)
+      : null;
+    let packetLossPercent: number | null = null;
+    if (sameStream && current?.received !== null && current?.lost !== null && previous?.received !== null && previous?.lost !== null && current && previous) {
+      const received = current.received - previous.received;
+      const lost = Math.max(0, current.lost - previous.lost);
+      if (received >= 0 && received + lost > 0) packetLossPercent = 100 * lost / (received + lost);
+    }
+    previous = current;
+    const jitter = audio ? number(audio, "jitter") : null;
+    return {
+      latencyMs: roundTripMs !== null && bufferMs !== null ? roundTripMs / 2 + bufferMs : null,
+      roundTripMs, bufferMs, jitterMs: jitter === null ? null : jitter * 1000,
+      packetLossPercent, packetsReceived: current?.received ?? null, packetsLost: current?.lost ?? null,
+    };
+  } };
 }
 
-function calculatePacketLossPercent(
-  previous: PacketSnapshot | null,
-  current: PacketSnapshot | null,
-): number | null {
-  if (!previous || !current) {
-    return null;
-  }
-
-  const received = current.packetsReceived - previous.packetsReceived;
-  const lost = current.packetsLost - previous.packetsLost;
-  const total = received + lost;
-
-  if (total <= 0) {
-    return 0;
-  }
-
-  return (lost / total) * 100;
+function averageDelta(total: number | null, before: number | null, count: number | null, beforeCount: number | null): number | null {
+  if (total === null || before === null || count === null || beforeCount === null || count <= beforeCount || total < before) return null;
+  return 1000 * (total - before) / (count - beforeCount);
 }
 
-function readAudioBufferMs(fields: Record<string, unknown>): number | null {
-  const delay = readNumber(fields, "jitterBufferDelay");
-  const emitted = readNumber(fields, "jitterBufferEmittedCount");
-
-  if (delay === null || emitted === null || emitted <= 0) {
-    return secondsToMs(readNumber(fields, "jitterBufferTargetDelay"));
-  }
-
-  return (delay / emitted) * 1000;
-}
-
-function secondsToMs(value: number | null): number | null {
-  return value === null ? null : value * 1000;
-}
-
-function readNumber(fields: Record<string, unknown>, key: string): number | null {
+function number(fields: Record<string, unknown>, key: string): number | null {
   const value = fields[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
-function toStatsFields(item: RTCStats): Record<string, unknown> {
-  return item as unknown as Record<string, unknown>;
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
 }

@@ -11,6 +11,14 @@ pub struct SelectedCandidatePath {
     pub remote_ip: String,
 }
 
+pub async fn round_trip_ms(peer: &RTCPeerConnection) -> Option<f64> {
+    peer.get_stats().await.reports.values().find_map(|report| match report {
+        StatsReportType::CandidatePair(pair) if pair.nominated && pair.responses_received > 0
+            && pair.current_round_trip_time.is_finite() && pair.current_round_trip_time >= 0.0 => Some(pair.current_round_trip_time * 1000.0),
+        _ => None,
+    })
+}
+
 pub async fn selected_candidate_path(peer: &RTCPeerConnection) -> Option<SelectedCandidatePath> {
     let stats = peer.get_stats().await;
     let (local_candidate_id, remote_candidate_id) =
