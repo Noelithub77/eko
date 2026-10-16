@@ -7,6 +7,7 @@ pnpm --silent ops latency status --seconds 20 --json
 pnpm --silent ops latency status --max-delay-ms 150 --json
 pnpm --silent ops latency capture --json
 pnpm --silent ops latency pipeline --json
+pnpm --silent ops latency pipeline --stall-ms 500 --json
 pnpm --silent ops latency check --json
 ```
 
@@ -15,6 +16,8 @@ pnpm --silent ops latency check --json
 `capture` requires Linux, Python 3, `pactl` and `libpulse-simple`. It reads the default output's monitor with the same 48 kHz stereo, signed 16-bit format and 20 ms reads as the production app, comparing server-default buffering with explicit 20 ms and 10 ms fragments. It measures the record pipeline's reported latency after five warm-up reads. It does not include the application producing audio, packetization or remote playback.
 
 `pipeline` runs a cached ignored Rust test that reads the real default monitor for three seconds. It uses the production capture, channel, Opus encoder and WebRTC track writer. It reports stage sample counts, latest/average/maximum durations, write errors and stale-frame drops. There is no connected peer, so write timings exclude network delivery. Cargo and system build libraries must already be available; missing prerequisites fail rather than installing software. This command can compile the focused test harness; it is not a full desktop build.
+
+`pipeline --stall-ms 100..2000` instead stalls the actual capture source's bounded consumer, then reports the oldest sample age, stale packets observed and time to the first packet within 60 ms of live. This recovery probe covers capture and queue behavior, without Opus or networking. On Windows, run it while audio plays through the explicit test output; silent WASAPI loopback may produce no packets. The Windows timestamp measures oldest sample age, including packet collection; Linux capture timing reports the remaining record queue after reads. Do not compare those capture fields as identical measurements.
 
 ## Full browser and TURN workflow
 
@@ -34,6 +37,8 @@ pnpm --silent ops latency media --path both --protocol all --targets 60,40,20 --
 Add `--max-delay-ms 150` to enforce a p95 budget for observed probe/estimated delay; missing or over-budget timing fails even if the workflow connects. A workflow-only run without that option can pass while showing slow media.
 
 For repeated comparisons, add `--runs 2` or `--runs 3`. Bound each run with `--seconds 6..60`. `--protocol udp|tcp|tls|all` filters the real ephemeral credentials to the transport being tested; it does not change production defaults. `EKO_CHROMIUM_PATH` selects Chromium (default `/usr/bin/chromium`). Use `--relay-url` to select a different explicit HTTPS relay origin. The default is `https://eko.allpyq.in`.
+
+Add `--summary-only` when retaining an aggregate report: it omits individual profiler samples, marker matches and peer device identifiers. Raw session samples stay in memory during the experiment. An existing `CARGO_TARGET_DIR` is respected by native probes, so a VM can reuse its isolated build cache.
 
 The test creates an isolated browser context and a temporary Worker room per run. It follows the actual receiver UI through join, approval waiting, permission, receiver-ready, answer, ICE, first audio, pause and resume. It obtains real host and receiver TURN credentials. Forced TURN constrains both peers to relay candidates and fails if either selected path is direct. Direct baselines fail if a relay is selected. No live desktop session or approved-device list is changed.
 

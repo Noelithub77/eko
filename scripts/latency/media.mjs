@@ -284,6 +284,20 @@ async function peerStats(page, expression) {
   }, expression);
 }
 
+export function mediaSummary(result) {
+  const summary = { ...result };
+  delete summary.samples;
+  delete summary.markerMatches;
+  if (summary.pipeline) {
+    summary.pipeline = { ...summary.pipeline, peers: summary.pipeline.peers.map((peer) => {
+      const clean = { ...peer };
+      delete clean.deviceId;
+      return clean;
+    }) };
+  }
+  return summary;
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const options = JSON.parse(process.argv[2]);
   const results = [];
@@ -301,6 +315,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     }
   }
   const success = results.every((result) => result.success);
-  console.log(JSON.stringify({ environment: "isolated-browser-real-network", success, relayOrigin: options.relayUrl, measurement: options.senderType === "native" ? "Production Rust capture/Opus/WebRTC sender to real browser receiver through actual ICE/TURN. Stage times and partial receiver delay; no physical speaker or marker measurement." : "Synthetic browser sender to real receiver UI through actual ICE/TURN. Software marker timing excludes desktop capture and physical output; it has cross-context clock and scheduling uncertainty.", results }));
+  const output = options.summaryOnly ? results.map(mediaSummary) : results;
+  console.log(JSON.stringify({ environment: "isolated-browser-real-network", success, relayOrigin: options.relayUrl, measurement: options.senderType === "native" ? "Production Rust capture/Opus/WebRTC sender to real browser receiver through actual ICE/TURN. Stage times and partial receiver delay; no physical speaker or marker measurement." : "Synthetic browser sender to real receiver UI through actual ICE/TURN. Software marker timing excludes desktop capture and physical output; it has cross-context clock and scheduling uncertainty.", results: output }));
   if (!success) process.exitCode = 1;
 }

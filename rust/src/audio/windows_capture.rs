@@ -4,7 +4,7 @@ mod windows {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
     use std::thread;
-    use std::time::Duration;
+    use std::time::{Duration, Instant};
 
     use tokio::sync::mpsc;
     use wasapi::{
@@ -14,15 +14,40 @@ mod windows {
     use windows::core::PCWSTR;
     use windows::Win32::Media::Audio;
     use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_ALL};
+    use windows::Win32::System::Performance::{QueryPerformanceCounter, QueryPerformanceFrequency};
 
     use crate::audio::frame::{
-        AudioFrame, CHANNELS, FRAMES_PER_PACKET, SAMPLES_PER_PACKET, SAMPLE_RATE,
+        AudioFrame, CHANNELS, FRAME_MS, FRAMES_PER_PACKET, SAMPLES_PER_PACKET, SAMPLE_RATE,
     };
 
     type CaptureResult<T> = Result<T, String>;
     const RETRY_DELAY_MS: u64 = 500;
     const MAX_RETRY_DELAY_MS: u64 = 5_000;
     const AUDIO_EVENT_TIMEOUT_MS: u32 = 1_000;
+
+    struct CaptureClock {
+        frequency: i64,
+    }
+
+    impl CaptureClock {
+        fn new() -> Option<Self> {
+            let mut frequency = 0;
+            unsafe { QueryPerformanceFrequency(&mut frequency) }.ok()?;
+            (frequency > 0).then_some(Self { frequency })
+        }
+
+        fn captured_at(&self, timestamp: u64) -> Option<Instant> {
+            if timestamp == 0 { return None; }
+            let now = Instant::now();
+            let mut counter = 0;
+            unsafe { QueryPerformanceCounter(&mut counter) }.ok()?;
+            let counter = u128::try_from(counter).ok()?;
+            let current = counter * 10_000_000 / self.frequency as u128;
+            let elapsed = current.checked_sub(u128::from(timestamp))?;
+            let nanos = u64::try_from(elapsed.checked_mul(100)?).ok()?;
+            now.checked_sub(Duration::from_nanos(nanos))
+        }
+    }
 
     struct DefaultRenderDeviceMonitor {
         enumerator: Audio::IMMDeviceEnumerator,
@@ -223,21 +248,50 @@ mod windows {
             .get_audiocaptureclient()
             .map_err(|error| error.to_string())?;
         let mut bytes = VecDeque::<u8>::with_capacity(SAMPLES_PER_PACKET * 4 * 4);
+        let buffer_frames = audio_client.get_buffer_size().map_err(|error| error.to_string())? as usize;
+        let mut packet = vec![0_u8; buffer_frames * CHANNELS * 4];
+        let clock = CaptureClock::new();
+        let mut captured_at: Option<Instant> = None;
 
         audio_client
             .start_stream()
             .map_err(|error| error.to_string())?;
 
         loop {
-            capture_client
-                .read_from_device_to_deque(&mut bytes)
-                .map_err(|error| error.to_string())?;
+            if sender.is_closed() {
+                let _ = audio_client.stop_stream();
+                return Ok(());
+            }
+            // Drain every pending device packet before waiting for another event.
+            while capture_client.get_next_packet_size().map_err(|error| error.to_string())?.is_some_and(|size| size > 0) {
+                let pending = bytes.len();
+                let (frames, info) = capture_client
+                    .read_from_device(&mut packet)
+                    .map_err(|error| error.to_string())?;
+                if frames == 0 { break; }
+                let read = packet.get(..frames as usize * CHANNELS * 4)
+                    .ok_or_else(|| "WASAPI returned more samples than its capture buffer.".to_string())?;
+                bytes.extend(read.iter().copied());
+                if info.flags.data_discontinuity {
+                    bytes.drain(..pending);
+                }
+                if pending == 0 || info.flags.data_discontinuity {
+                    captured_at = if info.flags.timestamp_error { None }
+                        else { clock.as_ref().and_then(|clock| clock.captured_at(info.timestamp)) };
+                }
 
-            while bytes.len() >= SAMPLES_PER_PACKET * 4 {
-                let samples = read_packet_samples(&mut bytes);
-                if sender.blocking_send(AudioFrame::new(samples)).is_err() {
-                    let _ = audio_client.stop_stream();
-                    return Ok(());
+                while bytes.len() >= SAMPLES_PER_PACKET * 4 {
+                    let samples = read_packet_samples(&mut bytes);
+                    let mut frame = AudioFrame::new(samples);
+                    if let Some(started) = captured_at {
+                        frame.captured_at = started;
+                        frame.capture_latency_us = Some(started.elapsed().as_micros().min(u128::from(u64::MAX)) as u64);
+                        captured_at = started.checked_add(Duration::from_millis(FRAME_MS));
+                    }
+                    if sender.blocking_send(frame).is_err() {
+                        let _ = audio_client.stop_stream();
+                        return Ok(());
+                    }
                 }
             }
 

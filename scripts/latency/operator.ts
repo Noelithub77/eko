@@ -12,6 +12,8 @@ export const latencyHelp = `pnpm ops latency <status|capture|pipeline|media|chec
           Missing connected peers or fresh samples fail, never pass as zero.
   pipeline Run a 3-second real native capture/Opus probe (cached Rust test build).
            Reads monitor audio; no peer or physical output. Needs Cargo/system libs.
+           --stall-ms 100..2000 instead tests capture/queue recovery after a stall,
+           without Opus or network; reports stale packets and time to fresh audio.
   capture Compare real Linux capture fragments: default, 20 ms, 10 ms.
           Reads monitor audio without playing or saving it; needs python3/libpulse.
   media   Full isolated receiver workflow and real direct/forced TURN media.
@@ -19,6 +21,7 @@ export const latencyHelp = `pnpm ops latency <status|capture|pipeline|media|chec
           --protocol udp|tcp|tls|all (default udp, TURN only)
           --max-delay-ms N optionally fails observed p95 above a delay budget.
           --sender browser|native (default browser; native uses actual Rust capture)
+          --summary-only omits session samples and device identifiers from output.
           --targets 20,40,60 (default 60,40,20)
           --seconds 6..60 (default 9 per run); --runs 1..3 (default 1)
           --relay-url HTTPS_ORIGIN (default https://eko.allpyq.in)
@@ -42,7 +45,7 @@ const snapshotSchema = z.object({
   session: z.object({ roomId: z.string().nullable(), devices: z.array(z.object({ deviceId: z.string(), state: z.string(), connectionPath: z.string().nullable() })) }),
   webrtc: z.record(z.string(), z.unknown()), profiler: z.array(sampleSchema),
 });
-const optionsWithValues = new Set(["--seconds", "--max-delay-ms", "--path", "--protocol", "--targets", "--runs", "--relay-url", "--client-url", "--sender"]);
+const optionsWithValues = new Set(["--seconds", "--max-delay-ms", "--path", "--protocol", "--targets", "--runs", "--relay-url", "--client-url", "--sender", "--stall-ms"]);
 
 export async function latencyOperator(args: string[]): Promise<Record<string, unknown>> {
   const [command = "help", ...flags] = args;
@@ -51,11 +54,12 @@ export async function latencyOperator(args: string[]): Promise<Record<string, un
   for (let index = 0; index < flags.length; index++) {
     const flag = flags[index];
     if (flag === "--json") continue;
+    if (flag === "--summary-only") { options.set(flag, "true"); continue; }
     const value = flags[++index];
     if (!optionsWithValues.has(flag) || !value || value.startsWith("--") || options.has(flag)) throw new Error(`Invalid option ${flag}. Use pnpm ops latency --help.`);
     options.set(flag, value);
   }
-  const allowed: Record<string, string[]> = { status: ["--seconds", "--max-delay-ms"], capture: [], pipeline: [], check: [], media: ["--seconds", "--path", "--protocol", "--targets", "--runs", "--relay-url", "--client-url", "--sender", "--max-delay-ms"] };
+  const allowed: Record<string, string[]> = { status: ["--seconds", "--max-delay-ms"], capture: [], pipeline: ["--stall-ms"], check: [], media: ["--seconds", "--path", "--protocol", "--targets", "--runs", "--relay-url", "--client-url", "--sender", "--max-delay-ms", "--summary-only"] };
   if (!(command in allowed)) throw new Error(`Unknown latency command: ${command}`);
   for (const key of options.keys()) if (!allowed[command].includes(key)) throw new Error(`${key} does not apply to ${command}`);
   if (command === "status") return status(options);
@@ -64,7 +68,8 @@ export async function latencyOperator(args: string[]): Promise<Record<string, un
     return { environment: "local-tests", success: true };
   }
   if (command === "pipeline") {
-    const child = spawnSync("cargo", ["test", "--offline", "-j", "2", "--lib", "profile_native_audio_pipeline", "--", "--ignored", "--nocapture"], { cwd: fileURLToPath(new URL("../../rust", import.meta.url)), env: { ...process.env, CARGO_TARGET_DIR: "target/desktop-dev" }, encoding: "utf8", stdio: ["ignore", "pipe", 2], timeout: 180000, maxBuffer: 1024 * 1024 });
+    const stallMs = options.has("--stall-ms") ? integer(options, "--stall-ms", 500, 100, 2000) : null;
+    const child = spawnSync("cargo", ["test", "--offline", "-j", "2", "--lib", stallMs === null ? "profile_native_audio_pipeline" : "profile_native_capture_recovery", "--", "--ignored", "--nocapture"], { cwd: fileURLToPath(new URL("../../rust", import.meta.url)), env: { ...process.env, CARGO_TARGET_DIR: process.env.CARGO_TARGET_DIR ?? "target/desktop-dev", ...(stallMs === null ? {} : { EKO_BENCH_STALL_MS: String(stallMs) }) }, encoding: "utf8", stdio: ["ignore", "pipe", 2], timeout: 180000, maxBuffer: 1024 * 1024 });
     if (child.error) throw new Error(child.error.message);
     const line = child.stdout.split("\n").find((line) => line.startsWith("EKO_PIPELINE_RESULT="));
     if (!line) throw new Error(`Native probe failed (exit ${child.status})`);
@@ -85,7 +90,7 @@ export async function latencyOperator(args: string[]): Promise<Record<string, un
   if (!targets.length || targets.length > 3 || targets.some((value) => ![20, 40, 60].includes(value))) throw new Error("Targets must be up to three of 20,40,60");
   const senderType = options.get("--sender") ?? "browser";
   if (!["browser", "native"].includes(senderType)) throw new Error("--sender must be browser or native");
-  return runJson(process.execPath, [fileURLToPath(new URL("./media.mjs", import.meta.url)), JSON.stringify({ maxDelayMs: options.has("--max-delay-ms") ? integer(options, "--max-delay-ms", 150, 1, 10000) : null, senderType, relayUrl: relay.origin, clientUrl: client.href, paths: path === "both" ? ["direct", "turn"] : [path], protocols: protocol === "all" ? ["udp", "tcp", "tls"] : [protocol], targets, seconds: integer(options, "--seconds", 9, 6, 60), runs: integer(options, "--runs", 1, 1, 3) })], 3600000);
+  return runJson(process.execPath, [fileURLToPath(new URL("./media.mjs", import.meta.url)), JSON.stringify({ summaryOnly: options.has("--summary-only"), maxDelayMs: options.has("--max-delay-ms") ? integer(options, "--max-delay-ms", 150, 1, 10000) : null, senderType, relayUrl: relay.origin, clientUrl: client.href, paths: path === "both" ? ["direct", "turn"] : [path], protocols: protocol === "all" ? ["udp", "tcp", "tls"] : [protocol], targets, seconds: integer(options, "--seconds", 9, 6, 60), runs: integer(options, "--runs", 1, 1, 3) })], 3600000);
 }
 
 async function status(options: Map<string, string>): Promise<Record<string, unknown>> {

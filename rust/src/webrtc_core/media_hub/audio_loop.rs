@@ -2,12 +2,12 @@ use super::*;
 use bytes::Bytes;
 use std::time::Duration;
 use webrtc::media::Sample;
-use crate::audio::frame::AudioFrame;
+use crate::audio::frame::{AudioFrame, CAPTURE_QUEUE_FRAMES};
 use crate::audio::opus_codec::OpusAudioEncoder;
 use crate::audio::windows_capture::start_system_audio_source;
 
 pub(super) fn start(hub: &SharedMediaHub) -> Result<(), String> {
-    let (sender, mut receiver) = mpsc::channel::<AudioFrame>(3);
+    let (sender, mut receiver) = mpsc::channel::<AudioFrame>(CAPTURE_QUEUE_FRAMES);
     let capture_thread = start_system_audio_source(sender)?;
     let track = Arc::clone(&hub.track);
     let counters = Arc::clone(&hub.audio_counters);
@@ -38,7 +38,7 @@ pub(super) fn start(hub: &SharedMediaHub) -> Result<(), String> {
                 counters.stale_frames_dropped.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 continue;
             }
-            counters.queue_timing.record_us(frame.captured_at.elapsed().as_micros() as u64);
+            counters.queue_timing.record_us(frame.queued_at.elapsed().as_micros() as u64);
             if let Some(micros) = frame.capture_latency_us { counters.capture_timing.record_us(micros); }
             let encode_started = std::time::Instant::now();
             counters

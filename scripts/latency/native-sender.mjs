@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 export async function startNativeSender({ iceServers, deviceId, forceRelay, sendSignal }) {
   const child = spawn("cargo", ["test", "--offline", "-j", "2", "--lib", "serve_native_benchmark_sender", "--", "--ignored", "--nocapture"], {
     cwd: fileURLToPath(new URL("../../rust", import.meta.url)),
-    env: { ...process.env, CARGO_TARGET_DIR: "target/desktop-dev", EKO_BENCH_ICE_SERVERS: JSON.stringify(iceServers), EKO_BENCH_DEVICE_ID: deviceId, EKO_BENCH_FORCE_RELAY: forceRelay ? "1" : "0" },
+    env: { ...process.env, CARGO_TARGET_DIR: process.env.CARGO_TARGET_DIR ?? "target/desktop-dev", EKO_BENCH_ICE_SERVERS: JSON.stringify(iceServers), EKO_BENCH_DEVICE_ID: deviceId, EKO_BENCH_FORCE_RELAY: forceRelay ? "1" : "0" },
     stdio: ["pipe", "pipe", "pipe"],
   });
   let pending = "";
