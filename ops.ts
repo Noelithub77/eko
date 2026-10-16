@@ -1,5 +1,6 @@
 // Operator entry for eko: `pnpm ops --help`.
 import { latencyOperator, latencyHelp } from "./scripts/latency/operator.ts";
+import { platformBuildOperator, platformBuildHelp } from "./scripts/platform-builds.ts";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -10,6 +11,8 @@ const help = `pnpm ops <command> [--json]
 
   latency  Profile audio delay, compare capture and test real direct/TURN media.
            Run pnpm ops latency --help for options.
+  platforms Start or inspect all-platform artifact builds without publishing a release.
+            Run pnpm ops platforms --help for options.
   check    Run tests and the type-checked build, then confirm the release downloads exist.
   build    Build landing and receiver into dist/hosted/.
   assets   Confirm every download link on the page resolves on GitHub.
@@ -139,9 +142,9 @@ const commands: Record<string, () => Promise<Result>> = {
   status,
 };
 
-const action = command === "latency" ? () => latencyOperator(flags) : commands[command];
-if (command === "--help" || command === "help") console.log(`${help}\n\n${latencyHelp}`);
-else if (!action || (command !== "latency" && flags.some((flag) => flag !== "--json"))) {
+const action = command === "platforms" ? () => platformBuildOperator(flags) : command === "latency" ? () => latencyOperator(flags) : commands[command];
+if (command === "--help" || command === "help") console.log(`${help}\n\n${latencyHelp}\n\n${platformBuildHelp}`);
+else if (!action || (!["latency", "platforms"].includes(command) && flags.some((flag) => flag !== "--json"))) {
   console.error(`Unknown command or flag.\n\n${help}`);
   process.exitCode = 1;
 } else {

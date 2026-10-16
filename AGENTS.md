@@ -305,6 +305,7 @@ The hosted web app uses one root Vite configuration, package installation, and C
 - `pnpm dev:web:site` previews both pages at port 4040.
 - `pnpm build:web` produces `dist/hosted/`; `relay/wrangler.jsonc` deploys it with the existing signaling Worker.
 - `pnpm ops --help` discovers web checks, release assets, deployment, and live status. Cloudflare operations use `CLOUDFLARE_API_TOKEN`.
+- `pnpm ops platforms --help` discovers all-platform artifact builds; see `docs/platform-builds.md` for exact revision and release boundaries.
 - For deployment routing, old desktop pairing compatibility, or changing web build ownership, read `plan/web-hosting/summary.md`.
 - Native desktop's embedded receiver still uses `pnpm build:web:client` and `dist/web/client/`.
 
