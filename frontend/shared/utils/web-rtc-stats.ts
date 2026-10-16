@@ -1,57 +1,36 @@
-const loggedCandidatePaths = new WeakSet<RTCPeerConnection>();
-
+const loggedCandidatePaths = new WeakMap<RTCPeerConnection, WebConnectionPath>();
 export type WebConnectionPath = "direct" | "relay";
+export type StatsFields = Record<string, unknown>;
 
-export function logAudioStats(
-  peer: RTCPeerConnection,
-  onConnectionPath?: (path: WebConnectionPath) => void,
-): void {
-  void peer.getStats().then((stats) => {
-    let audioBytes = 0;
-    let audioPackets = 0;
-    const reports: Record<string, unknown>[] = [];
-    stats.forEach((raw) => {
-      const report = raw as Record<string, unknown>;
-      reports.push(report);
-      if (report.type === "inbound-rtp" && report.kind === "audio") {
-        audioBytes += typeof report.bytesReceived === "number" ? report.bytesReceived : 0;
-        audioPackets += typeof report.packetsReceived === "number" ? report.packetsReceived : 0;
-      }
-    });
-    if (audioBytes > 0 || audioPackets > 0) {
-      console.log(`[eko] inbound audio: packets=${audioPackets} bytes=${audioBytes}`);
-    }
-    logSelectedCandidate(peer, reports, onConnectionPath);
+export function statsFields(stats: RTCStatsReport): StatsFields[] {
+  const reports: StatsFields[] = [];
+  stats.forEach((value: unknown) => {
+    if (typeof value === "object" && value !== null) reports.push(Object.fromEntries(Object.entries(value)));
   });
+  return reports;
 }
 
-function logSelectedCandidate(
-  peer: RTCPeerConnection,
-  reports: Record<string, unknown>[],
-  onConnectionPath?: (path: WebConnectionPath) => void,
-): void {
-  if (loggedCandidatePaths.has(peer)) {
-    return;
-  }
-  const pair = reports.find(
-    (report) => report.type === "candidate-pair" && report.nominated === true,
-  );
-  const localCandidateId = pair?.localCandidateId;
-  if (typeof localCandidateId !== "string") {
-    return;
-  }
-  const candidate = reports.find(
-    (report) => report.type === "local-candidate" && report.id === localCandidateId,
-  );
-  if (typeof candidate?.candidateType !== "string") {
-    return;
-  }
-  loggedCandidatePaths.add(peer);
-  const path: WebConnectionPath = candidate.candidateType === "relay" ? "relay" : "direct";
-  if (path === "relay") {
-    console.warn("[eko] selected ICE relay candidate");
-  } else {
-    console.log(`[eko] selected ICE candidate: ${candidate.candidateType}`);
-  }
-  onConnectionPath?.(path);
+export function selectedCandidatePair(reports: StatsFields[]): StatsFields | undefined {
+  const transport = reports.find((report) => report.type === "transport" && typeof report.selectedCandidatePairId === "string");
+  if (transport) return reports.find((report) => report.id === transport.selectedCandidatePairId);
+  return reports.find((report) => report.type === "candidate-pair" && report.nominated === true && report.state === "succeeded");
+}
+
+export function connectionPath(reports: StatsFields[]): WebConnectionPath | null {
+  const pair = selectedCandidatePair(reports);
+  if (!pair) return null;
+  const local = reports.find((report) => report.id === pair.localCandidateId);
+  const remote = reports.find((report) => report.id === pair.remoteCandidateId);
+  if (local?.candidateType === "relay" || remote?.candidateType === "relay") return "relay";
+  return typeof local?.candidateType === "string" && typeof remote?.candidateType === "string" ? "direct" : null;
+}
+
+export function logAudioStats(peer: RTCPeerConnection, onConnectionPath?: (path: WebConnectionPath) => void): void {
+  void peer.getStats().then((stats) => {
+    const path = connectionPath(statsFields(stats));
+    if (!path || loggedCandidatePaths.get(peer) === path) return;
+    loggedCandidatePaths.set(peer, path);
+    console.info(`[eko] selected media path: ${path}`);
+    onConnectionPath?.(path);
+  }).catch(() => undefined);
 }

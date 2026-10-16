@@ -29,6 +29,8 @@ pub struct StreamProfilerSample {
     pub room_id: String,
     pub sample_index: u32,
     pub latency_ms: Option<f64>,
+    #[serde(default)]
+    pub round_trip_ms: Option<f64>,
     pub jitter_ms: Option<f64>,
     pub buffer_ms: Option<f64>,
     pub packet_loss_percent: Option<f64>,

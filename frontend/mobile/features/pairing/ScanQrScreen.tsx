@@ -8,6 +8,9 @@ import { cn } from "@shared/lib/utils";
 import type { QrPairingPayload } from "@shared/types/stream";
 import { parseQrPayload } from "@shared/utils/signaling-client";
 
+const INVERTED_SCAN_MS = 250;
+const INVERTED_SCAN_SIZE = 640;
+
 type ScanQrScreenProps = {
   compact?: boolean;
   onScanned: (payload: QrPairingPayload) => void;
@@ -25,29 +28,47 @@ export function ScanQrScreen({ compact = false, onScanned }: ScanQrScreenProps) 
       return;
     }
 
+    const video = videoRef.current;
     const reader = new BrowserQRCodeReader();
     let isActive = true;
 
-    const controlsPromise = reader
-      .decodeFromVideoDevice(undefined, videoRef.current, (result) => {
-        if (!result || !isActive) {
-          return;
-        }
+    const handleText = (text: string) => {
+      if (!isActive) {
+        return;
+      }
 
-        const payload = parseQrPayload(result.getText());
-        if (payload) {
-          onScanned(payload);
-          setHasScanned(true);
-          setIsScanning(false);
-          setMessage("QR scanned.");
-        } else {
-          setMessage("Invalid Eko QR.");
+      const payload = parseQrPayload(text);
+      if (payload) {
+        isActive = false;
+        onScanned(payload);
+        setHasScanned(true);
+        setIsScanning(false);
+        setMessage("QR scanned.");
+      } else {
+        setMessage("Invalid eko QR.");
+      }
+    };
+
+    const controlsPromise = reader
+      .decodeFromVideoDevice(undefined, video, (result) => {
+        if (result) {
+          handleText(result.getText());
         }
       })
       .catch(() => setMessage("Camera unavailable."));
 
+    // The desktop QR is light on dark, which zxing cannot read, so also try inverted frames.
+    const canvas = document.createElement("canvas");
+    const invertedTimer = window.setInterval(() => {
+      const text = decodeInvertedFrame(reader, video, canvas);
+      if (text) {
+        handleText(text);
+      }
+    }, INVERTED_SCAN_MS);
+
     return () => {
       isActive = false;
+      window.clearInterval(invertedTimer);
       controlsPromise.then((controls) => controls?.stop()).catch(() => undefined);
     };
   }, [isScanning, onScanned]);
@@ -108,4 +129,31 @@ function QrFrame({ isActive }: { isActive: boolean }) {
       </div>
     </div>
   );
+}
+
+function decodeInvertedFrame(
+  reader: BrowserQRCodeReader,
+  video: HTMLVideoElement,
+  canvas: HTMLCanvasElement,
+): string | null {
+  if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || video.videoWidth === 0) {
+    return null;
+  }
+
+  const scale = Math.min(1, INVERTED_SCAN_SIZE / Math.max(video.videoWidth, video.videoHeight));
+  canvas.width = Math.round(video.videoWidth * scale);
+  canvas.height = Math.round(video.videoHeight * scale);
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) {
+    return null;
+  }
+
+  context.filter = "invert(1)";
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  try {
+    return reader.decodeFromCanvas(canvas).getText();
+  } catch {
+    // No code in this frame.
+    return null;
+  }
 }

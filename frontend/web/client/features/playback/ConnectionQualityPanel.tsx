@@ -10,6 +10,7 @@ type QualityLevel = "good" | "okay" | "poor" | "unknown";
 
 const emptyQuality: ConnectionQuality = {
   latencyMs: null,
+  roundTripMs: null,
   jitterMs: null,
   bufferMs: null,
   packetLossPercent: null,
@@ -64,9 +65,9 @@ export function ConnectionQualityPanel({ onQuality, peer }: ConnectionQualityPan
       </div>
       <div className="grid grid-cols-2 gap-2">
         <StatTile
-          label="Latency"
+          label="Estimated delay"
           level={getLatencyLevel(quality.latencyMs)}
-          note="Round trip delay."
+          note="Half network round trip + recent buffer. Excludes capture and speaker delay."
           suffix="ms"
           value={quality.latencyMs}
         />

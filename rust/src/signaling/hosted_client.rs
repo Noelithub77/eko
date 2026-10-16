@@ -372,7 +372,8 @@ where
             }
         }
         SignalClientMessage::ProfilerSample { sample } => {
-            crate::profiler::append_typed_sample(sample)?;
+            let sample = crate::profiler::with_native_transport(sample, media).await;
+            crate::profiler::record_receiver(sample, &device_id, session)?;
             SignalServerMessage::SignalAck {
                 message: "Profiler sample received".to_string(),
             }

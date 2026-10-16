@@ -1,4 +1,7 @@
-// Operator entry for the eko website: `pnpm ops --help`.
+// Operator entry for eko: `pnpm ops --help`.
+import { verifyHostedReceiver } from "./scripts/hosted-receiver.ts";
+import { latencyOperator, latencyHelp } from "./scripts/latency/operator.ts";
+import { platformBuildOperator, platformBuildHelp } from "./scripts/platform-builds.ts";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -7,11 +10,16 @@ import { builds, downloadUrl, type Platform } from "./frontend/web/landing/platf
 
 const help = `pnpm ops <command> [--json]
 
+  latency  Profile audio delay, compare capture and test real direct/TURN media.
+           Run pnpm ops latency --help for options.
+  platforms Start or inspect all-platform artifact builds without publishing a release.
+            Run pnpm ops platforms --help for options.
   check    Run tests and the type-checked build, then confirm the release downloads exist.
   build    Build landing and receiver into dist/hosted/.
   assets   Confirm every download link on the page resolves on GitHub.
   deploy   Build and deploy the landing, receiver, and signaling Worker (production).
   domain   Inspect the domain and Worker routes.
+  receiver Verify the exact hosted receiver script against dist/hosted/.
   status   Show Worker routes and live landing, receiver, and relay responses.
 
 Cloudflare commands use CLOUDFLARE_API_TOKEN; the Worker is configured in relay/wrangler.jsonc.
@@ -90,7 +98,7 @@ async function deploy(): Promise<Result> {
   run(join(root, "node_modules", ".bin", "wrangler"), ["deploy", "--config", "relay/wrangler.jsonc"]);
   for (let attempt = 0; ; attempt += 1) {
     try {
-      return { worker: config.name, domain, ...(await status()) };
+      return { worker: config.name, domain, ...(await status()), receiver: await verifyHostedReceiver(`https://${domain}`, join(root, "dist", "hosted")) };
     } catch (error) {
       if (attempt === 5) throw error;
       console.error("Waiting for the production route to serve the new deployment…");
@@ -131,22 +139,24 @@ const commands: Record<string, () => Promise<Result>> = {
     return {};
   },
   assets,
+  receiver: async () => ({ receiver: await verifyHostedReceiver(`https://${domain}`, join(root, "dist", "hosted")) }),
   deploy,
   domain: status,
   status,
 };
 
-const action = commands[command];
-if (command === "--help" || command === "help") console.log(help);
-else if (!action || flags.some((flag) => flag !== "--json")) {
+const action = command === "platforms" ? () => platformBuildOperator(flags) : command === "latency" ? () => latencyOperator(flags) : commands[command];
+if (command === "--help" || command === "help") console.log(`${help}\n\n${latencyHelp}\n\n${platformBuildHelp}`);
+else if (!action || (!["latency", "platforms"].includes(command) && flags.some((flag) => flag !== "--json"))) {
   console.error(`Unknown command or flag.\n\n${help}`);
   process.exitCode = 1;
 } else {
   try {
     const result = await action();
+    if (result.success === false) process.exitCode = 1;
     console.log(JSON.stringify({ command, environment: command === "build" || command === "check" ? "local" : "cloudflare-production", success: true, ...result }));
   } catch (error) {
-    console.error(JSON.stringify({ command, success: false, error: error instanceof Error ? error.message : String(error) }));
+    console.log(JSON.stringify({ command, success: false, error: error instanceof Error ? error.message : String(error) }));
     process.exitCode = 1;
   }
 }

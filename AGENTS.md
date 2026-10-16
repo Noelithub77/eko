@@ -305,6 +305,7 @@ The hosted web app uses one root Vite configuration, package installation, and C
 - `pnpm dev:web:site` previews both pages at port 4040.
 - `pnpm build:web` produces `dist/hosted/`; `relay/wrangler.jsonc` deploys it with the existing signaling Worker.
 - `pnpm ops --help` discovers web checks, release assets, deployment, and live status. Cloudflare operations use `CLOUDFLARE_API_TOKEN`.
+- `pnpm ops platforms --help` discovers all-platform artifact builds; see `docs/platform-builds.md` for exact revision and release boundaries.
 - For deployment routing, old desktop pairing compatibility, or changing web build ownership, read `plan/web-hosting/summary.md`.
 - Native desktop's embedded receiver still uses `pnpm build:web:client` and `dist/web/client/`.
 
@@ -375,7 +376,7 @@ Native crashes are expensive to debug, especially on Android. Treat every app st
 
 ## Live Profiling Rules
 
-Use live profiling when improving stream smoothness, latency, jitter, buffering, packet loss, or audio quality.
+Use live profiling when improving stream smoothness, latency, jitter, buffering, packet loss, or audio quality. Read [the latency workflow](docs/latency.md) and use the project skill at `.agents/skills/eko-latency/SKILL.md` for capture comparisons, native stage timing, or forced TURN tests. Discover commands with `pnpm ops latency --help`.
 
 - Keep profiling session-only by default. Do not write profiler logs to disk unless Noel explicitly asks.
 - The desktop local server exposes the current in-memory profiler snapshot at `GET /__eko_profiler`.
@@ -385,7 +386,7 @@ Use live profiling when improving stream smoothness, latency, jitter, buffering,
 - Compare several samples instead of reacting to one spike.
 - Treat missing fields honestly.
 
-Collect only useful stream-quality fields: `source`, `connectionId`, `deviceId`, `roomId`, `sampleIndex`, `latencyMs`, `jitterMs`, `bufferMs`, `packetLossPercent`, `packetsReceived`, and `packetsLost`.
+Collect only useful stream-quality fields: `source`, `connectionId`, `deviceId`, `roomId`, `sampleIndex`, `latencyMs`, `roundTripMs`, `jitterMs`, `bufferMs`, `packetLossPercent`, `packetsReceived`, and `packetsLost`.
 
 Do not collect personal data, raw audio, IP history, tokens, SDP bodies, ICE candidates, or full user-agent strings.
 

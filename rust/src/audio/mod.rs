@@ -2,10 +2,15 @@ use serde::Serialize;
 use specta::Type;
 
 pub mod frame;
+pub mod timing;
 #[cfg(target_os = "linux")]
 pub mod linux_capture;
 pub mod opus_codec;
-#[cfg(not(target_os = "linux"))]
+#[cfg(target_os = "macos")]
+pub mod macos_capture;
+#[cfg(any(target_os = "macos", test))]
+mod macos_pcm;
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
 pub mod silence;
 pub mod windows_capture;
 
@@ -29,7 +34,7 @@ pub fn proof_status() -> AudioProofStatus {
     AudioProofStatus {
         backend: backend_name().to_string(),
         default_output_device,
-        capture_ready: cfg!(any(windows, target_os = "linux")),
+        capture_ready: cfg!(any(windows, target_os = "linux", target_os = "macos")),
         note: proof_note().to_string(),
     }
 }
@@ -49,7 +54,7 @@ fn backend_name() -> &'static str {
     "libpulse"
 }
 
-#[cfg(not(any(windows, target_os = "android", target_os = "linux")))]
+#[cfg(not(any(windows, target_os = "android", target_os = "linux", target_os = "macos")))]
 fn backend_name() -> &'static str {
     "cpal"
 }
@@ -69,7 +74,13 @@ fn proof_note() -> &'static str {
     "Linux system-audio capture uses libpulse with PulseAudio/PipeWire monitor sources."
 }
 
-#[cfg(not(any(windows, target_os = "android", target_os = "linux")))]
+#[cfg(not(any(windows, target_os = "android", target_os = "linux", target_os = "macos")))]
 fn proof_note() -> &'static str {
     "System-audio capture uses the platform default cpal host."
 }
+
+#[cfg(target_os = "macos")]
+fn backend_name() -> &'static str { "ScreenCaptureKit beta" }
+
+#[cfg(target_os = "macos")]
+fn proof_note() -> &'static str { "macOS beta uses ScreenCaptureKit system audio. Recording permission is required; physical capture is not yet verified." }

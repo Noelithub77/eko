@@ -1,6 +1,6 @@
 [package]
 name = "eko"
-version = "0.4.1"
+version = "0.5.0"
 description = "A local desktop-to-device audio relay"
 license = "AGPL-3.0-or-later"
 authors = ["Eko contributors"]
@@ -34,6 +34,7 @@ bytes = "1.11.1"
 tokio = { version = "1.52.3", features = ["rt-multi-thread", "macros", "sync", "time", "net"] }
 tokio-tungstenite = { version = "0.29.0", features = ["rustls-tls-webpki-roots"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+rustls = { version = "0.23.40", default-features = false, features = ["ring", "std", "tls12"] }
 futures-util = "0.3.32"
 uuid = { version = "1.23.2", features = ["v4", "serde"] }
 mdns-sd = "0.20.0"
@@ -52,8 +53,10 @@ rust-embed = "8.11.0"
 
 [target."cfg(windows)".dependencies]
 wasapi = "0.23.0"
-windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_Media_Audio", "Win32_System_Com"] }
+windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_Media_Audio", "Win32_System_Com", "Win32_System_Performance"] }
 windows-core = "0.62.2"
+[target.'cfg(target_os = "macos")'.dependencies]
+screencapturekit = { version = "11.0.0", features = ["macos_13_0"] }
 [target.'cfg(target_os = "linux")'.dependencies]
 libpulse-binding = "2.30"
 libpulse-simple-binding = "2.29"

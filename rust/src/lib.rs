@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 mod app_setup;
 mod audio;
 mod core_proof;
+mod crypto;
 mod discovery;
 mod domain;
 mod eko_media;
@@ -430,6 +431,10 @@ fn stop_discovery(state: &tauri::State<'_, AppState>) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     app_setup::install_panic_logger();
+    if let Err(error) = crypto::initialize() {
+        eprintln!("eko network startup failed: {error}");
+        return;
+    }
     let builder = app_setup::command_builder();
 
     #[cfg(all(debug_assertions, not(mobile)))]

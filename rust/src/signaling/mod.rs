@@ -23,9 +23,8 @@ pub const ROOM_SESSION_EVENT: &str = "room-session-updated";
 pub const PAIRING_PORT: u16 = 13370;
 
 const LOG_DEDUP_WINDOW_MS: u64 = 5_000;
-const PLAYBACK_JITTER_BUFFER_TARGET_MS: u16 = 60;
-const PLAYBACK_SCHEDULE_LEAD_MS: f64 = 250.0;
-const PLAYBACK_SCHEDULE_QUANTUM_MS: f64 = 500.0;
+const PLAYBACK_JITTER_BUFFER_TARGET_MS: u16 = 40;
+const PLAYBACK_SCHEDULE_LEAD_MS: f64 = 40.0;
 
 fn log_dedup(key: &str) -> bool {
     use std::sync::OnceLock;
@@ -217,7 +216,8 @@ async fn handle_client_message(
             send_signal_ack(socket).await.is_ok()
         }
         Ok(SignalClientMessage::ProfilerSample { sample }) => {
-            if let Err(error) = crate::profiler::append_typed_sample(sample) {
+            let sample = crate::profiler::with_native_transport(sample, media).await;
+            if let Err(error) = crate::profiler::record_receiver(sample, device_id.as_deref().unwrap_or(""), session) {
                 log::warn!("Live profiler sample ignored: {error}");
             }
             true
@@ -397,8 +397,7 @@ async fn forward_media_signals(
 }
 
 fn next_playback_start_ms() -> f64 {
-    let earliest = unix_time_ms() + PLAYBACK_SCHEDULE_LEAD_MS;
-    (earliest / PLAYBACK_SCHEDULE_QUANTUM_MS).ceil() * PLAYBACK_SCHEDULE_QUANTUM_MS
+    unix_time_ms() + PLAYBACK_SCHEDULE_LEAD_MS
 }
 
 fn unix_time_ms() -> f64 {

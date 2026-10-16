@@ -44,6 +44,7 @@ pub(super) fn command_builder() -> Builder<tauri::Wry> {
             start_stream,
             stop_stream,
             get_room_session,
+            profiler::get_stream_profiler,
             set_lan_discovery,
             submit_join_request,
             add_dev_join_request,

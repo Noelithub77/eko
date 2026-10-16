@@ -41,12 +41,13 @@ function App() {
   const nameInputRef = useRef<HTMLInputElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const sessionRef = useRef<WebReceiverSession | null>(null);
+  const wantsPlaybackRef = useRef(true);
+  const connectionGenerationRef = useRef(0);
   const shouldRecoverRef = useRef(false);
   const hasAskedRef = useRef(false);
   const reconnectInFlightRef = useRef(false);
   const lastRecoveryAtRef = useRef(0);
   const hasShownRelayWarningRef = useRef(false);
-  const recoverConnectionRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     if (isEditingName) {
@@ -65,6 +66,7 @@ function App() {
   }, [payload]);
 
   const playCurrentStream = useCallback(() => {
+    wantsPlaybackRef.current = true;
     if (!audioRef.current || !streamRef.current) {
       return;
     }
@@ -83,7 +85,7 @@ function App() {
     void audioRef.current
       .play()
       .then(() => {
-        setIsPlaying(true);
+        if (wantsPlaybackRef.current) setIsPlaying(true);
       })
       .catch((error: unknown) => {
         console.warn("[eko] App: audio.play() failed:", error);
@@ -95,6 +97,7 @@ function App() {
   }, []);
 
   const pauseCurrentStream = useCallback(() => {
+    wantsPlaybackRef.current = false;
     if (!audioRef.current) {
       return;
     }
@@ -116,8 +119,10 @@ function App() {
     }
 
     reconnectInFlightRef.current = true;
+    const generation = ++connectionGenerationRef.current;
     toast.dismiss();
-    pauseCurrentStream();
+    audioRef.current?.pause();
+    if (audioRef.current) audioRef.current.srcObject = null;
     streamRef.current = null;
     setStatus("waiting");
     setStream(null);
@@ -147,46 +152,36 @@ function App() {
             return;
           }
           hasShownRelayWarningRef.current = true;
-          toast.warning("Using a longer connection path", {
-            description: "For lower latency, connect this device and the desktop to the same Wi-Fi.",
+          toast.warning("Relay may add audio delay", {
+            description: "Connect both devices to the same Wi-Fi or one mobile hotspot for a shorter path. The improvement depends on the network.",
             duration: 9000,
           });
         },
         onNowPlaying: (media) => {
           setDesktopMedia(media);
         },
-        onConnectionLost: () => {
-          setStatus("failed");
-          shouldRecoverRef.current = true;
-          if (document.visibilityState === "visible") {
-            window.setTimeout(
-              () => recoverConnectionRef.current(),
-              RECOVERY_COOLDOWN_MS,
-            );
+        onConnectionLost: (retryable) => {
+          if (generation !== connectionGenerationRef.current) return;
+          if (!retryable || sessionRef.current?.peer.connectionState !== "connected") setStatus("failed");
+          shouldRecoverRef.current = retryable;
+          if (!retryable) {
+            hasAskedRef.current = false;
+            sessionRef.current?.close();
+            pauseCurrentStream();
           }
         },
         onStream: (nextStream) => {
-          for (const track of nextStream.getTracks()) {
-            track.addEventListener("mute", () => console.log(`[eko] App: track ${track.id} MUTED`));
-            track.addEventListener("unmute", () =>
-              console.log(`[eko] App: track ${track.id} UNMUTED readyState=${track.readyState}`),
-            );
-            track.addEventListener("ended", () =>
-              console.log(`[eko] App: track ${track.id} ENDED`),
-            );
-          }
+          if (generation !== connectionGenerationRef.current) return;
           setStream(nextStream);
           streamRef.current = nextStream;
-          playCurrentStream();
-          setTimeout(() => {
-            const track = nextStream.getAudioTracks()[0];
-            console.log(
-              `[eko] App: after 2s — track muted=${track?.muted} readyState=${track?.readyState} enabled=${track?.enabled}`,
-            );
-          }, 2000);
+          if (wantsPlaybackRef.current) playCurrentStream();
           setStatus("connected");
         },
       });
+      if (generation !== connectionGenerationRef.current || !hasAskedRef.current) {
+        session.close();
+        return;
+      }
       sessionRef.current = session;
       setPeer(session.peer);
       setProfiler(
@@ -195,9 +190,12 @@ function App() {
           deviceId,
           payload,
           source: "web",
+          sendSample: session.sendProfilerSample,
         }),
       );
     } catch (error) {
+      if (generation !== connectionGenerationRef.current) return;
+      shouldRecoverRef.current = true;
       setStatus("failed");
       console.error(`[eko] App: connect failed:`, error);
       toast.error("Could not connect to Eko", {
@@ -205,7 +203,7 @@ function App() {
         duration: 9000,
       });
     } finally {
-      reconnectInFlightRef.current = false;
+      if (generation === connectionGenerationRef.current) reconnectInFlightRef.current = false;
     }
   }, [deviceId, finalReceiverName, payload, pauseCurrentStream, playCurrentStream]);
 
@@ -214,6 +212,7 @@ function App() {
     const now = Date.now();
     if (
       !hasAskedRef.current ||
+      !navigator.onLine ||
       reconnectInFlightRef.current ||
       now - lastRecoveryAtRef.current < RECOVERY_COOLDOWN_MS ||
       (!session && !shouldRecoverRef.current) ||
@@ -225,9 +224,10 @@ function App() {
     lastRecoveryAtRef.current = now;
     void connect();
   }, [connect]);
-  recoverConnectionRef.current = recoverConnection;
 
   const disconnect = useCallback(() => {
+    connectionGenerationRef.current += 1;
+    wantsPlaybackRef.current = false;
     sessionRef.current?.close();
     sessionRef.current = null;
     shouldRecoverRef.current = false;
@@ -273,6 +273,7 @@ function App() {
     audioRef,
     isConnected,
     isPlaying,
+    wantsPlaybackRef,
     desktopMedia,
     onPause: pauseCurrentStream,
     onPlay: playCurrentStream,
@@ -346,6 +347,9 @@ function App() {
               preload="auto"
               autoPlay
               muted={false}
+              onPlaying={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onEnded={() => setIsPlaying(false)}
             >
               <track kind="captions" label="No captions available" />
             </audio>
@@ -385,7 +389,7 @@ function App() {
               <button
                 type="button"
                 onClick={disconnect}
-                disabled={!isConnected}
+                disabled={!hasJoined}
                 className={cn(
                   "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground transition-all",
                   isConnected ? "hover:bg-muted active:scale-95" : "opacity-50",
@@ -404,7 +408,7 @@ function App() {
                 <span>Waiting for the user to accept</span>
               </div>
             ) : !isConnected ? (
-              <Button className="h-11" disabled={!payload} onClick={() => void connect()}>
+              <Button className="h-11" disabled={!payload} onClick={() => { wantsPlaybackRef.current = true; void connect(); }}>
                 Ask desktop
               </Button>
             ) : null}

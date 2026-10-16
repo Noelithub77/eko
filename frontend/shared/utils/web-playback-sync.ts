@@ -3,7 +3,7 @@ import type { WebNowPlayingState } from "@shared/types/web-now-playing";
 
 const CLOCK_SYNC_SAMPLE_COUNT = 3;
 const CLOCK_SYNC_TIMEOUT_MS = 500;
-const FALLBACK_START_DELAY_MS = 250;
+const FALLBACK_START_DELAY_MS = 40;
 
 type ClockSample = {
   offsetMs: number;
@@ -30,7 +30,7 @@ export type PlaybackHandlers = {
   onConnectionPath?: (path: "direct" | "relay") => void;
   onStream: (stream: MediaStream) => void;
   onNowPlaying: (media: WebNowPlayingState | null) => void;
-  onConnectionLost: () => void;
+  onConnectionLost: (retryable: boolean) => void;
 };
 
 type ValidClockSyncResponse = {
@@ -134,8 +134,11 @@ export function fallbackPlaybackTime(state: PlaybackSyncState, serverTimeMs: num
 export function tuneAudioReceivers(peer: RTCPeerConnection, targetMs: number): void {
   for (const receiver of peer.getReceivers()) {
     if (receiver.track.kind === "audio" && "jitterBufferTarget" in receiver) {
-      const audioReceiver = receiver as RTCRtpReceiver & { jitterBufferTarget: number | null };
-      audioReceiver.jitterBufferTarget = targetMs;
+      try {
+        receiver.jitterBufferTarget = targetMs;
+      } catch {
+        console.warn("[eko] Browser could not apply the requested audio buffer target");
+      }
     }
   }
 }

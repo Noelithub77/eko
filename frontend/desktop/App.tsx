@@ -152,6 +152,7 @@ function App() {
             <NowPlayingCard />
             <DeviceList
               devices={session?.devices ?? []}
+              roomId={session?.roomId}
               onAllow={allow}
               onDeny={deny}
               onDisconnect={disconnect}

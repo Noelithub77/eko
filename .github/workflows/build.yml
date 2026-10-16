@@ -1,0 +1,170 @@
+name: Platform builds
+run-name: Build all platforms at ${{ github.sha }}
+
+on:
+  push:
+    branches: ['build/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PNPM_VERSION: 11.5.0
+  CMAKE_POLICY_VERSION_MINIMUM: '3.5'
+  CARGO_BUILD_JOBS: 2
+
+jobs:
+  plan:
+    name: Select build targets
+    runs-on: ubuntu-22.04
+    outputs:
+      desktop: ${{ steps.targets.outputs.desktop }}
+      android: ${{ steps.targets.outputs.android }}
+      web: ${{ steps.targets.outputs.web }}
+    steps:
+      - id: targets
+        env:
+          BUILD_REF: ${{ github.ref_name }}
+        run: |
+          windows='{"platform":"Windows","os":"windows-latest","bundle":"nsis"}'
+          linux='{"platform":"Linux","os":"ubuntu-22.04","bundle":"appimage"}'
+          target="$(printf '%s' "$BUILD_REF" | cut -d/ -f2)"
+          macos='{"platform":"macOS-beta","os":"macos-latest","bundle":"dmg"}'
+          desktop="[$windows,$linux,$macos]"; android=true; web=true
+          case "$target" in
+            windows) desktop="[$windows]"; android=false; web=false ;;
+            linux) desktop="[$linux]"; android=false; web=false ;;
+            macos) desktop="[$macos]"; android=false; web=false ;;
+            android) desktop='[]'; web=false ;;
+            web) desktop='[]'; android=false ;;
+          esac
+          echo "desktop=$desktop" >> "$GITHUB_OUTPUT"
+          echo "android=$android" >> "$GITHUB_OUTPUT"
+          echo "web=$web" >> "$GITHUB_OUTPUT"
+
+  desktop:
+    name: Build ${{ matrix.platform }}
+    needs: plan
+    if: needs.plan.outputs.desktop != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.desktop) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install Linux build packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev libpipewire-0.3-dev libasound2-dev libpulse-dev patchelf libfuse2
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ./rust -> target
+          shared-key: desktop-${{ matrix.platform }}
+          prefix-key: v1-rust
+      - run: pnpm install --frozen-lockfile
+      - name: Build desktop package
+        shell: bash
+        run: pnpm tauri build --bundles ${{ matrix.bundle }} --ci --config '{"bundle":{"createUpdaterArtifacts":false}}'
+      - name: Upload desktop packages
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: eko-${{ matrix.platform }}-${{ github.sha }}
+          path: |
+            rust/target/release/bundle/nsis/*.exe
+            rust/target/release/bundle/appimage/*.AppImage
+            rust/target/release/bundle/dmg/*.dmg
+            rust/target/release/eko.exe
+          if-no-files-found: error
+          retention-days: 14
+
+  android:
+    name: Build Android APK and AAB
+    needs: plan
+    if: needs.plan.outputs.android == 'true'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    env:
+      ANDROID_NDK_VERSION: 27.0.12077973
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Install Android build packages
+        run: |
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0' "ndk;$ANDROID_NDK_VERSION"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$ANDROID_NDK_VERSION" >> "$GITHUB_ENV"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/$ANDROID_NDK_VERSION" >> "$GITHUB_ENV"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ./rust -> target
+          shared-key: android-arm64
+          prefix-key: v1-rust
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:web:client
+      - name: Build Android validation packages
+        run: pnpm tauri android build --apk --aab --debug --target aarch64 --ci
+      - name: Upload Android validation packages
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: eko-Android-debug-${{ github.sha }}
+          path: |
+            rust/gen/android/app/build/outputs/apk/**/*.apk
+            rust/gen/android/app/build/outputs/bundle/**/*.aab
+          if-no-files-found: error
+          retention-days: 14
+
+  web:
+    name: Build hosted web
+    needs: plan
+    if: needs.plan.outputs.web == 'true'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:web
+      - name: Upload hosted web
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: eko-Web-${{ github.sha }}
+          path: dist/hosted/
+          if-no-files-found: error
+          retention-days: 14

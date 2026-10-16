@@ -22,7 +22,7 @@ mod android {
 
     impl NativeAudioPlayer {
         pub fn start() -> Result<Self, String> {
-            let samples = Arc::new(Mutex::new(VecDeque::with_capacity(48_000)));
+            let samples = Arc::new(Mutex::new(VecDeque::with_capacity(7680)));
             let callback = NativeAudioCallback {
                 samples: Arc::clone(&samples),
             };
@@ -31,6 +31,7 @@ mod android {
                 .set_sharing_mode(SharingMode::Shared)
                 .set_format::<f32>()
                 .set_channel_count::<Stereo>()
+                .set_sample_rate(48_000)
                 .set_callback(callback)
                 .open_stream()
                 .map_err(|error| format!("{error:?}"))?;
@@ -50,10 +51,7 @@ mod android {
             }
 
             if let Ok(mut samples) = self.samples.lock() {
-                samples.extend(decoded.iter().copied());
-                while samples.len() > 96_000 {
-                    let _ = samples.pop_front();
-                }
+                super::super::sample_buffer::append_live(&mut samples, decoded);
             }
         }
 
@@ -115,7 +113,7 @@ mod android {
                 return DataCallbackResult::Continue;
             }
 
-            if let Ok(mut samples) = self.samples.lock() {
+            if let Ok(mut samples) = self.samples.try_lock() {
                 for (left, right) in frames {
                     *left = samples.pop_front().unwrap_or(0.0);
                     *right = samples.pop_front().unwrap_or(0.0);

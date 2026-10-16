@@ -19,3 +19,8 @@ eko/
     src/
       lib.rs
 ```
+
+- `scripts/finalize-release.mjs` verifies selected assets and creates the combined updater manifest before publication.
+- `tests/release-manifest.test.mjs` covers missing packages and platform signatures.
+- `rust/src/audio/macos_capture.rs` and `macos_pcm.rs` implement the approved beta capture path.
+- `rust/Info.plist` and `docs/macos-beta.md` describe capture permission and test limits.

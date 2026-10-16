@@ -2,6 +2,7 @@ import type {
   IceCandidateMessage,
   JoinRequest,
   SignalServerMessage,
+  StreamProfilerSample,
 } from "@shared/bindings/tauri";
 import type { PairingLinkPayload } from "@shared/types/pairing-link";
 import { logAudioStats } from "@shared/utils/web-rtc-stats";
@@ -23,7 +24,7 @@ import {
   type SignalTransport,
 } from "@shared/utils/web-signaling-transport";
 
-const DEFAULT_JITTER_BUFFER_TARGET_MS = 60;
+const DEFAULT_JITTER_BUFFER_TARGET_MS = 40;
 const DIRECT_CONNECTION_ERROR =
   "Couldn’t establish the audio connection. This network may block direct peer-to-peer media.";
 const STUN_URLS = ["stun:stun.cloudflare.com:3478", "stun:stun.cloudflare.com:53"];
@@ -32,6 +33,7 @@ export type WebReceiverSession = {
   peer: RTCPeerConnection;
   needsReconnect: () => boolean;
   updateReceiverName: (name: string) => void;
+  sendProfilerSample: (sample: StreamProfilerSample) => void;
   close: () => void;
 };
 
@@ -63,6 +65,7 @@ export async function startWebReceiver(
   let joinInFlight = false;
   let canSendCandidates = false;
   let connectionErrorReported = false;
+  let disconnectedAt: number | null = null;
   let messageQueue = Promise.resolve();
   const pendingLocalCandidates: RTCIceCandidateInit[] = [];
   const pendingHostCandidates: IceCandidateMessage[] = [];
@@ -79,15 +82,17 @@ export async function startWebReceiver(
 
   peer.onconnectionstatechange = () => {
     console.log(`[eko] browser connection state: ${peer.connectionState}`);
+    disconnectedAt = peer.connectionState === "disconnected" ? Date.now() : null;
     if (!isClosed && (peer.connectionState === "failed" || peer.connectionState === "closed")) {
       reportConnectionError();
-      handlers.onConnectionLost();
+      handlers.onConnectionLost(true);
     }
   };
   peer.oniceconnectionstatechange = () => {
     console.log(`[eko] browser ICE state: ${peer.iceConnectionState}`);
     if (!isClosed && peer.iceConnectionState === "failed") {
       reportConnectionError();
+      handlers.onConnectionLost(true);
     }
   };
 
@@ -125,6 +130,7 @@ export async function startWebReceiver(
   };
 
   socket.addEventListener("message", (event: MessageEvent<string>) => {
+    if (isClosed) return;
     const relay = transport.hosted ? parseRelayMessage(event.data) : null;
     if (relay?.type === "ready") {
       void beginJoin();
@@ -143,7 +149,8 @@ export async function startWebReceiver(
     }
     if (relay?.type === "roomClosed") {
       reportError(handlers, "This stream has ended on the desktop.");
-      handlers.onConnectionLost();
+      isClosed = true;
+      handlers.onConnectionLost(false);
       return;
     }
     if (relay?.type === "error") {
@@ -181,7 +188,7 @@ export async function startWebReceiver(
         ? "Signaling connection closed before audio connected."
         : "Could not open signaling.";
       reportError(handlers, message);
-      handlers.onConnectionLost();
+      handlers.onConnectionLost(true);
     }
   });
 
@@ -211,9 +218,14 @@ export async function startWebReceiver(
 
   return {
     peer,
+    sendProfilerSample: (sample) => {
+      if (!isClosed && socket.readyState === WebSocket.OPEN) transport.send({ kind: "profilerSample", sample });
+    },
     needsReconnect: () =>
       !isClosed &&
       (socket.readyState !== WebSocket.OPEN ||
+        (disconnectedAt !== null && Date.now() - disconnectedAt >= 10_000) ||
+        peer.iceConnectionState === "failed" ||
         peer.connectionState === "failed" ||
         peer.connectionState === "closed"),
     updateReceiverName: (name) => {
@@ -341,6 +353,7 @@ async function handleServerMessage(
   }
   if (message.kind === "joinRejected") {
     reportError(handlers, `The desktop rejected this receiver: ${message.reason}`);
+    handlers.onConnectionLost(false);
     return;
   }
   if (message.kind === "permissionChanged") {
@@ -349,9 +362,10 @@ async function handleServerMessage(
       transport.send({ kind: "receiverReady", deviceId });
     } else if (message.state === "denied") {
       reportError(handlers, "The desktop denied this receiver.");
+      handlers.onConnectionLost(false);
     } else if (message.state === "disconnected") {
       reportError(handlers, "The desktop disconnected this receiver.");
-      handlers.onConnectionLost();
+      handlers.onConnectionLost(false);
     }
     return;
   }

@@ -1,4 +1,4 @@
-# One Laptop, Every Pair of Headphones, Zero Bluetooth
+# One Laptop to every Pair of Headphones
 
 *How a train ride turned into eko, a small app that streams your laptop's audio to everyone's phone*
 
@@ -91,4 +91,3 @@ If you've ever wanted to watch something together without bothering the people a
 
 **Source code:** [github.com/Noelithub77/eko](https://github.com/Noelithub77/eko)
 
-**Privacy policy:** [Privacy_Policy.md](https://github.com/Noelithub77/eko/blob/main/docs/Privacy_Policy.md)
