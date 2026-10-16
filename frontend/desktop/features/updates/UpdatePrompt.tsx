@@ -33,8 +33,9 @@ export function UpdatePrompt() {
 
   const installUpdate = useCallback(async (update: Update): Promise<void> => {
     setInstallState("downloading");
-    toast.loading("Installing Eko update", {
+    toast.loading("Installing eko update", {
       id: INSTALL_TOAST_ID,
+      className: "eko-update-toast",
       description: "Downloading the update in the background.",
       duration: Infinity,
     });
@@ -42,8 +43,9 @@ export function UpdatePrompt() {
     try {
       await update.downloadAndInstall((event: DownloadEvent) => {
         if (event.event === "Started") {
-          toast.loading("Installing Eko update", {
+          toast.loading("Installing eko update", {
             id: INSTALL_TOAST_ID,
+            className: "eko-update-toast",
             description: "Starting download.",
             duration: Infinity,
           });
@@ -54,16 +56,18 @@ export function UpdatePrompt() {
           return;
         }
 
-        toast.loading("Installing Eko update", {
+        toast.loading("Installing eko update", {
           id: INSTALL_TOAST_ID,
+          className: "eko-update-toast",
           description: "Installing the update.",
           duration: Infinity,
         });
       });
       await clearCachedUpdate();
-      toast.success("Eko is updated", {
+      toast.success("eko is updated", {
         id: INSTALL_TOAST_ID,
-        description: "Restarting Eko now.",
+        className: "eko-update-toast",
+        description: "Restarting eko now.",
         duration: 2500,
       });
       await relaunch();
@@ -71,6 +75,7 @@ export function UpdatePrompt() {
       void logError("Update install failed", error);
       toast.error("Update could not be installed", {
         id: INSTALL_TOAST_ID,
+        className: "eko-update-toast",
         description: "The update was not installed. You can try again.",
         action: {
           label: "Retry",
@@ -89,6 +94,7 @@ export function UpdatePrompt() {
       if (showFeedback) {
         toast.loading("Checking for updates", {
           id: UPDATE_TOAST_ID,
+          className: "eko-update-toast",
           description: `Checking for a newer ${platformName} build.`,
           duration: Infinity,
         });
@@ -103,6 +109,7 @@ export function UpdatePrompt() {
           if (showFeedback) {
             toast.info(`No new updates for ${platformName}`, {
               id: UPDATE_TOAST_ID,
+              className: "eko-update-toast",
               description: "You are using the newest available build for this platform.",
               duration: 4500,
             });
@@ -132,8 +139,9 @@ export function UpdatePrompt() {
           };
         });
         await saveCachedUpdate(nextUpdate);
-        toast.success(`Eko ${nextUpdate.version} is available`, {
+        toast.success(`eko ${nextUpdate.version} is available`, {
           id: UPDATE_TOAST_ID,
+          className: "eko-update-toast",
           description: `A newer ${platformName} build is ready to install.`,
           action: {
             label: "Install",
@@ -146,6 +154,7 @@ export function UpdatePrompt() {
         if (showFeedback) {
           toast.error("Could not check for updates", {
             id: UPDATE_TOAST_ID,
+            className: "eko-update-toast",
             description: getUpdateCheckErrorMessage(error),
             action: {
               label: "Try again",
@@ -196,14 +205,14 @@ export function UpdatePrompt() {
           onClick={checkForUpdates}
           disabled={isChecking || isInstalling}
           className={cn(
-            "inline-flex items-center justify-center rounded-full p-2 transition-colors disabled:cursor-wait",
+            "inline-flex items-center justify-center size-12 rounded-full transition-colors disabled:cursor-wait",
             hasUpdate
               ? "bg-primary text-primary-foreground hover:bg-primary/80"
               : "text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
           aria-label={hasUpdate ? "Update available" : "Check for updates"}
         >
-          {isChecking ? <RefreshCw className="size-5 animate-spin" /> : <Download className="size-5" />}
+          {isChecking ? <RefreshCw className="size-6 animate-spin" /> : <Download className="size-6" />}
         </button>
       </TooltipTrigger>
       <TooltipContent>

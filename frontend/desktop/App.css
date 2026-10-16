@@ -66,3 +66,39 @@ body {
   min-width: 0;
   min-height: 0;
 }
+
+[data-sonner-toast].eko-update-toast {
+  right: 0;
+  width: 440px;
+  max-width: calc(100vw - 48px);
+  padding: 20px;
+  gap: 12px;
+}
+
+[data-sonner-toast].eko-update-toast [data-title] {
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+[data-sonner-toast].eko-update-toast [data-description] {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+[data-sonner-toast].eko-update-toast [data-button] {
+  flex-shrink: 0;
+  height: 40px;
+  padding-inline: 16px;
+  font-size: 14px;
+}
+
+[data-sonner-toast].eko-update-toast [data-icon],
+[data-sonner-toast].eko-update-toast [data-icon] svg {
+  width: 20px;
+  height: 20px;
+}
+
+[data-sonner-toast].eko-update-toast [data-close-button] {
+  width: 24px;
+  height: 24px;
+}
