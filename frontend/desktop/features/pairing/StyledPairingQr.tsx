@@ -1,42 +1,39 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import QRCodeStyling, { type Options } from "qr-code-styling";
 
 type StyledPairingQrProps = {
   value: string;
 };
 
-const qrOptions: Options = {
-  width: 460,
-  height: 460,
-  type: "svg",
-  shape: "square",
-  margin: 16,
-  qrOptions: {
-    errorCorrectionLevel: "Q",
-  },
-  dotsOptions: {
-    type: "rounded",
-    color: "#1f9e93",
-    roundSize: true,
-  },
-  cornersSquareOptions: {
-    type: "extra-rounded",
-    color: "#e8503f",
-  },
-  cornersDotOptions: {
-    type: "dot",
-    color: "#e8503f",
-  },
-  // Dark modules on white: the Android zxing scanner cannot read inverted codes.
-  // Brand colours are darkened so they still binarize as dark.
-  backgroundOptions: {
-    color: "#ffffff",
-  },
+// The code sits straight on the app background. Dark mode makes it light-on-dark,
+// which the Android scanner reads by also decoding inverted frames.
+const palettes = {
+  dark: { dots: "#2ec4b6", eyes: "#ff6b5b" },
+  light: { dots: "#15827a", eyes: "#d9442f" },
 };
+
+function qrOptions(isDark: boolean, size: number, data: string): Options {
+  const palette = isDark ? palettes.dark : palettes.light;
+  return {
+    width: size,
+    height: size,
+    data,
+    type: "canvas",
+    shape: "square",
+    // The empty space around the code is the quiet zone.
+    margin: 0,
+    qrOptions: { errorCorrectionLevel: "M" },
+    dotsOptions: { type: "rounded", color: palette.dots, roundSize: true },
+    cornersSquareOptions: { type: "extra-rounded", color: palette.eyes },
+    cornersDotOptions: { type: "dot", color: palette.eyes },
+    backgroundOptions: { color: "transparent" },
+  };
+}
 
 export function StyledPairingQr({ value }: StyledPairingQrProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const qrRef = useRef<QRCodeStyling | null>(null);
+  const isDark = useSyncExternalStore(subscribeToTheme, readIsDark);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -45,42 +42,39 @@ export function StyledPairingQr({ value }: StyledPairingQrProps) {
     const resizeObserver = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (!entry) return;
-      const { width, height } = entry.contentRect;
-      if (width < 32 || height < 32) return;
-      const size = Math.max(1, Math.floor(Math.min(width, height)));
+      const cssSize = Math.floor(Math.min(entry.contentRect.width, entry.contentRect.height));
+      if (cssSize < 32) return;
+      // Draw at device pixels; CSS scales the canvas back to the box.
+      const options = qrOptions(isDark, Math.round(cssSize * window.devicePixelRatio), value);
 
       if (qrRef.current) {
-        qrRef.current.update({
-          width: size,
-          height: size,
-          data: value,
-        });
+        qrRef.current.update(options);
       } else {
-        qrRef.current = new QRCodeStyling({
-          ...qrOptions,
-          width: size,
-          height: size,
-          data: value,
-        });
+        qrRef.current = new QRCodeStyling(options);
         qrRef.current.append(container);
       }
     });
 
     resizeObserver.observe(container);
     return () => resizeObserver.disconnect();
-  }, [value]);
+  }, [isDark, value]);
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center">
-      <div className="group relative aspect-square h-full max-w-full transition-transform duration-700 ease-out hover:scale-[1.008]">
-        <div
-          aria-label="Eko pairing QR code"
-          className="h-full max-w-full overflow-hidden rounded-3xl ring-1 ring-border"
-          ref={containerRef}
-          role="img"
-        />
-        <div className="pointer-events-none absolute -inset-24 rounded-full bg-[radial-gradient(circle,rgba(46,196,182,0.06),transparent_65%)] transition-all duration-700 ease-out group-hover:bg-[radial-gradient(circle,rgba(46,196,182,0.16),transparent_65%)]" />
-      </div>
-    </div>
+    <div
+      aria-label="eko pairing QR code"
+      className="aspect-square w-full [&>canvas]:block [&>canvas]:size-full"
+      ref={containerRef}
+      role="img"
+    />
   );
+}
+
+function readIsDark(): boolean {
+  return document.documentElement.classList.contains("dark");
+}
+
+function subscribeToTheme(onChange: () => void): () => void {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+  return () => observer.disconnect();
 }
