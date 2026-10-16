@@ -46,8 +46,8 @@ export function DeviceList({
       const key = `${device.deviceId}:${device.connectedAt}`;
       if (device.state !== "connected" || device.connectionPath !== "relayed" || warned.current.has(key)) continue;
       warned.current.add(key);
-      toast.warning("Relay may add audio delay", {
-        description: "Use the same Wi-Fi or a mobile hotspot for a shorter path. Check this listener’s average delay after reconnecting.",
+      toast.warning("Reduce audio delay", {
+        description: "This phone is using a relay. Connecting your computer and phone to the same Wi-Fi or a phone hotspot can reduce audio delay.",
         duration: 8000,
       });
     }

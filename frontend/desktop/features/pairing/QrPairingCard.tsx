@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Check, Copy, ExternalLink, Wifi } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
+import { Check, Copy, ExternalLink } from "lucide-react";
 import { Button } from "@shared/components/ui/button";
 import type { QrPairingPayload } from "@shared/types/stream";
 import { createPairingLink } from "@shared/utils/pairing-link";
@@ -28,20 +27,6 @@ export function QrPairingCard({ payload }: QrPairingCardProps) {
   return (
     <section className="flex flex-col items-center text-center">
       <h2 className="text-[clamp(1.5rem,2.1vw,2.25rem)] font-bold tracking-tight">Scan to listen</h2>
-      <div className="mt-2">
-        <Popover>
-          <PopoverTrigger asChild>
-            <button type="button" className="inline-flex items-center gap-1.5 rounded-full border border-teal/30 bg-teal/10 px-2.5 py-1 text-xs font-semibold text-teal hover:bg-teal/20">
-              <Wifi className="size-3.5" /> Direct audio + relay fallback
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="gap-2" side="bottom">
-            <p className="font-semibold">A shorter path for audio</p>
-            <p className="text-muted-foreground">Pairing is hosted; audio connects directly when possible. A relay may add delay.</p>
-            <p>Connect both devices to the same Wi-Fi or one mobile hotspot. Check the average delay under each listener after reconnecting; improvement varies by network.</p>
-          </PopoverContent>
-        </Popover>
-      </div>
       <div className="mt-8 flex aspect-square w-full max-w-[min(38vh,360px)] items-center justify-center opacity-80">
         {qrValue ? (
           <StyledPairingQr value={qrValue} />
