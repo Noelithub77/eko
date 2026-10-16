@@ -18,3 +18,50 @@ body {
   height: 100dvh;
   overflow: hidden;
 }
+
+/* Now-playing bars; static when motion is reduced. */
+@keyframes eko-eq {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .eko-eq {
+    animation: eko-eq 0.9s ease-in-out infinite;
+  }
+}
+
+
+.desktop-stream {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 38%);
+  align-items: center;
+  gap: clamp(2rem, 6vw, 7.5rem);
+  width: min(100%, 1480px);
+  height: 100%;
+  min-height: 0;
+  margin-inline: auto;
+}
+
+.desktop-player {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  max-height: 100%;
+  gap: clamp(2rem, 6vh, 4rem);
+}
+
+.desktop-pairing {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+}

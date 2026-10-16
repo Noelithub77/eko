@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Music, Pause, Play, SkipBack, SkipForward } from "lucide-react";
+import { Pause, Play, SkipBack, SkipForward } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { Button } from "@shared/components/ui/button";
-import { Card, CardContent } from "@shared/components/ui/card";
 import { commands, type MediaState } from "@shared/bindings/tauri";
+import { cn } from "@shared/lib/utils";
 
 const TICK_MS = 250;
 
@@ -32,8 +32,16 @@ export function NowPlayingCard() {
   useEffect(() => {
     let unlisten: (() => void) | null = null;
 
-    listen<MediaState>("media-changed", (event) => {
+    listen<MediaState | null>("media-changed", (event) => {
       const next = event.payload;
+      if (!next) {
+        lastRef.current = null;
+        anchorRef.current = null;
+        playingRef.current = false;
+        setMedia(null);
+        setLivePositionMs(null);
+        return;
+      }
       // Safety net: if the event has no duration but the previous one did,
       // keep the previous duration to avoid hiding the seekbar during a
       // metadata transition.
@@ -77,101 +85,105 @@ export function NowPlayingCard() {
 
   if (!media?.title) {
     return (
-      <Card className="rounded-2xl shadow-none">
-        <CardContent className="flex items-center gap-3 p-4">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-            <Music className="size-5" />
-          </div>
-          <div>
-            <div className="text-base font-semibold">No media playing</div>
-          </div>
-        </CardContent>
-      </Card>
+      <section>
+        <p className="text-sm text-muted-foreground">Now playing</p>
+        <h2 className="mt-3 text-[clamp(2.25rem,3.6vw,4.25rem)] font-bold tracking-tight text-muted-foreground/60">
+          Nothing playing
+        </h2>
+      </section>
     );
   }
 
   const positionMs = livePositionMs ?? media.positionMs ?? 0;
-  const progress =
-    media.durationMs && positionMs
-      ? Math.min(100, Math.round((positionMs / media.durationMs) * 100))
-      : 0;
-
-  const formatTime = (ms: number | null) => {
-    if (!ms) return "0:00";
-    const totalSeconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-  };
-
-  const handleToggle = () => {
-    void commands.mediaToggle();
-  };
-
-  const handleNext = () => {
-    void commands.mediaNext();
-  };
-
-  const handlePrevious = () => {
-    void commands.mediaPrevious();
-  };
+  const progress = media.durationMs ? Math.min(100, (positionMs / media.durationMs) * 100) : 0;
 
   return (
-    <Card className="rounded-2xl shadow-none">
-      <CardContent className="p-4">
-        <div className="flex items-start gap-4">
-          <div className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-coral/15 text-coral">
-            <Music className="size-8" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              {media.isPlaying ? (
-                <Play className="size-4 text-teal" />
-              ) : (
-                <Pause className="size-4 text-muted-foreground" />
-              )}
-              <span className="text-sm text-muted-foreground">
-                {media.isPlaying ? "Playing" : "Paused"}
-                {media.appName ? ` • ${media.appName}` : ""}
-              </span>
-            </div>
-            <div className="mt-1 truncate text-base font-semibold">{media.title}</div>
-            {media.artist ? (
-              <div className="truncate text-sm text-muted-foreground">{media.artist}</div>
-            ) : null}
-            {media.album ? (
-              <div className="truncate text-sm text-muted-foreground">{media.album}</div>
-            ) : null}
-          </div>
-        </div>
+    <section>
+      <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
+        <Equalizer playing={media.isPlaying} />
+        <span>
+          {media.isPlaying ? "Now playing" : "Paused"}
+          {media.appName ? ` · ${media.appName}` : ""}
+        </span>
+      </div>
+      <h2 className="mt-3 line-clamp-2 text-[clamp(2.25rem,3.6vw,4.25rem)] leading-tight font-bold tracking-tight text-balance">
+        {media.title}
+      </h2>
+      {media.artist || media.album ? (
+        <p className="mt-3 truncate text-[clamp(1.125rem,1.6vw,1.5rem)] text-muted-foreground">
+          {[media.artist, media.album].filter(Boolean).join(" · ")}
+        </p>
+      ) : null}
+
+      <div className="mt-[clamp(1.5rem,5vh,3.5rem)] w-full">
         {media.durationMs ? (
-          <div className="mt-3">
+          <div className="mb-6">
             <div className="h-1 overflow-hidden rounded-full bg-muted">
               <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
             </div>
-            <div className="mt-1 flex justify-between text-xs text-muted-foreground">
+            <div className="mt-2 flex justify-between text-xs text-muted-foreground tabular-nums">
               <span>{formatTime(positionMs)}</span>
               <span>{formatTime(media.durationMs)}</span>
             </div>
           </div>
         ) : null}
-        <div className="mt-3 flex items-center justify-center gap-1">
-          <Button variant="ghost" size="icon" onClick={handlePrevious} aria-label="Previous track">
-            <SkipBack className="size-4" />
+        <div className="flex items-center gap-3">
+          <Button
+            aria-label="Previous track"
+            className="text-muted-foreground"
+            onClick={() => void commands.mediaPrevious()}
+            size="icon-lg"
+            variant="ghost"
+          >
+            <SkipBack className="size-5" />
           </Button>
           <Button
-            size="icon"
-            onClick={handleToggle}
             aria-label={media.isPlaying ? "Pause" : "Play"}
-            className="size-10"
+            className="size-16 xl:size-20"
+            onClick={() => void commands.mediaToggle()}
           >
-            {media.isPlaying ? <Pause className="size-5" /> : <Play className="size-5" />}
+            {media.isPlaying ? (
+              <Pause className="size-7 fill-current" />
+            ) : (
+              <Play className="size-7 translate-x-px fill-current" />
+            )}
           </Button>
-          <Button variant="ghost" size="icon" onClick={handleNext} aria-label="Next track">
-            <SkipForward className="size-4" />
+          <Button
+            aria-label="Next track"
+            className="text-muted-foreground"
+            onClick={() => void commands.mediaNext()}
+            size="icon-lg"
+            variant="ghost"
+          >
+            <SkipForward className="size-5" />
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
+}
+
+function Equalizer({ playing }: { playing: boolean }) {
+  return (
+    <span aria-hidden="true" className="flex h-3.5 items-end gap-0.5">
+      {[0, 1, 2].map((bar) => (
+        <span
+          className={cn(
+            "h-full w-[3px] origin-bottom rounded-full",
+            playing ? "eko-eq bg-teal" : "scale-y-40 bg-muted-foreground",
+          )}
+          key={bar}
+          style={{ animationDelay: `${bar * -0.35}s` }}
+        />
+      ))}
+    </span>
+  );
+}
+
+function formatTime(ms: number | null): string {
+  if (!ms) return "0:00";
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }

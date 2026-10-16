@@ -83,7 +83,7 @@ function App() {
 
   const headerActions = (
     <TooltipProvider delayDuration={400}>
-      <div className="mr-2 flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-sm">
+      <div className="mr-3 flex items-center gap-2 text-sm">
         <span className="relative flex size-2">
           {isRunning ? (
             <span className="absolute inset-0 animate-ping rounded-full bg-teal opacity-60 motion-reduce:animate-none" />
@@ -147,18 +147,20 @@ function App() {
     <>
       <DesktopLayout actions={headerActions} onEkoClick={() => setView("stream")}>
       {view === "stream" ? (
-        <div className="grid min-h-full gap-6 xl:min-h-0 xl:h-full xl:grid-cols-[minmax(0,1.65fr)_minmax(360px,0.85fr)]">
-          <div className="grid gap-6 xl:min-h-0 xl:h-full xl:grid-rows-[minmax(240px,0.75fr)_minmax(360px,1.25fr)]">
+        <div className="desktop-stream">
+          <div className="desktop-player">
             <NowPlayingCard />
+            <DeviceList
+              devices={session?.devices ?? []}
+              onAllow={allow}
+              onDeny={deny}
+              onDisconnect={disconnect}
+              onUnblock={unblock}
+            />
+          </div>
+          <div className="desktop-pairing">
             <QrPairingCard payload={qrPayload} />
           </div>
-          <DeviceList
-            devices={session?.devices ?? []}
-            onAllow={allow}
-            onDeny={deny}
-            onDisconnect={disconnect}
-            onUnblock={unblock}
-          />
         </div>
       ) : null}
       {view === "settings" ? (
