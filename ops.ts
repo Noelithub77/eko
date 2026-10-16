@@ -1,4 +1,5 @@
 // Operator entry for eko: `pnpm ops --help`.
+import { verifyHostedReceiver } from "./scripts/hosted-receiver.ts";
 import { latencyOperator, latencyHelp } from "./scripts/latency/operator.ts";
 import { platformBuildOperator, platformBuildHelp } from "./scripts/platform-builds.ts";
 import { spawnSync } from "node:child_process";
@@ -18,6 +19,7 @@ const help = `pnpm ops <command> [--json]
   assets   Confirm every download link on the page resolves on GitHub.
   deploy   Build and deploy the landing, receiver, and signaling Worker (production).
   domain   Inspect the domain and Worker routes.
+  receiver Verify the exact hosted receiver script against dist/hosted/.
   status   Show Worker routes and live landing, receiver, and relay responses.
 
 Cloudflare commands use CLOUDFLARE_API_TOKEN; the Worker is configured in relay/wrangler.jsonc.
@@ -96,7 +98,7 @@ async function deploy(): Promise<Result> {
   run(join(root, "node_modules", ".bin", "wrangler"), ["deploy", "--config", "relay/wrangler.jsonc"]);
   for (let attempt = 0; ; attempt += 1) {
     try {
-      return { worker: config.name, domain, ...(await status()) };
+      return { worker: config.name, domain, ...(await status()), receiver: await verifyHostedReceiver(`https://${domain}`, join(root, "dist", "hosted")) };
     } catch (error) {
       if (attempt === 5) throw error;
       console.error("Waiting for the production route to serve the new deployment…");
@@ -137,6 +139,7 @@ const commands: Record<string, () => Promise<Result>> = {
     return {};
   },
   assets,
+  receiver: async () => ({ receiver: await verifyHostedReceiver(`https://${domain}`, join(root, "dist", "hosted")) }),
   deploy,
   domain: status,
   status,

@@ -9,3 +9,7 @@
 - `tests/latency/`: reporting and buffering regressions.
 - `.agents/skills/eko-latency/SKILL.md`: discoverable agent workflow.
 - `docs/latency.md`: operator reference, measurement limits and ranked approaches.
+
+- `scripts/hosted-receiver.ts`: exact production client asset verification.
+- `tests/desktop/web-background.spec.ts`: isolated browser lifecycle and recovery regressions.
+- `docs/web-background-playback.md`: primary-source research and device acceptance limits.

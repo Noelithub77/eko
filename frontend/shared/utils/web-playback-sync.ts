@@ -30,7 +30,7 @@ export type PlaybackHandlers = {
   onConnectionPath?: (path: "direct" | "relay") => void;
   onStream: (stream: MediaStream) => void;
   onNowPlaying: (media: WebNowPlayingState | null) => void;
-  onConnectionLost: () => void;
+  onConnectionLost: (retryable: boolean) => void;
 };
 
 type ValidClockSyncResponse = {

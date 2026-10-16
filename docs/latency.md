@@ -68,11 +68,13 @@ Both peers are forced to relay for TURN tests. The native test-only policy overr
 
 ## Reading the UI
 
-The desktop shows each connected device's average over the last 30 seconds. Click the value for p95, receiver buffering and network advice. Stale data disappears after eight seconds without fresh samples, and reconnects discard the prior connection's window.
+The desktop shows each connected device's average over the last 30 seconds. Missing initial telemetry stops showing “Measuring delay…” after ten seconds and becomes “Delay unavailable”; fresh samples can replace that state at any time. Click the value for p95, receiver buffering and network advice. Stale data disappears after eight seconds without fresh samples, and reconnects discard the prior connection's window.
 
 “Estimated delay” is half the selected ICE pair's round trip plus recent receiver jitter-buffer delay. It assumes a roughly symmetric network and excludes capture, decoding and hardware output. A receiver's buffer-only measurement is labeled “avg buffer”; an unavailable delay is never rendered as zero. Legacy version-one RTT values are excluded from audio-delay averages.
 
 Browser buffer delay uses interval differences of cumulative delay and emitted-sample counters. The first reading or an interval without emitted audio is unknown. The browser may use a larger jitter buffer than requested. The requested target is a preference, not an upper bound.
+
+For browser lifecycle behavior, current primary-source research and physical acceptance steps, see [background playback](web-background-playback.md). Use `pnpm ops receiver --json` after building hosted web to detect an outdated production receiver; deploy now verifies the exact client asset bytes.
 
 ## Ranked approaches
 

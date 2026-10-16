@@ -41,3 +41,27 @@ test("desktop polls profiles and shows separate averages for connected devices",
   await expect(page.getByText("A shorter path for audio")).toBeVisible();
   await expect(page.getByText(/one mobile hotspot. Check the average delay/)).toBeVisible();
 });
+
+test("missing telemetry exits measuring state and explains how to recover", async ({ page }) => {
+  await page.clock.install();
+  await page.goto("/");
+  await page.evaluate(async (path) => {
+    const fixture: unknown = await import(/* @vite-ignore */ path);
+    if (typeof fixture === "object" && fixture !== null && "mount" in fixture && typeof fixture.mount === "function") fixture.mount("missing");
+  }, `/@fs/${process.cwd()}/tests/desktop/device-delay-fixture.tsx`);
+  const trigger = page.getByRole("button", { name: "Audio delay for Test phone" });
+  await expect(trigger).toHaveText("Measuring delay…");
+  await page.clock.runFor(10_001);
+  await expect(trigger).toHaveText("Delay unavailable");
+  await trigger.click();
+  await expect(page.getByText(/Refresh the listener page and reconnect/)).toBeVisible();
+});
+
+test("fresh stats without supported timings show unavailable immediately", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(async (path) => {
+    const fixture: unknown = await import(/* @vite-ignore */ path);
+    if (typeof fixture === "object" && fixture !== null && "mount" in fixture && typeof fixture.mount === "function") fixture.mount("unsupported");
+  }, `/@fs/${process.cwd()}/tests/desktop/device-delay-fixture.tsx`);
+  await expect(page.getByRole("button", { name: "Audio delay for Test phone" })).toHaveText("Delay unavailable");
+});

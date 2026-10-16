@@ -61,7 +61,7 @@ export async function mediaExperiment({ relayUrl, clientUrl, path, targetMs, sec
     host.send(JSON.stringify({ type: "hello", role: "host", token: room.hostToken }));
     await wait(() => controls.find((message) => message.type === "ready"), "host signaling ready");
     mark("hostSignalingReady");
-    browser = await chromium.launch({ executablePath: process.env.EKO_CHROMIUM_PATH ?? "/usr/bin/chromium", headless: true, args: ["--autoplay-policy=no-user-gesture-required"] });
+    browser = await chromium.launch({ executablePath: process.env.EKO_CHROMIUM_PATH ?? "/usr/bin/chromium", headless: true, args: ["--autoplay-policy=no-user-gesture-required", "--mute-audio"] });
     const receiver = await browser.newPage();
     // Fetch receiver credentials through the real authenticated Worker endpoint;
     // constrain only this fixture to the protocol being compared.
