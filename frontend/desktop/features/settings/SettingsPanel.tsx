@@ -19,7 +19,7 @@ export function SettingsPanel({ devMode, onDevModeChange }: SettingsPanelProps) 
             <Bug className="size-4 text-muted-foreground" />
             <span className="font-medium">Dev mode</span>
           </div>
-          <Switch checked={devMode} onCheckedChange={onDevModeChange} />
+          <Switch aria-label="Dev mode" checked={devMode} onCheckedChange={onDevModeChange} />
         </div>
       </CardContent>
     </Card>

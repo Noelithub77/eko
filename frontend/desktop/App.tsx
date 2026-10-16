@@ -64,6 +64,10 @@ function App() {
   }, [recordMonitorLogs, session?.events]);
 
   useEffect(() => {
+    if (!devMode && view === "dev") setView("stream");
+  }, [devMode, view]);
+
+  useEffect(() => {
     let stopListening: (() => void) | null = null;
     let mounted = true;
 
@@ -125,7 +129,7 @@ function App() {
           <p>{view === "settings" ? "Close settings" : "Settings"}</p>
         </TooltipContent>
       </Tooltip>
-      <Tooltip>
+      {devMode ? <Tooltip>
         <TooltipTrigger asChild>
           <button
             type="button"
@@ -139,14 +143,14 @@ function App() {
         <TooltipContent>
           <p>{view === "dev" ? "Main view" : "Monitor"}</p>
         </TooltipContent>
-      </Tooltip>
+      </Tooltip> : null}
     </TooltipProvider>
   );
 
   return (
     <>
       <DesktopLayout actions={headerActions} onEkoClick={() => setView("stream")}>
-      {view === "stream" ? (
+      {view === "stream" || (view === "dev" && !devMode) ? (
         <div className="desktop-stream">
           <div className="desktop-player">
             <NowPlayingCard />
@@ -169,7 +173,7 @@ function App() {
           <SettingsPanel devMode={devMode} onDevModeChange={setDevMode} />
         </div>
       ) : null}
-      {view === "dev" ? (
+      {view === "dev" && devMode ? (
         <div className="mt-4">
           <DevPanel
             logs={monitorLogs}
