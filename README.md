@@ -104,13 +104,12 @@ See the [setup guide](.github/SETUP.md) for Android and device verification.
 
 </details>
 
-For the landing page:
+The landing page and browser receiver share one Vite build and Cloudflare Worker:
 
 ```powershell
-pnpm --dir site install --frozen-lockfile
-pnpm --dir site dev
+pnpm dev:web:site
 # http://localhost:4040/
-pnpm --dir site ops --help
+pnpm ops --help
 ```
 
 Use a fork and open a pull request back to this repository. See [contributing](.github/CONTRIBUTING.md) and the [roadmap](.github/TODO.md).

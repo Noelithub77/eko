@@ -23,7 +23,7 @@ Text on coral is near-black because white on coral fails contrast.
 - `rust/icons/source/`: icon SVGs and the `tauri icon` manifest. Regenerate with `pnpm tauri icon rust/icons/source/icon.json`, then delete `rust/icons/ios/` (no iOS target).
 - `frontend/shared/assets/eko.svg`: the favicon for every app surface. Vite hashes it into `/assets/`, which both the desktop server and the Worker serve.
 - `frontend/shared/components/EkoMark.tsx`: the in-app mark, with the one-time turn animation.
-- `site/public/eko.svg`: the website's copy.
+- `frontend/web/landing/assets/eko.svg`: the website's copy.
 - `frontend/shared/theme.css`: one token set for desktop, Android and the web client.
 
 Android adaptive icon files under `rust/gen/` are force-added because `rust/gen/` is ignored.

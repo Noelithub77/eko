@@ -19,7 +19,7 @@ if (!roomResponse.ok) {
   throw new Error(`Room creation failed with ${roomResponse.status}`);
 }
 const room = await roomResponse.json();
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH });
 const host = await openSocket(room.socketUrl);
 const hostReady = expectMessage(
   host,

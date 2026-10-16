@@ -1,4 +1,4 @@
-import { version } from "../../package.json";
+import { version } from "../../../package.json";
 
 export type Platform = "windows" | "linux" | "android";
 export type Device = Platform | "ios" | "macos" | null;

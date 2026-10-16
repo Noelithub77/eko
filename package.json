@@ -42,9 +42,13 @@
     "relay:test:media": "node scripts/test-hosted-media.mjs",
     "test:desktop:media": "node scripts/test-desktop-media.mjs",
     "operator": "node scripts/eko-operator.mjs",
-    "relay:deploy:dry": "npm run build:web:client && wrangler deploy --dry-run --config relay/wrangler.jsonc",
-    "relay:deploy": "npm run build:web:client && wrangler deploy --config relay/wrangler.jsonc",
-    "lint": "biome check"
+    "relay:deploy:dry": "pnpm build:web && wrangler deploy --dry-run --config relay/wrangler.jsonc",
+    "relay:deploy": "pnpm ops deploy",
+    "lint": "biome check",
+    "ops": "tsx ops.ts",
+    "dev:web:site": "cross-env PLATFORM=hosted VITE_PORT=4040 vite",
+    "build:web": "tsc --project tsconfig.web.json && cross-env PLATFORM=hosted vite build",
+    "test:web": "tsx --test frontend/web/landing/*.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -79,7 +83,11 @@
     "tw-animate-css": "^1.4.0",
     "vaul": "^1.1.2",
     "zod": "4.4.3",
-    "zustand": "^5.0.14"
+    "zustand": "^5.0.14",
+    "gsap": "^3.15.0",
+    "lenis": "^1.3.26",
+    "ogl": "^1.0.11",
+    "roughjs": "^4.6.6"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",
@@ -97,6 +105,7 @@
     "typescript": "~5.8.3",
     "vite": "^7.0.4",
     "vitest": "4.1.0",
-    "wrangler": "4.107.0"
+    "wrangler": "4.107.0",
+    "@types/node": "^26.6.5"
   }
 }

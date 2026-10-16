@@ -1,6 +1,6 @@
 # Landing page
 
-**[CHOSEN]** A static Vite site in `site/`, built like the leet landing page and deployed to Cloudflare Pages at `eko.allpyq.in`.
+**[chosen]** The landing page is the static entry of the unified Vite web app at `eko.allpyq.in`. See `plan/web-hosting/summary.md` for the current single Worker deployment.
 
 - The first paint is plain HTML with inline hero CSS and a small download entry module.
 - GSAP (ScrollTrigger, SplitText, DrawSVG), Lenis, rough.js scenes, and an OGL ripple shader load on idle. React with Sonner loads only for toasts.
@@ -11,7 +11,7 @@ Other options considered:
 
 - Static exported Excalidraw SVGs. They are simple, but they cannot animate each stroke, and their dark mode is an inverted filter.
 - Recorded app footage. It was dropped at Noel's request because the page should explain the idea.
-- Serving the page from the relay Worker. That would couple the marketing deploys to the hosted signaling Worker.
+- Separate Pages hosting was the original deployment. It has been superseded by the chosen single Worker deployment.
 
 ## Story
 
@@ -31,4 +31,4 @@ Download links use the version in the root `package.json`. `pnpm ops check` veri
 
 ## Hosting
 
-The Pages project `eko-site` takes direct uploads from `pnpm ops deploy`; it is not connected to Git. `pnpm ops domain` attaches `eko.allpyq.in` and creates a proxied CNAME to the project's `pages.dev` subdomain in the `allpyq.in` zone.
+The landing page and receiver deploy together through the existing `eko` Worker with `pnpm ops deploy`. See `plan/web-hosting/summary.md`.

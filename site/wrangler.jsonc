@@ -1,6 +1,0 @@
-// Cloudflare Pages project for eko.allpyq.in. Deploy with `pnpm ops deploy`.
-{
-  "name": "eko-site",
-  "pages_build_output_dir": "./dist",
-  "compatibility_date": "2026-10-01"
-}

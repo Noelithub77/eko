@@ -2,22 +2,23 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { builds, downloadUrl, type Platform } from "./src/platform.ts";
+import { setTimeout as delay } from "node:timers/promises";
+import { builds, downloadUrl, type Platform } from "./frontend/web/landing/platform.ts";
 
 const help = `pnpm ops <command> [--json]
 
   check    Run tests and the type-checked build, then confirm the release downloads exist.
-  build    Production build into dist/.
+  build    Build landing and receiver into dist/hosted/.
   assets   Confirm every download link on the page resolves on GitHub.
-  deploy   Build and upload dist/ to the Cloudflare Pages project (production).
-  domain   Make sure eko.allpyq.in points at the Pages project (custom domain + proxied CNAME).
-  status   Show the Pages project, its domains, and the live site response.
+  deploy   Build and deploy the landing, receiver, and signaling Worker (production).
+  domain   Inspect the domain and Worker routes.
+  status   Show Worker routes and live landing, receiver, and relay responses.
 
-Cloudflare commands use CLOUDFLARE_API_TOKEN; the project name comes from wrangler.jsonc.
+Cloudflare commands use CLOUDFLARE_API_TOKEN; the Worker is configured in relay/wrangler.jsonc.
 Results are printed as JSON on stdout; progress goes to stderr.`;
 
 const root = import.meta.dirname;
-// Pages configs cannot hold an account, so it lives here; the relay uses the same one.
+// The landing and receiver share the existing relay account.
 const account = "75bb6d35925d6493575a3e2d6deac186";
 const domain = "eko.allpyq.in";
 const zone = "allpyq.in";
@@ -36,9 +37,9 @@ function items(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
-function readPagesConfig(): { name: string } {
-  // wrangler.jsonc only uses whole-line comments.
-  const text = readFileSync(join(root, "wrangler.jsonc"), "utf8")
+function readWorkerConfig(): { name: string } {
+  // The Worker config uses JSON with optional whole-line comments.
+  const text = readFileSync(join(root, "relay", "wrangler.jsonc"), "utf8")
     .split("\n")
     .filter((line) => !line.trim().startsWith("//"))
     .join("\n");
@@ -48,7 +49,7 @@ function readPagesConfig(): { name: string } {
   return { name };
 }
 
-const config = readPagesConfig();
+const config = readWorkerConfig();
 
 function run(command: string, args: string[]) {
   const result = spawnSync(command, args, { cwd: root, stdio: ["ignore", 2, 2], env: { ...process.env, CLOUDFLARE_ACCOUNT_ID: account } });
@@ -84,65 +85,54 @@ async function assets(): Promise<Result> {
   return { downloads: checks };
 }
 
-async function ensureProject(): Promise<boolean> {
-  const projects = items(await cloudflare(`/accounts/${account}/pages/projects`));
-  if (projects.some((project) => text(project, "name") === config.name)) return false;
-  await cloudflare(`/accounts/${account}/pages/projects`, { method: "POST", body: { name: config.name, production_branch: "main" } });
-  return true;
-}
-
 async function deploy(): Promise<Result> {
-  run("pnpm", ["run", "build"]);
-  const created = await ensureProject();
-  const wrangler = join(root, "..", "node_modules", ".bin", "wrangler");
-  run(wrangler, ["pages", "deploy", "dist", "--project-name", config.name, "--branch", "main", "--commit-dirty=true"]);
-  const [latest] = items(await cloudflare(`/accounts/${account}/pages/projects/${config.name}/deployments`));
-  return { project: config.name, created, deployment: latest ? { id: text(latest, "id"), url: text(latest, "url"), createdOn: text(latest, "created_on") } : null };
-}
-
-async function ensureDomain(): Promise<Result> {
-  const base = `/accounts/${account}/pages/projects/${config.name}/domains`;
-  const domains = items(await cloudflare(base));
-  const attached = domains.some((entry) => text(entry, "name") === domain);
-  if (!attached) await cloudflare(base, { method: "POST", body: { name: domain } });
-
-  const [found] = items(await cloudflare(`/zones?name=${zone}`));
-  const zoneId = text(found, "id");
-  if (!zoneId) throw new Error(`Zone ${zone} is not in this account`);
-  const records = items(await cloudflare(`/zones/${zoneId}/dns_records?name=${domain}`));
-  const target = text(await cloudflare(`/accounts/${account}/pages/projects/${config.name}`), "subdomain");
-  if (!target) throw new Error(`Pages project ${config.name} has no subdomain yet`);
-  const record = records.find((entry) => text(entry, "type") === "CNAME");
-  if (records.length && !record) throw new Error(`${domain} already has non-CNAME records; resolve them by hand`);
-  if (!record) await cloudflare(`/zones/${zoneId}/dns_records`, { method: "POST", body: { type: "CNAME", name: domain, content: target, proxied: true } });
-  else if (text(record, "content") !== target) throw new Error(`${domain} points at ${text(record, "content")}, not ${target}`);
-  return { domain, target, pagesDomainCreated: !attached, dnsRecordCreated: !record };
+  run("pnpm", ["run", "build:web"]);
+  run(join(root, "node_modules", ".bin", "wrangler"), ["deploy", "--config", "relay/wrangler.jsonc"]);
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return { worker: config.name, domain, ...(await status()) };
+    } catch (error) {
+      if (attempt === 5) throw error;
+      console.error("Waiting for the production route to serve the new deployment…");
+      await delay(2000);
+    }
+  }
 }
 
 async function status(): Promise<Result> {
-  const project = await cloudflare(`/accounts/${account}/pages/projects/${config.name}`);
-  const domains = items(await cloudflare(`/accounts/${account}/pages/projects/${config.name}/domains`));
-  const live = await fetch(`https://${domain}/`, { redirect: "manual" }).then(
-    (response) => ({ status: response.status }),
-    (error: unknown) => ({ error: error instanceof Error ? error.message : String(error) }),
-  );
-  return { project: config.name, subdomain: text(project, "subdomain"), domains: domains.map((entry) => ({ name: text(entry, "name"), status: text(entry, "status") })), live };
+  const [found] = items(await cloudflare(`/zones?name=${zone}`));
+  const zoneId = text(found, "id");
+  if (!zoneId) throw new Error(`Zone ${zone} is not in this account`);
+  const routes = items(await cloudflare(`/zones/${zoneId}/workers/routes`))
+    .filter((route) => text(route, "script") === config.name)
+    .map((route) => ({ pattern: text(route, "pattern"), script: text(route, "script") }));
+  const live = await Promise.all(["/", "/client/", "/health"].map(async (path) => {
+    const response = await fetch(`https://${domain}${path}`);
+    const contentType = response.headers.get("content-type");
+    const body = await response.text();
+    const matches = path === "/health" ? contentType?.includes("application/json") && body.includes('"eko-relay"')
+      : path === "/client/" ? body.includes('id="root"') && !body.includes('class="hero"')
+      : body.includes('class="hero"');
+    return { path, status: response.status, contentType, matches };
+  }));
+  if (live.some((entry) => entry.status !== 200 || !entry.matches)) throw new Error(`Live verification failed: ${JSON.stringify(live)}`);
+  return { routes, live };
 }
 
 const [command = "--help", ...flags] = process.argv.slice(2);
 const commands: Record<string, () => Promise<Result>> = {
   check: async () => {
-    run("pnpm", ["run", "test"]);
-    run("pnpm", ["run", "build"]);
+    run("pnpm", ["run", "test:web"]);
+    run("pnpm", ["run", "build:web"]);
     return assets();
   },
   build: async () => {
-    run("pnpm", ["run", "build"]);
+    run("pnpm", ["run", "build:web"]);
     return {};
   },
   assets,
   deploy,
-  domain: ensureDomain,
+  domain: status,
   status,
 };
 

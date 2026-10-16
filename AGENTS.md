@@ -184,13 +184,10 @@ eko/
       webrtc_core/
     plugins/
       eko-media/android/src/main/java/com/codialo/eko/media/
-  site/
-    index.html
-    ops.ts
+  ops.ts
+  relay/
+    worker.ts
     wrangler.jsonc
-    public/
-    src/
-      scenes/
   tests/
     core/
     desktop/
@@ -303,13 +300,13 @@ Do not put canonical production source code in `rust/gen/android/`. That folder 
 
 ### Website
 
-The landing page at `https://eko.allpyq.in` lives in `site/`, a standalone Vite package with its own `pnpm install`. It explains what eko solves with hand-drawn scenes and links to the release downloads.
+The hosted web app uses one root Vite configuration, package installation, and Cloudflare Worker. `frontend/web/index.html` is the static landing entry; `frontend/web/client/index.html` is the React receiver at `/client/`. Landing scenes and styles live in `frontend/web/landing/`, and hosted public files live in `frontend/web/public/`.
 
-- `index.html` holds the copy and inline hero CSS; `src/main.ts` sets the download links from the root `package.json` version.
-- `src/enhance.ts` loads after first paint and drives scroll, scenes, and the controls under them.
-- `src/sketch.ts` and `src/icons.ts` draw Excalidraw-style SVG with rough.js and Excalifont.
-- `src/scenes/` holds one module per story scene; `src/shader.ts` is the hero ripple field.
-- `cd site; pnpm ops --help` lists `check`, `build`, `assets`, `deploy`, `domain`, and `status`. Cloudflare commands need `CLOUDFLARE_API_TOKEN`.
+- `pnpm dev:web:site` previews both pages at port 4040.
+- `pnpm build:web` produces `dist/hosted/`; `relay/wrangler.jsonc` deploys it with the existing signaling Worker.
+- `pnpm ops --help` discovers web checks, release assets, deployment, and live status. Cloudflare operations use `CLOUDFLARE_API_TOKEN`.
+- For deployment routing, old desktop pairing compatibility, or changing web build ownership, read `plan/web-hosting/summary.md`.
+- Native desktop's embedded receiver still uses `pnpm build:web:client` and `dist/web/client/`.
 
 ### Tests
 

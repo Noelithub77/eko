@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { version } from "../../package.json";
+import { version } from "../../../package.json";
 import { defaultPlatform, detectDevice, downloadUrl } from "./platform.ts";
 
 test("detects devices from platform strings and user agents", () => {

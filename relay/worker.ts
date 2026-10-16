@@ -20,14 +20,18 @@ app.post("/v1/rooms", zValidator("json", createRoomSchema), async (context) => {
   const room = context.env.ROOM.getByName(roomId);
   await room.initialize(roomId, await hashSecret(hostToken), await hashSecret(joinToken));
 
-  const origin = new URL(context.req.url).origin;
+  const requestUrl = new URL(context.req.url);
+  // Existing desktop releases still create rooms on the workers.dev address.
+  const origin = requestUrl.hostname === "eko.noelmcv7.workers.dev"
+    ? "https://eko.allpyq.in"
+    : requestUrl.origin;
   const socketOrigin = origin.replace(/^http/, "ws");
   return context.json({
     roomId,
     hostToken,
     joinToken,
     socketUrl: `${socketOrigin}/v1/rooms/${roomId}/socket`,
-    clientUrl: `${origin}/client`,
+    clientUrl: `${origin}/client/`,
   });
 });
 
