@@ -49,7 +49,8 @@
     "ops": "tsx ops.ts",
     "dev:web:site": "cross-env PLATFORM=hosted VITE_PORT=4040 vite",
     "build:web": "tsc --project tsconfig.web.json && cross-env PLATFORM=hosted vite build",
-    "test:web": "tsx --test frontend/web/landing/*.test.ts"
+    "test:web": "tsx --test frontend/web/landing/*.test.ts",
+    "test:local-deploy": "tsc --project tests/local-deploy/tsconfig.json && tsx --test tests/local-deploy/install.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

@@ -206,3 +206,12 @@ counters.
 - Emulator builds are useful for app wiring, but not for the under-100 ms latency target.
 - Android playback is native Rust WebRTC receive, Rust Opus decode, and Oboe output.
 - Desktop and Android dev use separate Cargo target folders to avoid `Blocking waiting for file lock on build directory` when both are started from VS Code.
+
+
+## Install the local Linux desktop app
+
+```sh
+pnpm ops local:deploy --json
+```
+
+Builds and installs the optimized app without launching or restarting it. Use `--dry-run` to preview the operation. See [local deployment](../docs/local-deploy.md) for paths, prerequisites, and the T3 action.

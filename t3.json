@@ -5,6 +5,11 @@
       "name": "Dev",
       "command": "pnpm dev:desktop",
       "icon": "play"
+    },
+    {
+      "name": "Local deploy",
+      "command": "pnpm ops local:deploy --json",
+      "icon": "build"
     }
   ]
 }

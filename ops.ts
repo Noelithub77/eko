@@ -1,4 +1,5 @@
 // Operator entry for eko: `pnpm ops --help`.
+import { localDeployOperator, localDeployHelp } from "./scripts/local-deploy.ts";
 import { verifyHostedReceiver } from "./scripts/hosted-receiver.ts";
 import { latencyOperator, latencyHelp } from "./scripts/latency/operator.ts";
 import { platformBuildOperator, platformBuildHelp } from "./scripts/platform-builds.ts";
@@ -10,6 +11,8 @@ import { builds, downloadUrl, type Platform } from "./frontend/web/landing/platf
 
 const help = `pnpm ops <command> [--json]
 
+  local:deploy Build and install the optimized Linux desktop app locally.
+               Run pnpm ops local:deploy --help for options.
   latency  Profile audio delay, compare capture and test real direct/TURN media.
            Run pnpm ops latency --help for options.
   platforms Start or inspect all-platform artifact builds without publishing a release.
@@ -145,18 +148,18 @@ const commands: Record<string, () => Promise<Result>> = {
   status,
 };
 
-const action = command === "platforms" ? () => platformBuildOperator(flags) : command === "latency" ? () => latencyOperator(flags) : commands[command];
-if (command === "--help" || command === "help") console.log(`${help}\n\n${latencyHelp}\n\n${platformBuildHelp}`);
-else if (!action || (!["latency", "platforms"].includes(command) && flags.some((flag) => flag !== "--json"))) {
+const action = command === "local:deploy" ? () => localDeployOperator(flags) : command === "platforms" ? () => platformBuildOperator(flags) : command === "latency" ? () => latencyOperator(flags) : commands[command];
+if (command === "--help" || command === "help") console.log(`${help}\n\n${latencyHelp}\n\n${platformBuildHelp}\n\n${localDeployHelp}`);
+else if (!action || (!["latency", "platforms", "local:deploy"].includes(command) && flags.some((flag) => flag !== "--json"))) {
   console.error(`Unknown command or flag.\n\n${help}`);
   process.exitCode = 1;
 } else {
   try {
     const result = await action();
     if (result.success === false) process.exitCode = 1;
-    console.log(JSON.stringify({ command, environment: command === "build" || command === "check" ? "local" : "cloudflare-production", success: true, ...result }));
+    console.log(JSON.stringify({ command, environment: ["build", "check", "local:deploy"].includes(command) ? "local" : "cloudflare-production", success: true, ...result }));
   } catch (error) {
-    console.log(JSON.stringify({ command, success: false, error: error instanceof Error ? error.message : String(error) }));
+    console.log(JSON.stringify({ command, ...(command === "local:deploy" ? { environment: "local" } : {}), success: false, error: error instanceof Error ? error.message : String(error) }));
     process.exitCode = 1;
   }
 }
