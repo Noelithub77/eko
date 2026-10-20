@@ -7,7 +7,7 @@ test("the built extension loads its module worker, popup and offscreen host", as
   const directory = await mkdtemp(join(tmpdir(), "eko-extension-browser-"));
   const extension = resolve("dist/extension");
   const context = await chromium.launchPersistentContext(directory, {
-    headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+    channel: "chromium", headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
     args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`],
     viewport: { width: 420, height: 600 },
   });
