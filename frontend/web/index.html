@@ -48,14 +48,14 @@
       .lede{max-width:600px;margin:44px auto 0;color:#bdbdbd;font-size:clamp(16px,1.9vw,19px);line-height:1.6}
       .getcard{width:min(100%,640px);margin-top:36px;padding:8px;border:1px solid var(--line);border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow);text-align:left}
       .platforms{display:flex;gap:2px;width:max-content;padding:3px;margin:0 0 8px 2px;border-radius:999px;background:#0f0f0f;border:1px solid #222}
-      .platforms button{border:0;border-radius:999px;padding:6px 14px;background:none;color:var(--muted);font:inherit;font-size:13px;cursor:pointer}
+      .platforms button{border:0;border-radius:999px;padding:6px 14px;background:none;color:var(--muted);font:inherit;font-size:13px;white-space:nowrap;cursor:pointer}
       .platforms [aria-selected=true]{background:#262626;color:var(--fg);box-shadow:0 1px 2px #0006}
       .get-row{display:flex;align-items:center;gap:12px;padding:8px 8px 8px 16px;border-radius:16px;background:#0e0e0e;border:1px solid #1f1f1f}
       .get-row code{flex:1;min-width:0;font:13px/1.6 ui-monospace,"SF Mono","JetBrains Mono","Liberation Mono",Consolas,monospace;color:#d6f1ed;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       .download{display:inline-flex;align-items:center;gap:9px;padding:11px 16px 11px 18px;border-radius:12px;background:var(--teal);color:var(--ink);font-weight:700;font-size:14px;white-space:nowrap;box-shadow:0 8px 24px -10px #2ec4b699}
       .download svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
       .note{margin:18px 0 0;color:#727272;font-size:13.5px}
-      @media (max-width:640px){.hero{padding:88px 18px 104px}.hero .mark{width:clamp(112px,32vw,150px)}h1{margin-top:28px;font-size:clamp(38px,11vw,56px)}.lede{margin-top:34px}.getcard{margin-top:28px}.platforms{margin-inline:auto}.get-row{flex-direction:column;align-items:stretch;padding:12px}.get-row code{text-align:center}.download{justify-content:center}}
+      @media (max-width:640px){.hero{padding:88px 18px 104px}.hero .mark{width:clamp(112px,32vw,150px)}h1{margin-top:28px;font-size:clamp(38px,11vw,56px)}.lede{margin-top:34px}.getcard{margin-top:28px}.platforms{width:100%;margin-inline:0;gap:0}.platforms button{flex:1;padding:7px 4px;font-size:12px}.get-row{flex-direction:column;align-items:stretch;padding:12px}.get-row code{text-align:center}.download{justify-content:center}}
     </style>
     <script type="module" src="./landing/main.ts"></script>
   </head>
@@ -89,6 +89,7 @@
             <div class="platforms" role="tablist" aria-label="Platform">
               <button type="button" role="tab" aria-selected="true" data-platform="windows">Windows</button>
               <button type="button" role="tab" aria-selected="false" data-platform="linux">Linux</button>
+              <button type="button" role="tab" aria-selected="false" data-platform="macos">macOS beta</button>
               <button type="button" role="tab" aria-selected="false" data-platform="android">Android</button>
             </div>
             <div class="get-row">
@@ -96,7 +97,7 @@
               <a class="download" data-download href="https://github.com/Noelithub77/eko/releases/latest"><span data-download-label>Download</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12M6 11l6 6 6-6M5 20h14" /></svg></a>
             </div>
           </div>
-          <p class="note">No macOS build yet. iPhones listen in Safari by scanning the desktop's QR code.</p>
+          <p class="note">iPhones listen in Safari by scanning the desktop's QR code.</p>
         </div>
         <a class="scroll-cue" href="#why" aria-label="Scroll to the story">
           <svg viewBox="0 0 40 24" aria-hidden="true"><path d="M14 6a8 8 0 0 1 0 12" /><path d="M20 3a13 13 0 0 1 0 18" /><path d="M26 0.5a17 17 0 0 1 0 23" /></svg>
@@ -270,6 +271,7 @@
             <div class="platforms" role="tablist" aria-label="Platform">
               <button type="button" role="tab" aria-selected="true" data-platform="windows">Windows</button>
               <button type="button" role="tab" aria-selected="false" data-platform="linux">Linux</button>
+              <button type="button" role="tab" aria-selected="false" data-platform="macos">macOS beta</button>
               <button type="button" role="tab" aria-selected="false" data-platform="android">Android</button>
             </div>
             <div class="get-row">

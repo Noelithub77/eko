@@ -5,7 +5,7 @@ import { builds, defaultPlatform, detectDevice, downloadUrl, releaseUrl, type Pl
 
 const device = detectDevice(navigator.platform, navigator.userAgent, navigator.maxTouchPoints);
 const notices = () => import("./toast.tsx");
-const isPlatform = (value: string | undefined): value is Platform => value === "windows" || value === "linux" || value === "android";
+const isPlatform = (value: string | undefined): value is Platform => value === "windows" || value === "linux" || value === "macos" || value === "android";
 
 function setPlatform(card: Element, platform: Platform) {
   for (const tab of card.querySelectorAll<HTMLElement>("[data-platform]")) {
@@ -14,7 +14,7 @@ function setPlatform(card: Element, platform: Platform) {
   const file = card.querySelector("[data-file]");
   const link = card.querySelector<HTMLAnchorElement>("[data-download]");
   const label = card.querySelector("[data-download-label]");
-  if (file) file.textContent = builds[platform].file;
+  if (file) file.textContent = builds[platform].detail ?? builds[platform].file;
   if (label) label.textContent = builds[platform].label;
   if (link) {
     link.href = downloadUrl(platform);

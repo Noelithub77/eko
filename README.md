@@ -19,12 +19,13 @@ Built with **Rust + Tauri**, with native Android playback and a browser fallback
 ## Download
 
 <p align="center">
-  <a href="https://github.com/Noelithub77/eko/releases/download/eko-v0.4.1/eko_0.4.1_x64-setup.exe"><img alt="Download Windows x64 installer" src="docs/assets/download-windows.svg" width="260" height="48"></a>
-  <a href="https://github.com/Noelithub77/eko/releases/download/eko-v0.4.1/eko_0.4.1_amd64.AppImage"><img alt="Download Linux x64 AppImage" src="docs/assets/download-linux.svg" width="260" height="48"></a>
-  <a href="https://github.com/Noelithub77/eko/releases/download/eko-v0.4.1/eko-0.4.1-android-aarch64.apk"><img alt="Download Android ARM64 APK" src="docs/assets/download-android.svg" width="260" height="48"></a>
+  <a href="https://github.com/Noelithub77/eko/releases/download/eko-v0.5.0/eko_0.5.0_x64-setup.exe"><img alt="Download Windows x64 installer" src="docs/assets/download-windows.svg" width="260" height="48"></a>
+  <a href="https://github.com/Noelithub77/eko/releases/download/eko-v0.5.0/eko_0.5.0_amd64.AppImage"><img alt="Download Linux x64 AppImage" src="docs/assets/download-linux.svg" width="260" height="48"></a>
+  <a href="https://github.com/Noelithub77/eko/releases/download/eko-v0.5.0/eko_0.5.0_aarch64.dmg"><img alt="Download macOS beta for Apple Silicon" src="docs/assets/download-macos.svg" width="260" height="48"></a>
+  <a href="https://github.com/Noelithub77/eko/releases/download/eko-v0.5.0/eko-0.5.0-android-aarch64.apk"><img alt="Download Android ARM64 APK" src="docs/assets/download-android.svg" width="260" height="48"></a>
 </p>
 
-Windows: run the installer. Linux: make the AppImage executable, then open it. Android 8+: install the APK on your phone. On iPhone, scan the desktop’s QR code with the camera and open the browser client in Safari. **No macOS build.**
+Windows: run the installer. Linux: make the AppImage executable, then open it. Android 8+: install the APK on your phone. On iPhone, scan the desktop’s QR code with the camera and open the browser client in Safari. [macOS beta](docs/macos-beta.md): Apple Silicon, macOS 13+. Open the DMG and drag eko to Applications.
 
 [Website and interactive walkthrough](https://eko.allpyq.in/) · [All releases](https://github.com/Noelithub77/eko/releases) · [The story behind eko](https://medium.com/@noelmcv7/eko-share-audio-683aff638157)
 

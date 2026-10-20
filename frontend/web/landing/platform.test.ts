@@ -13,15 +13,20 @@ test("detects devices from platform strings and user agents", () => {
   assert.equal(detectDevice("", ""), null);
 });
 
-test("devices without a build start on Windows", () => {
-  assert.equal(defaultPlatform("macos"), "windows");
+test("each desktop selects its download while iPhones keep the Windows default", () => {
+  assert.equal(defaultPlatform("macos"), "macos");
   assert.equal(defaultPlatform("ios"), "windows");
   assert.equal(defaultPlatform("linux"), "linux");
+  assert.equal(defaultPlatform(detectDevice("MacIntel", "Macintosh", 5)), "windows");
 });
 
 test("download links point at the release for the app version", () => {
   assert.equal(
     downloadUrl("linux"),
     `https://github.com/Noelithub77/eko/releases/download/eko-v${version}/eko_${version}_amd64.AppImage`,
+  );
+  assert.equal(
+    downloadUrl("macos"),
+    `https://github.com/Noelithub77/eko/releases/download/eko-v${version}/eko_${version}_aarch64.dmg`,
   );
 });

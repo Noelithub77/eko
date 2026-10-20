@@ -84,7 +84,7 @@ async function cloudflare(path: string, init: { method?: string; body?: object }
 }
 
 async function assets(): Promise<Result> {
-  const platforms: Platform[] = ["windows", "linux", "android"];
+  const platforms: Platform[] = ["windows", "linux", "macos", "android"];
   const checks = await Promise.all(
     platforms.map(async (platform) => {
       const response = await fetch(downloadUrl(platform), { method: "HEAD", redirect: "follow" });

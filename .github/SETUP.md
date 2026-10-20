@@ -121,6 +121,12 @@ rust/target/debug/bundle/msi/eko_0.1.0_x64_en-US.msi
 rust/target/debug/bundle/nsis/eko_0.1.0_x64-setup.exe
 ```
 
+## Public release with macOS beta
+
+The manual `.github/workflows/release.yml` workflow has optional Windows, Linux, macOS, Android APK and Android AAB targets. Select `macos_dmg` for the unsigned Apple Silicon beta DMG on the same GitHub release. Every target defaults to false; select at least one. The existing `bump_minor` input still defaults to true, so disable it when releasing an already synchronized version.
+
+macOS uses the explicit `aarch64-apple-darwin` target on `macos-latest`. It needs no new dependency or Apple signing/notarization setup. Only the macOS job disables updater artifacts. The finalizer requires all selected packages, adds a macOS beta download note and publishes only after validation. Windows/Linux signed updater behavior is unchanged; macOS is not an updater target and does not make the overall release a prerelease. See [macOS beta](../docs/macos-beta.md) and [public release commands](../docs/platform-builds.md#public-release).
+
 ## Build Mobile UI
 
 ```powershell

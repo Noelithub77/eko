@@ -63,13 +63,14 @@ The artifact workflow built the latency changes without publishing a release. De
 
 The first run's overall status is failed because Android requested Google's retired `tools` SDK package. Explicitly selecting `platform-tools` fixed setup; the Android-only retry passed. The Windows, Linux and web jobs in the first run passed. All four artifacts were downloaded and their expected files inspected locally. Android ZIP integrity checks also passed. APK/AAB production signing, installation and physical playback were not verified by these builds. GitHub artifact access requires repository access, and artifacts expire after 14 days.
 
-## Signed public release
+## Public release
 
-After version synchronization and a clean committed tree, create the exact snapshot with the platform operator. The macOS-only reference avoids rebuilding unsigned Windows/Linux/Android validation packages when the signed release will build those targets:
+After version synchronization and a clean committed tree, dispatch the manual Release workflow from the intended committed reference. For example, after the intended source is on `main`:
 
 ```sh
-pnpm --silent ops platforms start --ref build/macos/background-v050 --json
-gh workflow run release.yml --ref build/macos/background-v050 -f windows_exe=true -f linux_appimage=true -f android_apk=true -f android_aab=true -f bump_minor=false
+gh workflow run release.yml --ref main -f windows_exe=true -f linux_appimage=true -f macos_dmg=true -f android_apk=true -f android_aab=true -f bump_minor=false
 ```
 
-The Release workflow creates a draft, builds signed desktop updater packages and production-signed Android packages, validates all selected assets, writes one combined updater manifest, then publishes. Failed selected targets leave the draft unpublished. The separate macOS job produces an unsigned beta DMG and does not change stable updater targets.
+The Release workflow creates a draft, builds signed Windows/Linux updater packages, production-signed Android packages and the optional unsigned Apple Silicon macOS beta DMG, then validates all selected assets before publishing. `macos_dmg` defaults to false, like the other platform checkboxes. It can be selected alone or with other targets. The macOS job explicitly targets `aarch64-apple-darwin`; see `docs/macos-beta.md` for the output path and physical test limits.
+
+Finalization uploads one combined Windows/Linux updater manifest when either is selected. macOS requires a nonempty DMG but no signature, adds no updater target and receives a beta download link in the existing release notes. The overall release remains a normal release. A failed selected build or missing/empty selected asset prevents publication; failed builds with no assets use the existing empty-release cleanup. Build-only platform artifacts remain separate from public release assets.

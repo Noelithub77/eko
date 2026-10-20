@@ -26,10 +26,11 @@ createRoot(host).render(
 const next: Record<Platform, string> = {
   windows: "Run the installer, start eko, then scan its QR code with your phone.",
   linux: `Make it executable with chmod +x ${builds.linux.file}, then run it.`,
+  macos: "Open the DMG and drag eko to Applications. Apple Silicon · macOS 13+.",
   android: "Allow installs from your browser, open eko, and scan the laptop's QR code.",
 };
 
-const names: Record<Platform, string> = { windows: "Windows", linux: "Linux", android: "Android" };
+const names: Record<Platform, string> = { windows: "Windows", linux: "Linux", macos: "macOS beta", android: "Android" };
 
 export function downloading(platform: Platform) {
   toast(`Downloading eko for ${names[platform]}`, { id: "download", icon: <Mark />, description: next[platform] });
