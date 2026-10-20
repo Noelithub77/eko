@@ -133,9 +133,19 @@ validation warnings and never prints access tokens or service-account keys.
 
 ### First listing
 
-Eko did not have a Web Store listing when this workflow was added. The shared
+Eko did not have a Web Store listing when this workflow was added. Noel has since
+created item `ahgbjnbhopbkifeopefgmfjckbbafndm`; upstream `CWS_EXTENSION_ID` now
+points to it. The shared
 `CWS_PUBLISHER_ID` and `CWS_SERVICE_ACCOUNT_KEY` were copied from Quizialo into
 Eko’s repository secrets. Quizialo’s item ID was not copied.
+
+[Store copy, assets and permission explanations](chrome-web-store/listing.md)
+are tracked with an extension-specific [privacy policy](chrome-web-store/privacy.md).
+Run `pnpm ops extension:assets --json` to render the actual popup with isolated
+sample session data and regenerate all six PNGs. This uses the existing
+Playwright Chromium installation; `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` can select
+a system browser for the isolated renderer. It never drives a live user profile.
+Verify the privacy URL is public after merge before using it in the console.
 
 1. Build the ZIP and create eko’s new item in the Chrome Web Store developer
    console. Complete its listing, screenshots and privacy declarations.

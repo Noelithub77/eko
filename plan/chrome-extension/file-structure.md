@@ -5,3 +5,5 @@
 - `vite.config.ts`: extension entries alongside existing platforms, using one dependency installation.
 - `tests/extension/`: protocol regressions and popup interaction coverage.
 - `docs/chrome-extension.md`: setup, audit findings and verification boundaries.
+- `scripts/webstore-assets.ts`: reproducible local store image renderer, exposed through `pnpm ops extension:assets`.
+- `docs/chrome-web-store/`: listing copy, extension privacy policy and store-sized PNG assets.

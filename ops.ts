@@ -3,6 +3,7 @@ import { localDeployOperator, localDeployHelp } from "./scripts/local-deploy.ts"
 import { verifyHostedReceiver } from "./scripts/hosted-receiver.ts";
 import { latencyOperator, latencyHelp } from "./scripts/latency/operator.ts";
 import { platformBuildOperator, platformBuildHelp } from "./scripts/platform-builds.ts";
+import { buildWebStoreAssets } from "./scripts/webstore-assets.ts";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -19,6 +20,7 @@ const help = `pnpm ops <command> [--json]
             Run pnpm ops platforms --help for options.
   extension:package Build and validate the unpacked Chrome extension and Web Store ZIP (local).
   extension:check Run extension type, security, publishing and browser checks (local).
+  extension:assets Render store screenshots and promo images with sample session data (local).
   check    Run tests and the type-checked build, then confirm the release downloads exist.
   build    Build landing and receiver into dist/hosted/.
   assets   Confirm every download link on the page resolves on GitHub.
@@ -134,6 +136,7 @@ async function status(): Promise<Result> {
 
 const [command = "--help", ...flags] = process.argv.slice(2);
 const commands: Record<string, () => Promise<Result>> = {
+  "extension:assets": buildWebStoreAssets,
   "extension:package": async () => {
     run("pnpm", ["run", "package:extension"]);
     const bundle: unknown = JSON.parse(readFileSync(join(root, "dist/extension-bundle.json"), "utf8"));
