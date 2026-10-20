@@ -5,6 +5,10 @@
   "version": "0.5.0",
   "type": "module",
   "scripts": {
+    "dev:extension": "cross-env PLATFORM=extension VITE_PORT=4140 vite --host 127.0.0.1",
+    "build:extension": "tsc --noEmit && cross-env PLATFORM=extension vite build",
+    "test:extension": "tsc --project tests/extension/tsconfig.json && tsx --test tests/extension/*.test.ts tests/extension/*.test.mjs",
+    "test:extension:ui": "playwright test --config tests/extension/playwright.config.ts",
     "blog:diagrams": "node blog/scripts/export-diagrams.mjs",
     "blog:medium": "node blog/scripts/medium.mjs",
     "start": "pnpm dev:desktop",
@@ -51,7 +55,8 @@
     "build:web": "tsc --project tsconfig.web.json && cross-env PLATFORM=hosted vite build",
     "test:web": "tsx --test frontend/web/landing/*.test.ts",
     "test:local-deploy": "tsc --project tests/local-deploy/tsconfig.json && tsx --test tests/local-deploy/install.test.ts",
-    "test:platforms": "tsc --project tests/platforms/tsconfig.json && tsx --test tests/platforms/cleanup.test.ts"
+    "test:platforms": "tsc --project tests/platforms/tsconfig.json && tsx --test tests/platforms/cleanup.test.ts",
+    "package:extension": "pnpm build:extension && node scripts/package-extension.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

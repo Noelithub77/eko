@@ -11,9 +11,11 @@ import { cn } from "@shared/lib/utils";
 type QrPairingCardProps = {
   payload: QrPairingPayload | null;
   error?: string | null;
+  onOpenLink?: (url: string) => Promise<unknown>;
+  compact?: boolean;
 };
 
-export function QrPairingCard({ payload, error }: QrPairingCardProps) {
+export function QrPairingCard({ payload, error, onOpenLink = openUrl, compact = false }: QrPairingCardProps) {
   const [copied, setCopied] = useState(false);
   const [renderedValue, setRenderedValue] = useState("");
   const [renderFailure, setRenderFailure] = useState<{ value: string; message: string } | null>(null);
@@ -35,8 +37,8 @@ export function QrPairingCard({ payload, error }: QrPairingCardProps) {
 
   return (
     <section className="flex flex-col items-center text-center">
-      <h2 className="text-[clamp(1.5rem,2.1vw,2.25rem)] font-bold tracking-tight">Scan to listen</h2>
-      <div className="relative mt-8 flex aspect-square w-full max-w-[min(38vh,360px)] items-center justify-center" aria-busy={isLoading}>
+      <h2 className={cn("font-bold tracking-tight", compact ? "text-xl" : "text-[clamp(1.5rem,2.1vw,2.25rem)]")}>Scan to listen</h2>
+      <div className={cn("relative flex aspect-square w-full items-center justify-center", compact ? "mt-4 max-w-44" : "mt-8 max-w-[min(38vh,360px)]")} aria-busy={isLoading}>
         <div className={cn("w-full opacity-80", (isLoading || failure) && "pointer-events-none select-none blur-sm opacity-35")}
           aria-hidden={isLoading || Boolean(failure)}>
           <StyledPairingQr key={qrValue || "placeholder"} value={qrValue || "eko-pairing-loading"}
@@ -50,12 +52,12 @@ export function QrPairingCard({ payload, error }: QrPairingCardProps) {
         {failure && <p className="absolute inset-x-0 rounded-xl bg-background/90 p-4 text-sm text-destructive" role="alert">{failure}</p>}
       </div>
       {qrValue && !isLoading && !failure ? (
-        <div className="mt-8 flex gap-1 text-muted-foreground">
+        <div className={cn("flex gap-1 text-muted-foreground", compact ? "mt-3" : "mt-8")}>
           <Button onClick={() => void handleCopy()} size="sm" variant="ghost">
             {copied ? <Check /> : <Copy />}
             {copied ? "Copied" : "Copy link"}
           </Button>
-          <Button onClick={() => void openUrl(qrValue)} size="sm" variant="ghost">
+          <Button onClick={() => void onOpenLink(qrValue)} size="sm" variant="ghost">
             <ExternalLink />
             Open
           </Button>

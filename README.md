@@ -69,6 +69,10 @@ Only pair devices you trust and keep pairing links private. See the [privacy pol
 
 ## Build and contribute
 
+The Chrome extension shares tab audio with approved listeners and reuses the
+desktop app’s React components. Build its complete unpacked folder and Web Store
+ZIP with `pnpm ops extension:package`. See [extension setup, audit and publishing](docs/chrome-extension.md).
+
 Install Node.js, pnpm, Rust, and the platform dependencies in the [setup guide](.github/SETUP.md), then:
 
 ```powershell

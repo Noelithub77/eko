@@ -309,6 +309,15 @@ The hosted web app uses one root Vite configuration, package installation, and C
 - For deployment routing, old desktop pairing compatibility, or changing web build ownership, read `plan/web-hosting/summary.md`.
 - Native desktop's embedded receiver still uses `pnpm build:web:client` and `dist/web/client/`.
 
+### Chrome extension
+
+`extension/` owns the React popup, browser receiver entry, service worker and
+offscreen audio host. Reuse the root React/Vite/Tailwind/shadcn installation and
+`@shared` components; keep host authority outside React. `pnpm ops extension:package`
+builds the complete unpacked folder and ZIP; `pnpm ops extension:check` runs the
+focused checks. Read [the extension workflow](docs/chrome-extension.md) for audit
+findings, runtime boundaries and first Web Store listing setup.
+
 ### Tests
 
 - `tests/core/session.test.ts` checks shared session behavior.
