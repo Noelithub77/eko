@@ -26,3 +26,9 @@ Release credentials live in GitHub Actions secrets and variables. The Android ke
 Keep pnpm, Rust and Gradle caches; use distinct platform keys, allow Gradle cache writes on the build reference, and request APK/AAB together so Android compilation is shared. Do not clean caches or publish the local branch's unrelated older history.
 
 Release preparation keeps the new version as a draft until every selected target succeeds. Finalization verifies expected nonempty packages/signatures and writes one combined Windows/Linux updater manifest before publication. This removes the prior race where platform jobs could overwrite `latest.json` with only one platform.
+
+## Snapshot branch cleanup
+
+**[chosen]** Share one guarded cleanup implementation between `pnpm ops platforms cleanup --ref build/NAME [--dry-run] --json` and a default-branch `workflow_run` listener for successful `Platform builds`/`Release` completion. Keep failed/running refs for diagnosis, reject protected or moved refs, page all branch workflows, delete only with an explicit SHA lease, and read back absence. This avoids duplicating safety logic; it needs Git deletion credentials as well as Actions read access. The REST delete endpoint has no expected-SHA parameter.
+
+Automatic cleanup uses default-branch code and the event file, with no triggering-branch checkout, artifact download or build cache restore. Tags, releases, artifacts and caches remain untouched. Use the manual command to remove older completed snapshot branches. See `docs/platform-builds.md` for outcomes, pagination bounds and the workflow-dispatch race between the last read and deletion.

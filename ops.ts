@@ -15,7 +15,7 @@ const help = `pnpm ops <command> [--json]
                Run pnpm ops local:deploy --help for options.
   latency  Profile audio delay, compare capture and test real direct/TURN media.
            Run pnpm ops latency --help for options.
-  platforms Start or inspect all-platform artifact builds without publishing a release.
+  platforms Start, inspect or clean up isolated platform build branches.
             Run pnpm ops platforms --help for options.
   check    Run tests and the type-checked build, then confirm the release downloads exist.
   build    Build landing and receiver into dist/hosted/.
@@ -159,7 +159,7 @@ else if (!action || (!["latency", "platforms", "local:deploy"].includes(command)
     if (result.success === false) process.exitCode = 1;
     console.log(JSON.stringify({ command, environment: ["build", "check", "local:deploy"].includes(command) ? "local" : "cloudflare-production", success: true, ...result }));
   } catch (error) {
-    console.log(JSON.stringify({ command, ...(command === "local:deploy" ? { environment: "local" } : {}), success: false, error: error instanceof Error ? error.message : String(error) }));
+    console.log(JSON.stringify({ command, ...(command === "local:deploy" ? { environment: "local" } : command === "platforms" ? { environment: "github-actions" } : {}), success: false, error: error instanceof Error ? error.message : String(error) }));
     process.exitCode = 1;
   }
 }

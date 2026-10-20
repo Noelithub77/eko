@@ -1,0 +1,36 @@
+name: Cleanup build branches
+
+on:
+  workflow_run:
+    workflows: ['Platform builds', 'Release']
+    types: [completed]
+    branches: ['build/**']
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  cleanup:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      # workflow_run's github.sha belongs to the default branch, never the build.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Do not restore build-branch caches or consume triggering-run artifacts.
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Check and remove the completed snapshot branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: pnpm exec tsx scripts/cleanup-build-workflow.ts

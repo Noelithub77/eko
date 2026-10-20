@@ -1,0 +1,5 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "types": ["node"], "lib": ["ES2022", "DOM", "DOM.Iterable"] },
+  "include": ["../../scripts/platform-builds.ts", "../../scripts/platform-cleanup.ts", "../../scripts/cleanup-build-workflow.ts", "./cleanup.test.ts"]
+}

@@ -1,20 +1,27 @@
 import { spawnSync } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
+import { platformCleanupOperator } from "./platform-cleanup.ts";
 
-export const platformBuildHelp = `pnpm ops platforms <start|status> [options] [--json]
+export const platformBuildHelp = `pnpm ops platforms <start|status|cleanup> [options] [--json]
 
   start --ref build/NAME   Push a snapshot of the clean committed tree to a new
                           isolated build branch and locate its workflow run.
                           Reusing a ref is safe only when its tree is identical.
   status --run RUN_ID     Read jobs and up to 100 artifacts for that build.
+  cleanup --ref build/NAME [--dry-run]
+                         Delete only this unprotected, idle build branch using
+                         its current SHA as a lease, then verify it is absent.
+                         Dry run reports eligibility without deleting anything.
 
 Uses the configured origin and authenticated gh CLI. Start leaves the local
 branch unchanged, publishes no release, and does not bump the app version.
 By default builds Windows, Linux, macOS beta, Android debug APK/AAB and hosted web.
 Use build/android/NAME, build/windows/NAME, build/linux/NAME, build/macos/NAME or build/web/NAME
 to retry only that target after a failure; other build/ references build all.
-Artifacts expire after 14 days; running jobs are not finished builds.`;
+Artifacts expire after 14 days; running jobs are not finished builds.
+Cleanup preserves tags, releases, artifacts and caches; failed terminal builds
+can be removed manually. Automatic cleanup runs only after successful builds.`;
 
 const runSchema = z.object({
   databaseId: z.number(), headSha: z.string(), url: z.string(), status: z.string(),
@@ -41,6 +48,7 @@ function json(executable: string, args: string[]): unknown {
 export async function platformBuildOperator(args: string[]): Promise<Record<string, unknown>> {
   const [action = "help", ...flags] = args;
   if (action === "help" || action === "--help") return { environment: "github-actions", help: platformBuildHelp };
+  if (action === "cleanup") return platformCleanupOperator(flags);
   const options = new Map<string, string>();
   for (let index = 0; index < flags.length; index++) {
     const flag = flags[index];

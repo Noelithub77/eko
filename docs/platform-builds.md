@@ -9,7 +9,7 @@ pnpm --silent ops platforms status --run RUN_ID --json
 
 `start` requires a clean worktree, Git, an authenticated GitHub CLI and permission to push a new branch to the configured origin. It fetches `origin/main`, creates an isolated snapshot commit with exactly `HEAD`'s tree, and pushes that snapshot to the explicit `build/` reference. It does not move the local branch or publish its older local history. GitHub runs `.github/workflows/build.yml` when that reference is created.
 
-Reusing the same reference with an identical tree locates the existing run without another push. A different tree requires a new reference; there is no force push. If GitHub has not registered the run yet, the result says `awaiting-workflow`, and repeating the same command is safe.
+Reusing an existing reference with an identical tree locates its run without another push. A different tree requires a new reference; there is no force push. If GitHub has not registered the run yet, the result says `awaiting-workflow`, and repeating the same command is safe. After automatic cleanup removes the reference, use `status --run RUN_ID` to inspect the completed run. Starting that reference again creates a new snapshot and build.
 
 For a targeted retry, use `build/android/NAME`, `build/windows/NAME`, `build/linux/NAME`, `build/macos/NAME` or `build/web/NAME`. Other `build/` references select all targets. This lets a failed platform retry without discarding successful builds or recompiling unrelated platforms.
 
@@ -28,6 +28,27 @@ These validation artifacts use no production signing secrets. Android debug pack
 ## Build caches
 
 Frontend installs use the existing frozen pnpm lockfile and setup-node pnpm store cache. Rust caches use distinct desktop-platform and Android-arm64 keys, preserving existing Cargo targets. Android Gradle state is saved on build branches as well as the default branch; its default read-only behavior on non-default branches previously prevented that. No cache is deleted and no global cache config is installed. GitHub cache visibility is branch-scoped: a fresh isolated build branch can restore default-branch entries but cannot promise hits from an unrelated prior build branch. Reruns on the same reference can reuse its caches.
+
+## Snapshot branch cleanup
+
+Once `.github/workflows/cleanup-build-branches.yml` is on the default branch, successful `Platform builds` or `Release` runs trigger cleanup of their `build/` branch. Cleanup executes code from the default branch, reads event data from GitHub's event file, and requires the triggering repository and current branch SHA to match. It never checks out build-branch code or downloads build artifacts.
+
+Cleanup preserves protected refs, moved refs, and refs with active runs of **any** workflow, including queued, requested, waiting and pending runs at older SHAs. Automatic cleanup also keeps refs with failed or cancelled completed runs at the current SHA so failures remain available for diagnosis and retry. Failed triggers do not run cleanup. A sibling successful workflow can clean up after the last active run finishes; a final failed run leaves the branch for manual cleanup.
+
+Manual cleanup can remove a named idle branch even when its terminal builds failed:
+
+```sh
+pnpm --silent ops platforms cleanup --ref build/latency-20261016 --dry-run --json
+pnpm --silent ops platforms cleanup --ref build/latency-20261016 --json
+```
+
+The command uses the configured GitHub origin and authenticated `gh` CLI; deletion also needs Git push credentials and branch deletion permission. It reports the repository, branch, observed SHA, workflow/branch evidence and a structured state. `eligible` is a dry-run preview; `deleted` requires an absent-ref readback; `missing` is idempotent success. Active, protected or moved refs return nonzero for manual cleanup. API, pagination and readback errors fail closed. Automatic guarded skips are successful no-ops.
+
+All branch runs are paged in batches of 100. History reaching GitHub's 1,000-result filtered-search cap is refused rather than silently truncated. Branch and workflow checks are repeated before deletion, and an exact-SHA Git lease rejects a concurrent branch move. GitHub offers no transaction combining workflow activity checks with ref deletion, so a workflow dispatched after the final check is still a race; avoid dispatching new work while cleanup is running.
+
+Cleanup deletes only `refs/heads/build/NAME`. Tags, releases, artifacts and cache entries are not deleted or changed. GitHub's normal retention and branch-scoped cache visibility still apply. Run `pnpm test:platforms` for mocked safety and readback regressions.
+
+The API/security boundaries follow GitHub's [workflow-run event guidance](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run), [workflow-run pagination limits](https://docs.github.com/en/rest/actions/workflow-runs#list-workflow-runs-for-a-repository), and [ref API](https://docs.github.com/en/rest/git/refs#delete-a-reference). The ref API has no expected-SHA delete parameter, so cleanup uses Git's [explicit expected-value lease](https://git-scm.com/docs/git-push#Documentation/git-push.txt---force-with-leaseltrefnamegtltexpectgt).
 
 ## Verified build on 16 October 2026
 
