@@ -1,19 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pause, Pencil, Play, X } from "lucide-react";
 import { toast } from "sonner";
-import { EkoMark } from "@shared/components/EkoMark";
 import { Button } from "@shared/components/ui/button";
-import { Card, CardContent } from "@shared/components/ui/card";
 import { Toaster } from "@shared/components/ui/sonner";
 import { Spinner } from "@shared/components/ui/spinner";
-import { cn } from "@shared/lib/utils";
 import { useDeviceProfileStore } from "@shared/stores/device-profile-store";
 import { parsePairingSource } from "@shared/utils/pairing-link";
 import { startWebReceiver, type WebReceiverSession } from "@shared/utils/web-signaling-client";
-import { AudioWaveVisualizer } from "./components/AudioWaveVisualizer";
+import { AudioWaveVisualizer } from "@shared/components/receiver/AudioWaveVisualizer";
+import { ReceiverCard } from "@shared/components/receiver/ReceiverCard";
+import { ReceiverLayout } from "@shared/components/receiver/ReceiverLayout";
 import type { JoinRequest } from "@shared/types/device";
 import { ConnectionQualityPanel } from "./features/playback/ConnectionQualityPanel";
-import type { ConnectionQuality } from "./features/playback/connection-quality";
+import type { ConnectionQuality } from "@shared/types/connection-quality";
 import { createLiveProfiler, type LiveProfiler } from "./features/playback/live-profiler";
 import { useWebBackgroundPlayback } from "./features/playback/web-background-playback";
 import type { WebNowPlayingState } from "@shared/types/web-now-playing";
@@ -35,10 +33,8 @@ function App() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [desktopMedia, setDesktopMedia] = useState<WebNowPlayingState | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isEditingName, setIsEditingName] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const nameInputRef = useRef<HTMLInputElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const sessionRef = useRef<WebReceiverSession | null>(null);
   const wantsPlaybackRef = useRef(true);
@@ -48,13 +44,6 @@ function App() {
   const reconnectInFlightRef = useRef(false);
   const lastRecoveryAtRef = useRef(0);
   const hasShownRelayWarningRef = useRef(false);
-
-  useEffect(() => {
-    if (isEditingName) {
-      nameInputRef.current?.focus();
-      nameInputRef.current?.select();
-    }
-  }, [isEditingName]);
 
   useEffect(() => {
     if (payload) {
@@ -283,63 +272,13 @@ function App() {
 
   return (
     <>
-      <div className="mobile-shell bg-background text-foreground">
-        <main className="mx-auto grid min-h-dvh w-full max-w-[430px] content-center gap-3 px-4">
-        <header className="flex items-center gap-3 py-2">
-          <EkoMark animated className="size-11" />
-          <div>
-            <h1 className="text-2xl font-bold leading-tight tracking-tight">eko</h1>
-            <p className="text-sm text-muted-foreground">Web receiver</p>
-          </div>
-        </header>
-
-        <Card className="gap-4 rounded-2xl py-5 shadow-none">
-          <CardContent className="grid gap-4 px-5">
-            <div className="grid gap-2 text-sm font-medium">
-              <span>Receiver name</span>
-              {isEditingName ? (
-                <input
-                  ref={nameInputRef}
-                  id="web-receiver-name"
-                  value={deviceName}
-                  onBlur={() => {
-                    const next = finalReceiverName("web");
-                    sessionRef.current?.updateReceiverName(next);
-                    setIsEditingName(false);
-                  }}
-                  onChange={(event) => setReceiverName("web", event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      const next = finalReceiverName("web");
-                      sessionRef.current?.updateReceiverName(next);
-                      setIsEditingName(false);
-                    }
-                    if (event.key === "Escape") {
-                      setIsEditingName(false);
-                    }
-                  }}
-                  maxLength={40}
-                  disabled={!canEditName}
-                  className="h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-sm text-foreground shadow-xs outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50"
-                />
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => canEditName && setIsEditingName(true)}
-                  disabled={!canEditName}
-                  className={cn(
-                    "flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-sm text-foreground shadow-xs transition-colors",
-                    canEditName
-                      ? "cursor-text hover:bg-accent/50"
-                      : "cursor-not-allowed opacity-50",
-                  )}
-                  aria-label="Edit receiver name"
-                >
-                  <span className="truncate">{deviceName}</span>
-                  <Pencil className="size-3.5 shrink-0 text-muted-foreground" />
-                </button>
-              )}
-            </div>
+      <ReceiverLayout label="Web receiver">
+        <ReceiverCard deviceName={deviceName} canEditName={canEditName}
+          isConnected={isConnected} isPlaying={isPlaying} hasJoined={hasJoined}
+          onNameChange={(name) => setReceiverName("web", name)}
+          onNameCommit={() => sessionRef.current?.updateReceiverName(finalReceiverName("web"))}
+          onTogglePlay={togglePlay} onDisconnect={disconnect}
+          visualizer={<AudioWaveVisualizer stream={stream} isPlaying={isPlaying} className="absolute inset-0" />}>
             <audio
               ref={audioRef}
               className="hidden"
@@ -354,52 +293,6 @@ function App() {
               <track kind="captions" label="No captions available" />
             </audio>
 
-            <div
-              className={cn(
-                "relative h-32 w-full overflow-hidden rounded-xl bg-[#101010] transition-opacity",
-                isConnected ? "opacity-100" : "opacity-30",
-              )}
-            >
-              <AudioWaveVisualizer
-                stream={stream}
-                isPlaying={isPlaying}
-                className="absolute inset-0"
-              />
-              {!isConnected && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-xs font-medium text-white/40">Waiting for audio…</span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={togglePlay}
-                disabled={!isConnected}
-                className={cn(
-                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-all",
-                  isConnected ? "hover:bg-primary/80 active:scale-95" : "opacity-50",
-                )}
-                aria-label={isPlaying ? "Pause" : "Play"}
-              >
-                {isPlaying ? <Pause className="size-4" /> : <Play className="size-4" />}
-              </button>
-
-              <button
-                type="button"
-                onClick={disconnect}
-                disabled={!hasJoined}
-                className={cn(
-                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground transition-all",
-                  isConnected ? "hover:bg-muted active:scale-95" : "opacity-50",
-                )}
-                aria-label="Disconnect"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-
             <ConnectionQualityPanel onQuality={writeQuality} peer={isConnected ? peer : null} />
 
             {isWaiting ? (
@@ -412,10 +305,8 @@ function App() {
                 Ask desktop
               </Button>
             ) : null}
-          </CardContent>
-        </Card>
-        </main>
-      </div>
+        </ReceiverCard>
+      </ReceiverLayout>
       <Toaster position="top-center" closeButton expand={false} visibleToasts={3} />
     </>
   );

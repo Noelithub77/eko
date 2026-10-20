@@ -13,6 +13,7 @@ class EkoMediaService : MediaSessionService() {
     super.onCreate()
     val nextPlayer = EkoSessionPlayer()
     player = nextPlayer
+    activePlayer = nextPlayer
     mediaSession = MediaSession.Builder(this, nextPlayer).build()
   }
 
@@ -21,6 +22,7 @@ class EkoMediaService : MediaSessionService() {
   }
 
   override fun onDestroy() {
+    if (activePlayer === player) activePlayer = null
     mediaSession?.release()
     mediaSession = null
     player?.stopEkoPlayback()
@@ -29,6 +31,14 @@ class EkoMediaService : MediaSessionService() {
   }
 
   companion object {
+    private var activePlayer: EkoSessionPlayer? = null
+
+    fun setPaused(paused: Boolean): Boolean {
+      val current = activePlayer ?: return false
+      if (paused) current.pause() else current.play()
+      return true
+    }
+
     fun start(context: Context) {
       context.startForegroundService(Intent(context, EkoMediaService::class.java))
     }

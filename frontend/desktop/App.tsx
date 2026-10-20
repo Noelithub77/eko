@@ -164,7 +164,7 @@ function App() {
             />
           </div>
           <div className="desktop-pairing">
-            <QrPairingCard payload={qrPayload} />
+            <QrPairingCard payload={qrPayload} error={errorMessage} />
           </div>
         </div>
       ) : null}

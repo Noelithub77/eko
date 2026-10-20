@@ -74,6 +74,13 @@ The desktop shows each connected device's average over the last 30 seconds. Miss
 
 Browser buffer delay uses interval differences of cumulative delay and emitted-sample counters. The first reading or an interval without emitted audio is unknown. The browser may use a larger jitter buffer than requested. The requested target is a preference, not an upper bound.
 
+The Android connected screen uses the same quality tiles. It reads the native
+playback queue, the selected ICE pair's round trip and RTP sequence/timestamp
+measurements. Jitter follows [RFC 3550 appendix A.8](https://www.rfc-editor.org/rfc/rfc3550#appendix-A.8).
+Its waveform uses 48 normalized frequency levels computed from decoded stereo
+audio, emitted at most ten times per second; raw samples remain in native code.
+These UI events are session-only and are not written to profiler logs.
+
 For browser lifecycle behavior, current primary-source research and physical acceptance steps, see [background playback](web-background-playback.md). Use `pnpm ops receiver --json` after building hosted web to detect an outdated production receiver; deploy now verifies the exact client asset bytes.
 
 ## Ranked approaches

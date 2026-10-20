@@ -14,4 +14,7 @@ pub enum NativeReceiverEvent {
     Denied { message: String },
     Error { message: String },
     Closed { message: String },
+    Playback { is_playing: bool },
+    Waveform { levels: Vec<f32> },
+    Quality { sample: super::StreamProfilerSample },
 }

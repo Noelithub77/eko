@@ -18,7 +18,7 @@ mod web_client;
 mod webrtc_core;
 
 use discovery::{DiscoveredHost, DiscoveryAdvertiser};
-use domain::{JoinMethod, JoinRequest, QrPairingPayload, RoomSession, StartStreamResult};
+use domain::{JoinMethod, JoinRequest, RoomSession, StartStreamResult};
 use mobile_receiver::NativeReceiverManager;
 use session::SessionStore;
 use signaling::{emit_room_session, HostedSignaling, SharedSession, SignalingServer};
@@ -310,36 +310,6 @@ fn get_audio_capture_status() -> audio::AudioProofStatus {
 #[specta::specta]
 fn find_nearby_hosts() -> Result<Vec<DiscoveredHost>, String> {
     discovery::browse_hosts(1_500)
-}
-
-#[tauri::command]
-#[specta::specta]
-fn start_native_receiver(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-    payload: QrPairingPayload,
-    request: JoinRequest,
-) -> Result<(), String> {
-    state.receiver.start(app, payload, request)
-}
-
-#[tauri::command]
-#[specta::specta]
-fn stop_native_receiver(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    state.receiver.stop();
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
-fn start_android_media_session(app: tauri::AppHandle) -> Result<(), String> {
-    eko_media::start_session(&app)
-}
-
-#[tauri::command]
-#[specta::specta]
-fn stop_android_media_session(app: tauri::AppHandle) -> Result<(), String> {
-    eko_media::stop_session(&app)
 }
 
 #[tauri::command]

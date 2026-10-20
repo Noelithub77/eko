@@ -225,6 +225,16 @@ export function stopNativeReceiver(): Promise<void> {
   return commands.stopNativeReceiver().then(() => undefined);
 }
 
+export function renameNativeReceiver(name: string): Promise<void> {
+  if (!isTauriRuntime()) return Promise.reject(new Error("Native receiver requires Android."));
+  return commands.renameNativeReceiver(name).then(() => undefined);
+}
+
+export function setAndroidPlaybackPaused(paused: boolean): Promise<void> {
+  if (!isTauriRuntime()) return Promise.reject(new Error("Native playback requires Android."));
+  return commands.setAndroidPlaybackPaused(paused).then(() => undefined);
+}
+
 export function startAndroidMediaSession(): Promise<void> {
   if (!isTauriRuntime()) {
     return Promise.resolve();

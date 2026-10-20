@@ -22,6 +22,8 @@ export const commands = {
 	findNearbyHosts: () => __TAURI_INVOKE<DiscoveredHost[]>("find_nearby_hosts"),
 	startNativeReceiver: (payload: QrPairingPayload, request: JoinRequest) => __TAURI_INVOKE<null>("start_native_receiver", { payload, request }),
 	stopNativeReceiver: () => __TAURI_INVOKE<null>("stop_native_receiver"),
+	renameNativeReceiver: (name: string) => __TAURI_INVOKE<null>("rename_native_receiver", { name }),
+	setAndroidPlaybackPaused: (paused: boolean) => __TAURI_INVOKE<null>("set_android_playback_paused", { paused }),
 	startAndroidMediaSession: () => __TAURI_INVOKE<null>("start_android_media_session"),
 	stopAndroidMediaSession: () => __TAURI_INVOKE<null>("stop_android_media_session"),
 	mediaPlay: () => __TAURI_INVOKE<null>("media_play"),
@@ -132,7 +134,7 @@ export type MediaState = {
 	appName: string | null,
 };
 
-export type NativeReceiverEvent = { kind: "waiting"; message: string } | { kind: "connecting"; message: string } | { kind: "connected"; message: string } | { kind: "denied"; message: string } | { kind: "error"; message: string } | { kind: "closed"; message: string };
+export type NativeReceiverEvent = { kind: "waiting"; message: string } | { kind: "connecting"; message: string } | { kind: "connected"; message: string } | { kind: "denied"; message: string } | { kind: "error"; message: string } | { kind: "closed"; message: string } | { kind: "playback"; isPlaying: boolean } | { kind: "waveform"; levels: (number | null)[] } | { kind: "quality"; sample: StreamProfilerSample };
 
 export type QrPairingPayload = {
 	version: number,

@@ -60,6 +60,7 @@ export const useStreamStore = create<StreamState>()((set) => ({
     }
   },
   start: async () => {
+    set({ qrPayload: null, errorMessage: null });
     try {
       const result = await startStream();
       set({ session: result.session, qrPayload: result.qrPayload, errorMessage: null });
@@ -69,6 +70,7 @@ export const useStreamStore = create<StreamState>()((set) => ({
     }
   },
   restart: async () => {
+    set({ qrPayload: null, errorMessage: null });
     try {
       const result = await startStream();
       set({ session: result.session, qrPayload: result.qrPayload, errorMessage: null });

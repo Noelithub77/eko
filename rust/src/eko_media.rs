@@ -14,6 +14,13 @@ pub struct EkoMedia<R: Runtime> {
 }
 
 impl<R: Runtime> EkoMedia<R> {
+    pub fn set_paused(&self, paused: bool) -> Result<(), String> {
+        #[cfg(target_os = "android")]
+        return self.handle.run_mobile_plugin::<()>("setPlaybackPaused", serde_json::json!({ "paused": paused }))
+            .map_err(|error| error.to_string());
+        #[cfg(not(target_os = "android"))]
+        { let _ = paused; Err("Native playback controls require Android.".into()) }
+    }
     #[cfg(target_os = "android")]
     pub fn start_session(&self) -> Result<(), String> {
         self.handle

@@ -6,29 +6,36 @@
 @source "../shared/**/*.{ts,tsx,html}";
 
 @layer base {
+  html, body, #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
   html {
-    min-height: 100%;
-    overflow-x: hidden;
     overscroll-behavior: none;
     text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
   }
 
   body {
-    min-height: 100%;
     margin: 0;
-    overflow-x: hidden;
     overscroll-behavior: none;
     touch-action: manipulation;
   }
 
-  #root {
-    min-height: 100dvh;
-  }
 }
 
 .mobile-shell {
-  min-height: 100dvh;
+  display: flex;
+  height: 100dvh;
+  overflow: hidden;
+  padding-block-start: max(1rem, env(safe-area-inset-top));
+  padding-block-end: max(1rem, env(safe-area-inset-bottom));
+}
+
+.receiver-shell {
+  height: 100dvh;
+  overflow: hidden;
   padding-block-start: max(1rem, env(safe-area-inset-top));
   padding-block-end: max(1rem, env(safe-area-inset-bottom));
 }

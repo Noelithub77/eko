@@ -10,7 +10,8 @@ Make Android joining simple.
 - Add Find Nearby Host.
 - Add waiting, connected, and denied states.
 - Add just-in-time permission prompts.
-- Keep native receiver hidden behind simple status UI.
+- After connection, use the shared receiver card with a native waveform,
+  local play/pause, disconnect, receiver-name editing and stream-quality tiles.
 
 ## Done When
 
@@ -19,3 +20,7 @@ Make Android joining simple.
 - The phone clearly shows waiting, connected, or denied.
 - The phone starts the native Rust receiver from the UI.
 - The native receiver answers the host WebRTC offer and plays decoded Opus through Oboe.
+- Android and web share their connected presentation; Android supplies native levels,
+  playback state and two-second quality updates. Missing measurements remain unavailable.
+
+See [the receiver UI plan](../android-receiver-ui/summary.md) for ownership and verification.

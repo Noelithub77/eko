@@ -1,15 +1,6 @@
 import { selectedCandidatePair, statsFields } from "../../../../shared/utils/web-rtc-stats";
 
-export type ConnectionQuality = {
-  // Partial one-way estimate: half network RTT plus recent receiver jitter buffer.
-  latencyMs: number | null;
-  roundTripMs: number | null;
-  jitterMs: number | null;
-  bufferMs: number | null;
-  packetLossPercent: number | null;
-  packetsReceived: number | null;
-  packetsLost: number | null;
-};
+import type { ConnectionQuality } from "@shared/types/connection-quality";
 
 type AudioSnapshot = {
   id: unknown;

@@ -1,6 +1,6 @@
 import type { PairingLinkPayload } from "@shared/types/pairing-link";
 import type { StreamProfilerSample } from "@shared/bindings/tauri";
-import type { ConnectionQuality } from "./connection-quality";
+import type { ConnectionQuality } from "@shared/types/connection-quality";
 
 type LiveProfilerContext = {
   connectionId: string;

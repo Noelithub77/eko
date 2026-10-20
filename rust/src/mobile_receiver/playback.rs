@@ -3,7 +3,8 @@ mod android {
     use std::collections::VecDeque;
     use std::ffi::c_void;
     use std::sync::atomic::{AtomicBool, Ordering};
-    use std::sync::{Arc, Mutex};
+    use std::sync::{Arc, Mutex, OnceLock, Weak};
+    use tauri::{AppHandle, Emitter};
 
     use oboe::{
         AudioOutputCallback, AudioOutputStreamSafe, AudioStream, AudioStreamBuilder,
@@ -11,6 +12,11 @@ mod android {
     };
 
     static PLAYBACK_PAUSED: AtomicBool = AtomicBool::new(false);
+    static CONTROL: OnceLock<Mutex<PlaybackControl>> = OnceLock::new();
+    struct PlaybackControl {
+        app: AppHandle,
+        samples: Weak<Mutex<VecDeque<f32>>>,
+    }
     const SAMPLE_RATE: f64 = 48_000.0;
     const CHANNELS: f64 = 2.0;
 
@@ -21,8 +27,13 @@ mod android {
     }
 
     impl NativeAudioPlayer {
-        pub fn start() -> Result<Self, String> {
+        pub fn start(app: AppHandle) -> Result<Self, String> {
             let samples = Arc::new(Mutex::new(VecDeque::with_capacity(7680)));
+            let control = PlaybackControl { app, samples: Arc::downgrade(&samples) };
+            let holder = CONTROL.get_or_init(|| Mutex::new(control));
+            let mut current = holder.lock().map_err(|error| error.to_string())?;
+            current.samples = Arc::downgrade(&samples);
+            drop(current);
             let callback = NativeAudioCallback {
                 samples: Arc::clone(&samples),
             };
@@ -55,18 +66,6 @@ mod android {
             }
         }
 
-        pub fn pause(&self) -> Result<(), String> {
-            set_paused(true);
-            self.clear_buffer();
-            Ok(())
-        }
-
-        pub fn resume(&self) -> Result<(), String> {
-            self.clear_buffer();
-            set_paused(false);
-            Ok(())
-        }
-
         pub fn clear_buffer(&self) {
             if let Ok(mut samples) = self.samples.lock() {
                 samples.clear();
@@ -90,8 +89,19 @@ mod android {
     }
 
     pub fn set_paused(paused: bool) {
+        if paused { PLAYBACK_PAUSED.store(true, Ordering::Relaxed); }
+        if let Some(holder) = CONTROL.get() {
+            if let Ok(control) = holder.lock() {
+                if let Some(samples) = control.samples.upgrade() {
+                    if let Ok(mut samples) = samples.lock() { samples.clear(); }
+                }
+                let _ = control.app.emit("native-receiver-event", crate::domain::NativeReceiverEvent::Playback { is_playing: !paused });
+            }
+        }
         PLAYBACK_PAUSED.store(paused, Ordering::Relaxed);
     }
+
+    pub fn is_paused() -> bool { PLAYBACK_PAUSED.load(Ordering::Relaxed) }
 
     pub struct NativeAudioCallback {
         samples: Arc<Mutex<VecDeque<f32>>>,
@@ -140,4 +150,4 @@ mod android {
 }
 
 #[cfg(target_os = "android")]
-pub use android::NativeAudioPlayer;
+pub use android::{is_paused, NativeAudioPlayer};

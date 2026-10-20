@@ -3,6 +3,8 @@ import QRCodeStyling, { type Options } from "qr-code-styling";
 
 type StyledPairingQrProps = {
   value: string;
+  onReady?: (value: string) => void;
+  onError?: (message: string) => void;
 };
 
 // The code sits straight on the app background. Dark mode makes it light-on-dark,
@@ -30,7 +32,7 @@ function qrOptions(isDark: boolean, size: number, data: string): Options {
   };
 }
 
-export function StyledPairingQr({ value }: StyledPairingQrProps) {
+export function StyledPairingQr({ value, onReady, onError }: StyledPairingQrProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const qrRef = useRef<QRCodeStyling | null>(null);
   const isDark = useSyncExternalStore(subscribeToTheme, readIsDark);
@@ -38,12 +40,15 @@ export function StyledPairingQr({ value }: StyledPairingQrProps) {
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    let active = true;
+    let generation = 0;
 
     const resizeObserver = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (!entry) return;
       const cssSize = Math.floor(Math.min(entry.contentRect.width, entry.contentRect.height));
       if (cssSize < 32) return;
+      const draw = ++generation;
       // Draw at device pixels; CSS scales the canvas back to the box.
       const options = qrOptions(isDark, Math.round(cssSize * window.devicePixelRatio), value);
 
@@ -53,11 +58,16 @@ export function StyledPairingQr({ value }: StyledPairingQrProps) {
         qrRef.current = new QRCodeStyling(options);
         qrRef.current.append(container);
       }
+      void qrRef.current.getRawData("png").then((image) => {
+        if (active && draw === generation && image) onReady?.(value);
+      }).catch(() => {
+        if (active && draw === generation) onError?.("Could not draw the pairing code. Restart the stream to try again.");
+      });
     });
 
     resizeObserver.observe(container);
-    return () => resizeObserver.disconnect();
-  }, [isDark, value]);
+    return () => { active = false; resizeObserver.disconnect(); };
+  }, [isDark, value, onReady, onError]);
 
   return (
     <div
