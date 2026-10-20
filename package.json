@@ -55,7 +55,8 @@
     "build:web": "tsc --project tsconfig.web.json && cross-env PLATFORM=hosted vite build",
     "test:web": "tsx --test frontend/web/landing/*.test.ts",
     "test:local-deploy": "tsc --project tests/local-deploy/tsconfig.json && tsx --test tests/local-deploy/install.test.ts",
-    "test:platforms": "tsc --project tests/platforms/tsconfig.json && tsx --test tests/platforms/cleanup.test.ts"
+    "test:platforms": "tsc --project tests/platforms/tsconfig.json && tsx --test tests/platforms/cleanup.test.ts",
+    "package:extension": "pnpm build:extension && node scripts/package-extension.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

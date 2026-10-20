@@ -22,7 +22,6 @@ test("joining never approves a listener, and denial survives repeated join reque
   session.request(request);
   assert.equal(session.devices[0].state, "pending");
 });
-
 test("a disconnected listener must ask for fresh approval", () => {
   const session = new HostSession("room", "token");
   const request = { deviceId: "phone", deviceName: "Phone", method: "qr" } as const;
@@ -46,4 +45,3 @@ test("payload device identity must match the authenticated relay identity", () =
   assert.ok(parseReceiverSignal("a", { kind: "receiverReady", deviceId: "a" }));
   assert.equal(parseReceiverSignal("a", { kind: "answer", description: { deviceId: "a", sdp: 123 } }), null);
 });
-

@@ -17,6 +17,8 @@ const help = `pnpm ops <command> [--json]
            Run pnpm ops latency --help for options.
   platforms Start, inspect or clean up isolated platform build branches.
             Run pnpm ops platforms --help for options.
+  extension:package Build and validate the unpacked Chrome extension and Web Store ZIP (local).
+  extension:check Run extension type, security, publishing and browser checks (local).
   check    Run tests and the type-checked build, then confirm the release downloads exist.
   build    Build landing and receiver into dist/hosted/.
   assets   Confirm every download link on the page resolves on GitHub.
@@ -132,6 +134,18 @@ async function status(): Promise<Result> {
 
 const [command = "--help", ...flags] = process.argv.slice(2);
 const commands: Record<string, () => Promise<Result>> = {
+  "extension:package": async () => {
+    run("pnpm", ["run", "package:extension"]);
+    const bundle: unknown = JSON.parse(readFileSync(join(root, "dist/extension-bundle.json"), "utf8"));
+    return { environment: "local", bundle };
+  },
+  "extension:check": async () => {
+    run("pnpm", ["run", "test:extension"]);
+    run("pnpm", ["run", "lint"]);
+    run("pnpm", ["run", "package:extension"]);
+    run("pnpm", ["run", "test:extension:ui"]);
+    return { environment: "local", checks: ["types", "approval", "publishing", "lint", "bundle", "browser"] };
+  },
   check: async () => {
     run("pnpm", ["run", "test:web"]);
     run("pnpm", ["run", "build:web"]);
