@@ -141,6 +141,9 @@ dist/mobile/
 
 ## Build Android APK
 
+For a local arm64 build on Linux, including the Java/CMake environment and separate
+Cargo cache, see [Android build verification](../docs/android-builds.md).
+
 Build x86_64 debug APK for emulator:
 
 ```powershell

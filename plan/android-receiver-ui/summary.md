@@ -22,6 +22,22 @@ Status: implemented. Type checks, lint, core tests, eight latency regressions,
 eleven native receiver helper tests, binding generation, desktop Cargo check,
 mobile/web frontend builds and twelve focused browser/layout tests passed.
 Light/dark and short-phone screenshots were inspected with the native-event
-fixture. Native Android compilation and physical playback remain unverified;
-the Android Rust target and generated Gradle wiring are absent locally, and
-the requested slower toolchain/build verification is awaiting a user decision.
+fixture.
+
+Android arm64 debug APK verification passed on 2026-10-20 for application source
+commit `42beb64`. Both Android-only Rust and the Kotlin media plugin compiled;
+no application source fixes were needed. The APK contains the native playback
+library, media service and `setPlaybackPaused` command. Package inspection reports
+`com.codialo.eko`, version `0.5.0` / code `5000`, minimum SDK 26 and target SDK 36.
+APK signature v2 verification passed.
+
+Artifact: `rust/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk`
+(397,935,082 bytes; debug symbols retained).
+
+SHA-256: `214ab438d63ff1a94148fb865d6b449910d6cebb3de2b4354b8fef6009ae229f`.
+
+The Android Rust target and generated Gradle wiring are prepared. Local builds
+use Java 17 and SDK CMake 3.22.1 to avoid the system CMake 4 / bundled Java 25
+incompatibilities; see [Android build verification](../../docs/android-builds.md).
+Cargo and Gradle caches were preserved. Physical playback remains unverified;
+the APK was built and inspected, without installing it on a device.
