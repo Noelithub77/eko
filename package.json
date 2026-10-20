@@ -5,6 +5,10 @@
   "version": "0.5.0",
   "type": "module",
   "scripts": {
+    "dev:extension": "cross-env PLATFORM=extension VITE_PORT=4140 vite --host 127.0.0.1",
+    "build:extension": "tsc --noEmit && cross-env PLATFORM=extension vite build",
+    "test:extension": "tsc --project tests/extension/tsconfig.json && tsx --test tests/extension/*.test.ts",
+    "test:extension:ui": "playwright test --config tests/extension/playwright.config.ts",
     "blog:diagrams": "node blog/scripts/export-diagrams.mjs",
     "blog:medium": "node blog/scripts/medium.mjs",
     "start": "pnpm dev:desktop",
