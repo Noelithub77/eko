@@ -1,0 +1,102 @@
+name: Build and publish Chrome extension
+
+on:
+  pull_request:
+    paths:
+      - 'extension/**'
+      - 'frontend/**'
+      - 'scripts/*extension*'
+      - 'tests/extension/**'
+      - 'vite.config.ts'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/publish-webstore.yml'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Build ZIP, verify listing access, or upload and submit for review
+        required: true
+        default: build
+        type: choice
+        options: [build, preflight, publish]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: extension-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm test:extension
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm package:extension
+      - run: pnpm test:extension:ui
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eko-chrome-extension
+          path: |
+            dist/eko-extension.zip
+            dist/eko-extension.zip.sha256
+            dist/extension-bundle.json
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.action != 'build' && github.repository == 'Noelithub77/eko' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+      CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID || secrets.CWS_EXTENSION_ID }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check listing configuration
+        env:
+          SERVICE_ACCOUNT_CONFIGURED: ${{ secrets.CWS_SERVICE_ACCOUNT_KEY != '' }}
+        run: |
+          if [ -z "$CWS_PUBLISHER_ID" ] || [ -z "$CWS_EXTENSION_ID" ] || [ "$SERVICE_ACCOUNT_CONFIGURED" != 'true' ]; then
+            echo '::error::Configure eko’s own CWS_EXTENSION_ID and publishing credentials. See docs/chrome-extension.md.'
+            exit 1
+          fi
+      - uses: actions/download-artifact@v4
+        with:
+          name: eko-chrome-extension
+          path: dist
+      - name: Verify package checksum
+        working-directory: dist
+        run: sha256sum --check eko-extension.zip.sha256
+      - uses: google-github-actions/auth@v2
+        id: auth
+        with:
+          credentials_json: ${{ secrets.CWS_SERVICE_ACCOUNT_KEY }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/chromewebstore
+          create_credentials_file: false
+      - name: Run selected Web Store operation
+        env:
+          ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          OPERATION: ${{ inputs.action }}
+        run: node scripts/publish-extension.mjs "$OPERATION"
