@@ -248,10 +248,18 @@ export async function mediaExperiment({ relayUrl, clientUrl, path, targetMs, sec
       const validSamples = samples.filter((sample) => sample.version === 2 && sample.bufferMs !== null);
       if (!accepting || validSamples.length < 3 || markerDelays.length < Math.ceil(emitted.length * .9) || errors.length) throw new Error(`Incomplete media run: profiles=${validSamples.length}, markers=${markerDelays.length}, pageErrors=${errors.length}`);
       await receiver.getByRole("button", { name: "Pause", exact: true }).click();
-      await receiver.waitForFunction(() => document.querySelector("audio")?.paused === true);
+      await receiver.waitForFunction(() => {
+        const audio = document.querySelector("audio");
+        return audio?.muted && !audio.paused && audio.srcObject instanceof MediaStream;
+      });
+      const pausedAt = await receiver.evaluate(() => document.querySelector("audio").currentTime);
+      await receiver.waitForFunction((time) => document.querySelector("audio").currentTime > time + 1, pausedAt);
       mark("pauseVerified");
       await receiver.getByRole("button", { name: "Play", exact: true }).click();
-      await receiver.waitForFunction(() => document.querySelector("audio")?.paused === false);
+      await receiver.waitForFunction(() => {
+        const audio = document.querySelector("audio");
+        return audio && !audio.paused && !audio.muted;
+      });
       mark("resumeVerified");
       return { success: true, senderType, pipeline, path, protocol: path === "turn" ? protocol : null, targetMs, timeline, host: hostStats, receiver: receiverStats, profileSamples: validSamples.length, estimatedDelay: summary(validSamples.flatMap((sample) => sample.latencyMs === null ? [] : [sample.latencyMs])), buffer: summary(validSamples.map((sample) => sample.bufferMs)), roundTrip: summary(validSamples.flatMap((sample) => sample.roundTripMs == null ? [] : [sample.roundTripMs])), jitter: summary(validSamples.flatMap((sample) => sample.jitterMs === null ? [] : [sample.jitterMs])), packetLossPercent: validSamples.map((sample) => sample.packetLossPercent), softwareMarkerDelay: summary(markerDelays), markersEmitted: emitted.length, markersDetected: markerDelays.length, markerMatches: matches, samples: validSamples };
     } finally { clearInterval(candidateTimer); }
