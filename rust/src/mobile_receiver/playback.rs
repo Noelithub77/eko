@@ -1,10 +1,10 @@
 #[cfg(target_os = "android")]
 mod android {
-    use std::collections::VecDeque;
     use std::ffi::c_void;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex, OnceLock, Weak};
     use tauri::{AppHandle, Emitter};
+    use super::super::sample_buffer::PlaybackBuffer;
 
     use oboe::{
         AudioOutputCallback, AudioOutputStreamSafe, AudioStream, AudioStreamBuilder,
@@ -15,23 +15,22 @@ mod android {
     static CONTROL: OnceLock<Mutex<PlaybackControl>> = OnceLock::new();
     struct PlaybackControl {
         app: AppHandle,
-        samples: Weak<Mutex<VecDeque<f32>>>,
+        samples: Weak<Mutex<PlaybackBuffer>>,
     }
-    const SAMPLE_RATE: f64 = 48_000.0;
-    const CHANNELS: f64 = 2.0;
 
     #[derive(Clone)]
     pub struct NativeAudioPlayer {
-        samples: Arc<Mutex<VecDeque<f32>>>,
+        samples: Arc<Mutex<PlaybackBuffer>>,
         stream: Arc<Mutex<Option<oboe::AudioStreamAsync<oboe::Output, NativeAudioCallback>>>>,
     }
 
     impl NativeAudioPlayer {
         pub fn start(app: AppHandle) -> Result<Self, String> {
-            let samples = Arc::new(Mutex::new(VecDeque::with_capacity(7680)));
+            let samples = Arc::new(Mutex::new(PlaybackBuffer::new(is_paused())));
             let control = PlaybackControl { app, samples: Arc::downgrade(&samples) };
             let holder = CONTROL.get_or_init(|| Mutex::new(control));
             let mut current = holder.lock().map_err(|error| error.to_string())?;
+            samples.lock().map_err(|error| error.to_string())?.set_paused(is_paused());
             current.samples = Arc::downgrade(&samples);
             drop(current);
             let callback = NativeAudioCallback {
@@ -56,19 +55,8 @@ mod android {
         }
 
         pub fn push_samples(&self, decoded: &[f32]) {
-            if PLAYBACK_PAUSED.load(Ordering::Relaxed) {
-                self.clear_buffer();
-                return;
-            }
-
             if let Ok(mut samples) = self.samples.lock() {
-                super::super::sample_buffer::append_live(&mut samples, decoded);
-            }
-        }
-
-        pub fn clear_buffer(&self) {
-            if let Ok(mut samples) = self.samples.lock() {
-                samples.clear();
+                samples.push(decoded);
             }
         }
 
@@ -76,7 +64,7 @@ mod android {
             self.samples
                 .lock()
                 .ok()
-                .map(|samples| (samples.len() as f64 / (SAMPLE_RATE * CHANNELS)) * 1000.0)
+                .map(|samples| samples.buffer_ms())
         }
 
         pub fn stop(&self) {
@@ -89,22 +77,21 @@ mod android {
     }
 
     pub fn set_paused(paused: bool) {
-        if paused { PLAYBACK_PAUSED.store(true, Ordering::Relaxed); }
+        PLAYBACK_PAUSED.store(paused, Ordering::Relaxed);
         if let Some(holder) = CONTROL.get() {
             if let Ok(control) = holder.lock() {
                 if let Some(samples) = control.samples.upgrade() {
-                    if let Ok(mut samples) = samples.lock() { samples.clear(); }
+                    if let Ok(mut samples) = samples.lock() { samples.set_paused(paused); }
                 }
                 let _ = control.app.emit("native-receiver-event", crate::domain::NativeReceiverEvent::Playback { is_playing: !paused });
             }
         }
-        PLAYBACK_PAUSED.store(paused, Ordering::Relaxed);
     }
 
     pub fn is_paused() -> bool { PLAYBACK_PAUSED.load(Ordering::Relaxed) }
 
     pub struct NativeAudioCallback {
-        samples: Arc<Mutex<VecDeque<f32>>>,
+        samples: Arc<Mutex<PlaybackBuffer>>,
     }
 
     impl AudioOutputCallback for NativeAudioCallback {
@@ -115,19 +102,8 @@ mod android {
             _stream: &mut dyn AudioOutputStreamSafe,
             frames: &mut [(f32, f32)],
         ) -> DataCallbackResult {
-            if PLAYBACK_PAUSED.load(Ordering::Relaxed) {
-                for (left, right) in frames {
-                    *left = 0.0;
-                    *right = 0.0;
-                }
-                return DataCallbackResult::Continue;
-            }
-
             if let Ok(mut samples) = self.samples.try_lock() {
-                for (left, right) in frames {
-                    *left = samples.pop_front().unwrap_or(0.0);
-                    *right = samples.pop_front().unwrap_or(0.0);
-                }
+                samples.render(frames);
             } else {
                 for (left, right) in frames {
                     *left = 0.0;

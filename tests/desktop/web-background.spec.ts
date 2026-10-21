@@ -146,6 +146,7 @@ test("a user pause survives replacement of a broken receiver session", async ({ 
   await expect(page.locator("html")).toHaveAttribute("data-peer-count", "2");
   await page.evaluate(() => window.dispatchEvent(new Event("fixture-stream")));
   await expect(page.getByRole("button", { name: "Play", exact: true })).toBeEnabled();
+  await expect.poll(() => page.evaluate(() => document.querySelector("audio")?.muted && document.querySelector("audio")?.srcObject instanceof MediaStream)).toBe(true);
   await page.evaluate(() => document.dispatchEvent(new Event("resume")));
   await expect(page.getByRole("button", { name: "Play", exact: true })).toBeEnabled();
 });

@@ -6,7 +6,7 @@ Reviewed against primary browser documentation on 16 October 2026. Eko's web rec
 
 The receiver keeps one HTML audio element attached to its WebRTC stream. Audio delivery does not depend on animation frames or JavaScript packet scheduling. Hiding the page does not pause, detach or close healthy media. The visualizer is a separate analysis graph, not the speaker output.
 
-The initial Ask desktop action is a user gesture. Every `play()` rejection is handled; the visible Play control remains available when autoplay is blocked. Playback events update the displayed and Media Session state. A user pause remains separate from a transport interruption, including across reconnection. Resume uses live media rather than replaying an application backlog.
+The initial Ask desktop action is a user gesture. Every `play()` rejection is handled; the visible Play control remains available when autoplay is blocked. Playback events update the displayed and Media Session state. A user pause remains separate from a transport interruption, including across reconnection. Pause mutes the audio element while keeping its live stream attached and consuming audio. Play unmutes the current stream without restarting its timeline or requesting approval again. A replacement stream also consumes silently if the user paused. This continues using the network while paused; Disconnect closes the connection. The extension's Listen flow opens this same receiver.
 
 Media Session exposes supported Play, Pause and Stop actions to lock-screen, headset and notification controls. Action handlers stay registered across playback-state updates. Metadata follows desktop media and uses a 512-pixel artwork asset. Optional Audio Session playback mode is feature-detected and a rejected setter cannot break playback. Unsupported actions or missing metadata support are tolerated.
 
@@ -23,7 +23,7 @@ Connection recovery listens for online, page show, focus, visibility returning a
 
 ## Verification
 
-Run `pnpm test:types`, `pnpm lint`, `pnpm ops latency check`, and the focused Playwright cases in `tests/desktop/web-background.spec.ts` and `tests/desktop/latency.spec.ts`. Playwright fixtures isolate optional-API failures, hidden lifecycle events, transient network failures, explicit pause and terminal desktop rejection.
+Run `pnpm test:types`, `pnpm lint`, `pnpm ops latency check`, and the focused Playwright cases in `tests/desktop/web-background.spec.ts`, `tests/desktop/live-pause.spec.ts` and `tests/desktop/latency.spec.ts`. Playwright fixtures isolate optional-API failures, hidden lifecycle events, transient network failures, explicit pause and terminal desktop rejection. The live pause fixture uses real browser audio with synthetic input and verifies that playback time advances silently through repeated pause/resume cycles without another join. It does not measure physical output delay.
 
 `pnpm ops receiver --json` compares production `/client/` and its versioned script byte-for-byte against the local `dist/hosted/` build. `pnpm ops deploy` performs the same verification after upload. A healthy `/client/` HTTP response alone cannot detect an old receiver bundle.
 
@@ -31,6 +31,7 @@ The latency media operator tests actual receiver approval, playback, pause/resum
 
 ## Primary references
 
+- [MediaStream playback](https://www.w3.org/TR/mediacapture-streams/#mediastreams-in-media-elements): live media elements consume current stream data without an application backlog.
 - [Chrome autoplay policy](https://developer.chrome.com/blog/autoplay): user interaction, `play()` promises and truthful playback controls.
 - [Media Session integration](https://web.dev/articles/media-session): media metadata, lock-screen actions and partial support.
 - [Chrome Page Lifecycle](https://developer.chrome.com/docs/web-platform/page-lifecycle-api): hidden/frozen/discarded states and resume events.

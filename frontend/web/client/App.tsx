@@ -54,16 +54,17 @@ function App() {
     }
   }, [payload]);
 
-  const playCurrentStream = useCallback(() => {
-    wantsPlaybackRef.current = true;
+  const attachCurrentStream = useCallback(() => {
     if (!audioRef.current || !streamRef.current) {
       return;
     }
 
-    audioRef.current.srcObject = streamRef.current;
+    if (audioRef.current.srcObject !== streamRef.current) {
+      audioRef.current.srcObject = streamRef.current;
+    }
     audioRef.current.autoplay = true;
     audioRef.current.defaultMuted = false;
-    audioRef.current.muted = false;
+    audioRef.current.muted = !wantsPlaybackRef.current;
     audioRef.current.volume = 1;
 
     const track = streamRef.current.getAudioTracks()[0];
@@ -85,20 +86,15 @@ function App() {
       });
   }, []);
 
+  const playCurrentStream = useCallback(() => {
+    wantsPlaybackRef.current = true;
+    attachCurrentStream();
+  }, [attachCurrentStream]);
+
   const pauseCurrentStream = useCallback(() => {
     wantsPlaybackRef.current = false;
-    if (!audioRef.current) {
-      return;
-    }
-
-    audioRef.current.pause();
-    audioRef.current.srcObject = null;
-
-    const track = streamRef.current?.getAudioTracks()[0];
-    if (track) {
-      track.enabled = false;
-    }
-
+    // Keep consuming live media silently so Play cannot resume an old queue.
+    if (audioRef.current) audioRef.current.muted = true;
     setIsPlaying(false);
   }, []);
 
@@ -163,7 +159,7 @@ function App() {
           if (generation !== connectionGenerationRef.current) return;
           setStream(nextStream);
           streamRef.current = nextStream;
-          if (wantsPlaybackRef.current) playCurrentStream();
+          attachCurrentStream();
           setStatus("connected");
         },
       });
@@ -194,7 +190,7 @@ function App() {
     } finally {
       if (generation === connectionGenerationRef.current) reconnectInFlightRef.current = false;
     }
-  }, [deviceId, finalReceiverName, payload, pauseCurrentStream, playCurrentStream]);
+  }, [deviceId, finalReceiverName, payload, pauseCurrentStream, attachCurrentStream]);
 
   const recoverConnection = useCallback(() => {
     const session = sessionRef.current;
@@ -286,7 +282,7 @@ function App() {
               preload="auto"
               autoPlay
               muted={false}
-              onPlaying={() => setIsPlaying(true)}
+              onPlaying={() => setIsPlaying(wantsPlaybackRef.current)}
               onPause={() => setIsPlaying(false)}
               onEnded={() => setIsPlaying(false)}
             >
