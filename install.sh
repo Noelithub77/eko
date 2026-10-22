@@ -1,6 +1,6 @@
 #!/bin/sh
 # Install the latest eko AppImage for Linux x86_64, then open it.
-# Usage: curl -fsSL https://eko.allpyq.in/install.sh | sh
+# Usage: curl -fsSL https://raw.githubusercontent.com/Noelithub77/eko/main/install.sh | sh
 set -eu
 
 repo="https://github.com/Noelithub77/eko"

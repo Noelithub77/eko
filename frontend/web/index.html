@@ -55,9 +55,10 @@
       .cmd:disabled{cursor:default}
       .cmd code{flex:1;min-width:0;font:12.5px/1.6 ui-monospace,"SF Mono","JetBrains Mono","Liberation Mono",Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       .cmd svg{flex:none;width:15px;height:15px;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:stroke .2s}
-      .cmd:hover svg{stroke:var(--fg)}.cmd[data-copied] svg{stroke:var(--teal)}
+      .cmd:hover svg{stroke:var(--fg)}.cmd[data-copied] svg{stroke:var(--teal)}.cmd code{transition:color .2s}.cmd[data-copied] code{color:var(--teal)}
       .cmd:disabled svg,.cmd .done,.cmd[data-copied] .copy{display:none}.cmd[data-copied] .done{display:block}
       .or{color:#6a6a6a;font-size:13px}
+      .get-row:has(.cmd:enabled){flex-wrap:wrap;justify-content:flex-end}.get-row:has(.cmd:enabled) .cmd{flex-basis:100%;padding:4px 0}.cmd:enabled code{white-space:normal}
       .download{display:inline-flex;align-items:center;gap:9px;padding:11px 16px 11px 18px;border-radius:12px;background:var(--teal);color:var(--ink);font-weight:700;font-size:14px;white-space:nowrap;box-shadow:0 8px 24px -10px #2ec4b699}
       .download svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
       .store{display:inline-flex;align-items:center;gap:9px;margin-top:14px;padding:10px 16px 10px 14px;border:1px solid #2a2a2a;border-radius:12px;color:var(--fg);font-weight:700;font-size:14px;white-space:nowrap;transition:border-color .2s}

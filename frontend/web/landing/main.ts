@@ -1,5 +1,5 @@
 import "./style.css";
-import { celebrateDownload } from "./download-effect.ts";
+import { celebrate } from "./download-effect.ts";
 import { isDownloadShortcut } from "./download-shortcut.ts";
 import { builds, defaultPlatform, detectDevice, downloadUrl, releaseUrl, type Platform } from "./platform.ts";
 
@@ -49,6 +49,7 @@ document.addEventListener("click", (event) => {
   if (copy && !copy.disabled && command) {
     void navigator.clipboard.writeText(command).then(() => {
       copy.dataset.copied = "";
+      celebrate(copy.querySelector("svg.done") ?? copy);
       setTimeout(() => delete copy.dataset.copied, 1600);
     }, () => {
       // Without clipboard access, select the command so it can be copied by hand.
@@ -59,7 +60,7 @@ document.addEventListener("click", (event) => {
   const download = target?.closest<HTMLAnchorElement>("[data-download]");
   if (download && isPlatform(download.dataset.for)) {
     const platform = download.dataset.for;
-    celebrateDownload(download);
+    celebrate(download);
     void notices().then((toast) => toast.downloading(platform));
   }
 });
