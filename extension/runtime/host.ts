@@ -5,8 +5,8 @@ import { HostSession } from "./session";
 import { HostPeers } from "./peers";
 import { HostRelay, createHostedRoom, fetchIceServers } from "./relay";
 import { parseReceiverSignal } from "./signals";
+import { openCapture, type CaptureRequest } from "./capture";
 
-type CaptureConstraints = MediaStreamConstraints & { audio: { mandatory: { chromeMediaSource: "tab"; chromeMediaSourceId: string } } };
 export class AudioHost {
   private state: HostSnapshot = { ...initialSnapshot };
   private stream: MediaStream | null = null;
@@ -22,15 +22,17 @@ export class AudioHost {
   constructor(private readonly publish: (snapshot: HostSnapshot) => void) {}
 
   snapshot(): HostSnapshot { return { ...this.state, devices: this.session?.devices ?? [] }; }
-  async start(streamId: string, tabId: number, tabTitle: string): Promise<HostSnapshot> {
+  async start(request: CaptureRequest): Promise<HostSnapshot> {
     if (this.state.status !== "idle" && this.state.status !== "error") throw new Error("A stream is already active.");
-    this.state = { ...initialSnapshot, status: "starting", tabId, tabTitle };
+    this.state = { ...initialSnapshot, status: "starting" };
     this.changed();
     try {
-      const constraints: CaptureConstraints = { audio: { mandatory: { chromeMediaSource: "tab", chromeMediaSourceId: streamId } }, video: false };
-      this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const capture = await openCapture(request);
+      this.stream = capture.stream;
+      this.state.tabId = capture.tabId;
+      this.state.tabTitle = capture.title;
       const track = this.stream.getAudioTracks()[0];
-      if (!track) throw new Error("The tab did not provide an audio track.");
+      if (!track) throw new Error("The shared source did not provide an audio track.");
       this.audio = new AudioContext();
       this.gain = this.audio.createGain();
       this.audio.createMediaStreamSource(this.stream).connect(this.gain);
@@ -49,8 +51,8 @@ export class AudioHost {
       // Authenticate before fetching TURN, so a subsequent failure can close the room.
       await this.relay.connect();
       await this.refreshCredentials(room);
-      if (track.readyState !== "live") throw new Error("Tab audio capture ended during startup.");
-      track.onended = () => { void this.fail(new Error("Tab audio capture ended.")); };
+      if (track.readyState !== "live") throw new Error("Audio capture ended during startup.");
+      track.onended = () => { void this.fail(new Error("Audio capture ended.")); };
       this.state.status = "streaming";
       this.changed();
       return this.snapshot();

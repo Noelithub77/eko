@@ -1,17 +1,30 @@
 import { useState } from "react";
-import { AudioLines, Headphones, Moon, Settings, Square, Sun, Volume2, VolumeX } from "lucide-react";
+import { AppWindow, AudioLines, ChevronDown, Headphones, Layers, MonitorSpeaker, Moon, PanelsTopLeft, Settings, Square, Sun,
+  Volume2, VolumeX, type LucideIcon } from "lucide-react";
 import { DesktopLayout } from "../../frontend/desktop/layouts/DesktopLayout";
 import { QrPairingCard } from "../../frontend/desktop/features/pairing/QrPairingCard";
 import { DeviceList } from "../../frontend/desktop/features/devices/DeviceList";
 import { Button } from "@shared/components/ui/button";
+import { ButtonGroup } from "@shared/components/ui/button-group";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@shared/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
 import { Spinner } from "@shared/components/ui/spinner";
 import { Toaster } from "@shared/components/ui/sonner";
 import { cn } from "@shared/lib/utils";
+import { sourceSchema, type CaptureSource } from "../runtime/messages";
 import { useHost } from "./useHost";
+
+const sources: Record<CaptureSource, { label: string; heading: string; Icon: LucideIcon }> = {
+  tab: { label: "This tab", heading: "Share this tab", Icon: AppWindow },
+  otherTab: { label: "Another tab", heading: "Share a tab", Icon: Layers },
+  window: { label: "A window", heading: "Share a window", Icon: PanelsTopLeft },
+  screen: { label: "System audio", heading: "Share system audio", Icon: MonitorSpeaker },
+};
 
 export default function App() {
   const { state, pending, error, tabTitle, run } = useHost();
+  const [source, setSource] = useState<CaptureSource>("tab");
+  const { heading, Icon } = sources[source];
   const [dark, setDark] = useState(document.documentElement.classList.contains("dark"));
   const active = state.status === "streaming" || state.status === "reconnecting";
   const status = state.status === "streaming" ? "Live" : state.status === "reconnecting" ? "Reconnecting" : "Ready";
@@ -54,12 +67,30 @@ export default function App() {
           <Button variant="secondary" size="sm" disabled={pending} onClick={() => void run({ type: "stop" })}><Square className="size-3 fill-current" />Stop</Button>
         </div>
       </> : <div className="flex flex-1 flex-col justify-center gap-7 pb-10">
-        <div className="flex size-14 items-center justify-center rounded-2xl bg-coral/10 text-coral"><AudioLines className="size-7" /></div>
-        <div><h1 className="text-3xl font-bold tracking-tight">Share this tab</h1>
-          <p className="mt-2 truncate text-sm text-muted-foreground">{tabTitle}</p></div>
-        <Button className="w-fit" size="lg" disabled={pending} onClick={() => void run({ type: "start" })}>
-          {pending ? <Spinner /> : <AudioLines />}Start sharing
-        </Button>
+        <div className="flex size-14 items-center justify-center rounded-2xl bg-coral/10 text-coral"><Icon className="size-7" /></div>
+        <div><h1 className="text-3xl font-bold tracking-tight">{heading}</h1>
+          <p className="mt-2 truncate text-sm text-muted-foreground">{source === "tab" ? tabTitle : "Chrome asks what to share"}</p></div>
+        <ButtonGroup>
+          <Button size="lg" disabled={pending} onClick={() => void run({ type: "start", source })}>
+            {pending ? <Spinner /> : <AudioLines />}Start sharing
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="lg" className="border-s border-primary-foreground/20 px-3" disabled={pending} aria-label="Choose what to share"><ChevronDown /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuRadioGroup value={source} onValueChange={(value) => {
+                const parsed = sourceSchema.safeParse(value);
+                if (parsed.success) setSource(parsed.data);
+              }}>
+                {sourceSchema.options.map((option) => {
+                  const { label, Icon: OptionIcon } = sources[option];
+                  return <DropdownMenuRadioItem key={option} value={option}><OptionIcon />{label}</DropdownMenuRadioItem>;
+                })}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </ButtonGroup>
       </div>}
     </div>
     <Toaster />

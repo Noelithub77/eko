@@ -7,8 +7,8 @@ async function ensureOffscreen(): Promise<void> {
   const create = async () => {
     const contexts = await chrome.runtime.getContexts({ contextTypes: ["OFFSCREEN_DOCUMENT"] });
     if (contexts.length) return;
-    await chrome.offscreen.createDocument({ url: "offscreen.html", reasons: ["USER_MEDIA", "AUDIO_PLAYBACK"],
-      justification: "Capture tab audio and stream it to approved eko listeners." });
+    await chrome.offscreen.createDocument({ url: "offscreen.html", reasons: ["USER_MEDIA", "DISPLAY_MEDIA", "AUDIO_PLAYBACK"],
+      justification: "Capture the tab, window or screen audio the user picks and stream it to approved eko listeners." });
   };
   creating = create();
   try { await creating; } finally { creating = null; }
@@ -22,7 +22,7 @@ chrome.runtime.onMessage.addListener((value, sender, reply) => {
     await ensureOffscreen();
     const { command } = parsed.data;
     let capture: { streamId: string; tabId: number; tabTitle: string } | undefined;
-    if (command.type === "start") {
+    if (command.type === "start" && command.source === "tab") {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab?.id === undefined || !tab.url?.match(/^https?:\/\//u)) throw new Error("Open a web page with audio, then try again.");
       capture = { streamId: await chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id }),

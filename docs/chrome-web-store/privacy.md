@@ -1,6 +1,6 @@
 # eko Chrome extension privacy policy
 
-Last updated: October 21, 2026
+Last updated: October 22, 2026
 
 The eko Chrome extension shares audio from a tab you choose with listeners you
 approve. It is developed by Codialo and is open source at
@@ -11,8 +11,10 @@ trackers or product analytics.
 
 After you choose Start sharing, eko captures audio from the selected tab. It
 reads the tab identifier, title and URL to select a supported tab and display
-the title locally. The extension does not read your browsing history, inject
-scripts into page content or capture your microphone.
+the title locally. If you choose another tab, a window or system audio instead,
+Chrome's own share picker asks what to share; eko sends only that source's audio
+and discards the picture immediately. The extension does not read your browsing
+history, inject scripts into page content or capture your microphone.
 
 Captured audio is transmitted to listeners only after you explicitly approve
 them. WebRTC encrypts the audio between the sending and receiving peers using

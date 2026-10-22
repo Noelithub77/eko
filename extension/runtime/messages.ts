@@ -22,9 +22,11 @@ export type HostSnapshot = Omit<z.infer<typeof snapshotSchema>, "devices" | "pai
 export const initialSnapshot: HostSnapshot = {
   status: "idle", tabId: null, tabTitle: "", pairing: null, devices: [], muteLocal: false, error: null, warning: null,
 };
+export const sourceSchema = z.enum(["tab", "otherTab", "window", "screen"]);
+export type CaptureSource = z.infer<typeof sourceSchema>;
 export const commandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("getState") }),
-  z.object({ type: z.literal("start") }),
+  z.object({ type: z.literal("start"), source: sourceSchema }),
   z.object({ type: z.literal("stop") }),
   z.object({ type: z.literal("allow"), deviceId: z.string() }),
   z.object({ type: z.literal("deny"), deviceId: z.string() }),
