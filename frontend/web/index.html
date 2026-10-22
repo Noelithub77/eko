@@ -54,6 +54,9 @@
       .get-row code{flex:1;min-width:0;font:13px/1.6 ui-monospace,"SF Mono","JetBrains Mono","Liberation Mono",Consolas,monospace;color:#d6f1ed;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       .download{display:inline-flex;align-items:center;gap:9px;padding:11px 16px 11px 18px;border-radius:12px;background:var(--teal);color:var(--ink);font-weight:700;font-size:14px;white-space:nowrap;box-shadow:0 8px 24px -10px #2ec4b699}
       .download svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+      .store{display:inline-flex;align-items:center;gap:9px;margin-top:14px;padding:10px 16px 10px 14px;border:1px solid #2a2a2a;border-radius:12px;color:var(--fg);font-weight:700;font-size:14px;white-space:nowrap;transition:border-color .2s}
+      .store:hover{border-color:var(--teal)}
+      .store svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
       .note{margin:18px 0 0;color:#727272;font-size:13.5px}
       @media (max-width:640px){.hero{padding:88px 18px 104px}.hero .mark{width:clamp(112px,32vw,150px)}h1{margin-top:28px;font-size:clamp(38px,11vw,56px)}.lede{margin-top:34px}.getcard{margin-top:28px}.platforms{width:100%;margin-inline:0;gap:0}.platforms button{flex:1;padding:7px 4px;font-size:12px}.get-row{flex-direction:column;align-items:stretch;padding:12px}.get-row code{text-align:center}.download{justify-content:center}}
     </style>
@@ -87,7 +90,7 @@
           <p class="lede">eko echoes your computer's audio to every phone nearby over Wi‑Fi, so everyone listens on their own headphones. No accounts, no cables, and you approve every device.</p>
           <div class="getcard" data-getcard>
             <div class="platforms" role="tablist" aria-label="Platform">
-              <button type="button" role="tab" aria-selected="true" data-platform="windows">Windows</button>
+              <button type="button" role="tab" aria-selected="true" data-platform="windows">Windows beta</button>
               <button type="button" role="tab" aria-selected="false" data-platform="linux">Linux</button>
               <button type="button" role="tab" aria-selected="false" data-platform="macos">macOS beta</button>
               <button type="button" role="tab" aria-selected="false" data-platform="android">Android</button>
@@ -97,6 +100,8 @@
               <a class="download" data-download href="https://github.com/Noelithub77/eko/releases/latest"><span data-download-label>Download</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12M6 11l6 6 6-6M5 20h14" /></svg></a>
             </div>
           </div>
+          <a class="store" href="https://chromewebstore.google.com/detail/eko/ahgbjnbhopbkifeopefgmfjckbbafndm"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" /><path d="M21.17 8H12M3.95 6.06 8.54 14M10.88 21.94 15.46 14" /></svg>Chrome extension</a>
+          <p class="note">Fully supported: Linux, the web client, and the Chrome extension. Windows and macOS have had little testing.</p>
           <p class="note">iPhones listen in Safari by scanning the desktop's QR code.</p>
         </div>
         <a class="scroll-cue" href="#why" aria-label="Scroll to the story">
@@ -226,7 +231,7 @@
           <div class="section-head center" data-reveal>
             <p class="kicker"><span>08</span> The whole system</p>
             <h2>Rust does the live work.</h2>
-            <p>eko has three parts: a desktop app that captures and sends audio, an Android app that plays it, and a browser page for iPhones. React draws the buttons, and Rust owns everything that has to keep running while the movie plays.</p>
+            <p>eko has four parts: a desktop app that captures and sends audio, an Android app that plays it, a browser page for iPhones, and a Chrome extension that shares one tab's audio. On the desktop, React draws the buttons and Rust owns everything that has to keep running while the movie plays.</p>
           </div>
           <figure class="scene" data-scene="architecture" aria-label="The desktop app with a React UI and a Rust core sends signaling and audio to the Android app and the browser client. Cloudflare helps only when needed.">
             <svg aria-hidden="true"></svg>
@@ -269,7 +274,7 @@
           <p class="after">Install it on the laptop, open eko on your phone, and scan the QR code.</p>
           <div class="getcard" data-getcard>
             <div class="platforms" role="tablist" aria-label="Platform">
-              <button type="button" role="tab" aria-selected="true" data-platform="windows">Windows</button>
+              <button type="button" role="tab" aria-selected="true" data-platform="windows">Windows beta</button>
               <button type="button" role="tab" aria-selected="false" data-platform="linux">Linux</button>
               <button type="button" role="tab" aria-selected="false" data-platform="macos">macOS beta</button>
               <button type="button" role="tab" aria-selected="false" data-platform="android">Android</button>
@@ -279,6 +284,7 @@
               <a class="download" data-download href="https://github.com/Noelithub77/eko/releases/latest"><span data-download-label>Download</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12M6 11l6 6 6-6M5 20h14" /></svg></a>
             </div>
           </div>
+          <a class="store" href="https://chromewebstore.google.com/detail/eko/ahgbjnbhopbkifeopefgmfjckbbafndm"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" /><path d="M21.17 8H12M3.95 6.06 8.54 14M10.88 21.94 15.46 14" /></svg>Chrome extension</a>
           <p class="links"><a href="https://medium.com/@noelmcv7/eko-share-audio-683aff638157">Read the story</a><a href="https://github.com/Noelithub77/eko">Source</a><a data-release href="https://github.com/Noelithub77/eko/releases/latest">Release notes</a></p>
         </div>
       </section>
