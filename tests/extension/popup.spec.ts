@@ -15,7 +15,8 @@ test("shares a tab, requires approval and keeps secondary controls closed", asyn
     const state = { status: "idle", tabId: 1, tabTitle: "A quiet afternoon", devices: [], muteLocal: false, error: null, warning: null, pairing: null };
     Object.defineProperty(window, "chrome", { configurable: true, value: {
       runtime: { getURL: (path: string) => `/${path}`, onMessage: { addListener() {}, removeListener() {} },
-        sendMessage: async ({ command }: { command: { type: string; deviceId?: string; muted?: boolean } }) => {
+        sendMessage: async ({ command }: { command: { type: string; deviceId?: string; muted?: boolean; source?: string } }) => {
+          if (command.type === "start") document.body.dataset.startSource = command.source;
           if (command.type === "start") Object.assign(state, { status: "streaming", devices,
             pairing: { version: 1, local: { host: "localhost", port: 4040 }, hosted: { roomId: "fixture-room", joinToken: "fixture-token",
               clientUrl: "https://eko.allpyq.in/client/", socketUrl: "wss://eko.allpyq.in/v1/rooms/fixture-room/socket" } } });
@@ -30,7 +31,15 @@ test("shares a tab, requires approval and keeps secondary controls closed", asyn
   await expect(page.getByRole("heading", { name: "Share this tab" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Light theme", exact: true })).toHaveCount(0);
   await page.screenshot({ path: ".test-results/extension/idle.png" });
+  await page.getByRole("button", { name: "Choose what to share" }).click();
+  await expect(page.getByRole("menuitemradio", { name: "This tab" })).toHaveAttribute("aria-checked", "true");
+  await page.screenshot({ path: ".test-results/extension/sources.png" });
+  await page.getByRole("menuitemradio", { name: "System audio" }).click();
+  await expect(page.getByRole("heading", { name: "Share system audio" })).toBeVisible();
+  await page.getByRole("button", { name: "Choose what to share" }).click();
+  await page.getByRole("menuitemradio", { name: "This tab" }).click();
   await page.getByRole("button", { name: "Start sharing" }).click();
+  await expect(page.locator("body")).toHaveAttribute("data-start-source", "tab");
   await expect(page.getByRole("heading", { name: "Scan to listen" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Copy link" })).toBeVisible();
   await expect(page.getByText("Wants to listen")).toBeVisible();

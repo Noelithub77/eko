@@ -6,7 +6,7 @@ it does not establish that console fields are saved or the item is published.
 ## Listing fields
 
 - Name: eko
-- Summary: Share Chrome tab audio with approved eko listeners.
+- Summary: Share tab, window or system audio from Chrome with approved eko listeners.
 - Language: English
 - Suggested category: Entertainment (confirm the available console category).
 - Website: https://eko.allpyq.in/
@@ -16,12 +16,13 @@ it does not establish that console fields are saved or the item is published.
 
 ## Description
 
-Share the sound from one Chrome tab with listeners you approve.
+Share the sound from Chrome with listeners you approve.
 
 Start sharing from a music, video or other audio tab. Open eko, share the pairing
 code or link, then allow each listener before they receive audio.
 
-• Share the audio from the tab you choose.
+• Share this tab, or pick another tab, a window or your system audio in
+  Chrome's own share picker.
 • Approve or deny each listener.
 • Keep listening on your computer, or mute its local playback.
 • Stop sharing from the popup.
@@ -33,7 +34,8 @@ established. The extension uses the hosted eko service for pairing and signaling
 so an internet connection is required.
 
 Requires Chrome 116 or later and a compatible eko receiver. Protected pages and
-some protected media may not support tab capture. eko does not capture your
+some protected media may not support tab capture. Window and system audio depend
+on your operating system and Chrome version. eko does not capture your
 microphone or record your audio.
 
 ## Assets
@@ -57,8 +59,8 @@ playback, Android compatibility, Safari or forced TURN.
 
 ## Privacy practices
 
-Single purpose: Share the audio of a user-selected Chrome tab with eko listeners
-after explicit host approval.
+Single purpose: Share the audio of a user-selected Chrome tab, window or screen
+with eko listeners after explicit host approval.
 
 Permission justifications:
 
@@ -66,7 +68,10 @@ Permission justifications:
   Start sharing. The captured track supplies the encrypted WebRTC stream.
 - `offscreen`: Maintain the audio stream, local playback and WebRTC connections
   in an offscreen document while the popup is closed. Chrome's service worker
-  cannot own these document-based audio APIs.
+  cannot own these document-based audio APIs. When the user picks another tab,
+  a window or system audio, this document opens Chrome's own share picker; only
+  the audio of the source the user selects there is sent, and the picture is
+  discarded immediately.
 - `activeTab`: Identify the tab selected when the user invokes eko, check whether
   it is a supported web tab and show its title in the popup. No browsing-history
   collection or page-content injection is used.

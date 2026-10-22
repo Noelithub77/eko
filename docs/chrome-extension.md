@@ -1,6 +1,7 @@
 # Chrome extension
 
-The extension shares one Chrome tab’s audio. It uses the root React 19, Vite 7,
+The extension shares the audio of the current tab, another tab, a window or the
+whole system, chosen from the split button's menu. It uses the root React 19, Vite 7,
 Tailwind 4 and shadcn installation, the `@shared` alias and the existing Luma
 component configuration in `components.json`. There is no second package install
 or copied component catalog.
@@ -43,10 +44,17 @@ to exercise the service worker and offscreen host. Increment the version in
 
 ## Encoding and sending
 
-1. A user action grants access to the selected tab. The service worker obtains
-   a tab capture stream ID and passes it to the offscreen page.
-2. The offscreen page consumes that ID through `getUserMedia`. A Web Audio graph
-   preserves computer playback and allows muting only that local output.
+1. For **This tab**, the user action grants access to the active tab. The
+   service worker obtains a tab capture stream ID and the offscreen page
+   consumes it through `getUserMedia`. For **Another tab**, **A window** and
+   **System audio**, the offscreen page (created with the `DISPLAY_MEDIA`
+   reason) calls `getDisplayMedia` and Chrome shows its own picker. The picture
+   track is stopped immediately, and a selection without audio fails with a
+   clear error. Window audio needs Chrome 140+, and both window and system
+   audio depend on the operating system; Chrome omits the audio option where
+   it cannot capture it. All capture code lives in `extension/runtime/capture.ts`.
+2. A Web Audio graph preserves computer playback and allows muting only that
+   local output.
 3. The host creates a room through the existing Worker, authenticates its
    WebSocket with the host token and fetches short-lived TURN credentials.
 4. A QR scan only creates a pending request. The host’s explicit Allow action
