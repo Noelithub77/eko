@@ -11,7 +11,7 @@ const tag = `eko-v${version}`;
 // File names follow the Tauri release workflow; `pnpm ops check` verifies they exist.
 export const builds: Record<Platform, Build> = {
   windows: { file: `eko_${version}_x64-setup.exe`, label: "Download" },
-  linux: { file: `eko_${version}_amd64.AppImage`, label: "AppImage", command: "curl -fsSL https://eko.allpyq.in/install.sh | sh" },
+  linux: { file: `eko_${version}_amd64.AppImage`, label: "AppImage", command: "curl -fsSL https://raw.githubusercontent.com/Noelithub77/eko/main/install.sh | sh" },
   macos: { file: `eko_${version}_aarch64.dmg`, label: "Download DMG", detail: "Apple Silicon · macOS 13+" },
   android: { file: `eko-${version}-android-aarch64.apk`, label: "Download APK" },
 };

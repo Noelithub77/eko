@@ -1,9 +1,9 @@
 let active: HTMLElement | undefined;
 
-export function celebrateDownload(link: HTMLAnchorElement) {
+export function celebrate(origin: HTMLElement) {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   active?.remove();
-  const box = link.getBoundingClientRect();
+  const box = origin.getBoundingClientRect();
   const visible = box.bottom > 0 && box.top < innerHeight;
   const burst = document.createElement("div");
   burst.className = "download-burst";

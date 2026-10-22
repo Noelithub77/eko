@@ -185,6 +185,7 @@ eko/
     plugins/
       eko-media/android/src/main/java/com/codialo/eko/media/
   ops.ts
+  install.sh        # Linux one-line installer, fetched from GitHub main
   relay/
     worker.ts
     wrangler.jsonc
