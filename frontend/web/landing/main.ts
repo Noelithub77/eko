@@ -14,7 +14,12 @@ function setPlatform(card: Element, platform: Platform) {
   const file = card.querySelector("[data-file]");
   const link = card.querySelector<HTMLAnchorElement>("[data-download]");
   const label = card.querySelector("[data-download-label]");
-  if (file) file.textContent = builds[platform].detail ?? builds[platform].file;
+  const copy = card.querySelector<HTMLButtonElement>("[data-copy]");
+  const or = card.querySelector<HTMLElement>("[data-or]");
+  const { command } = builds[platform];
+  if (file) file.textContent = command ?? builds[platform].detail ?? builds[platform].file;
+  if (copy) copy.disabled = !command;
+  if (or) or.hidden = !command;
   if (label) label.textContent = builds[platform].label;
   if (link) {
     link.href = downloadUrl(platform);
@@ -38,6 +43,18 @@ document.addEventListener("click", (event) => {
     const platform = tab.dataset.platform;
     // Both cards follow one choice so the final card matches the hero.
     for (const card of cards) setPlatform(card, platform);
+  }
+  const copy = target?.closest<HTMLButtonElement>("[data-copy]");
+  const command = copy?.textContent;
+  if (copy && !copy.disabled && command) {
+    void navigator.clipboard.writeText(command).then(() => {
+      copy.dataset.copied = "";
+      setTimeout(() => delete copy.dataset.copied, 1600);
+    }, () => {
+      // Without clipboard access, select the command so it can be copied by hand.
+      const code = copy.querySelector("code");
+      if (code) getSelection()?.selectAllChildren(code);
+    });
   }
   const download = target?.closest<HTMLAnchorElement>("[data-download]");
   if (download && isPlatform(download.dataset.for)) {

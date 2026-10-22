@@ -51,14 +51,20 @@
       .platforms button{border:0;border-radius:999px;padding:6px 14px;background:none;color:var(--muted);font:inherit;font-size:13px;white-space:nowrap;cursor:pointer}
       .platforms [aria-selected=true]{background:#262626;color:var(--fg);box-shadow:0 1px 2px #0006}
       .get-row{display:flex;align-items:center;gap:12px;padding:8px 8px 8px 16px;border-radius:16px;background:#0e0e0e;border:1px solid #1f1f1f}
-      .get-row code{flex:1;min-width:0;font:13px/1.6 ui-monospace,"SF Mono","JetBrains Mono","Liberation Mono",Consolas,monospace;color:#d6f1ed;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .cmd{flex:1;min-width:0;display:flex;align-items:center;gap:10px;padding:0;border:0;background:none;color:#d6f1ed;font:inherit;text-align:left;cursor:pointer}
+      .cmd:disabled{cursor:default}
+      .cmd code{flex:1;min-width:0;font:12.5px/1.6 ui-monospace,"SF Mono","JetBrains Mono","Liberation Mono",Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .cmd svg{flex:none;width:15px;height:15px;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:stroke .2s}
+      .cmd:hover svg{stroke:var(--fg)}.cmd[data-copied] svg{stroke:var(--teal)}
+      .cmd:disabled svg,.cmd .done,.cmd[data-copied] .copy{display:none}.cmd[data-copied] .done{display:block}
+      .or{color:#6a6a6a;font-size:13px}
       .download{display:inline-flex;align-items:center;gap:9px;padding:11px 16px 11px 18px;border-radius:12px;background:var(--teal);color:var(--ink);font-weight:700;font-size:14px;white-space:nowrap;box-shadow:0 8px 24px -10px #2ec4b699}
       .download svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
       .store{display:inline-flex;align-items:center;gap:9px;margin-top:14px;padding:10px 16px 10px 14px;border:1px solid #2a2a2a;border-radius:12px;color:var(--fg);font-weight:700;font-size:14px;white-space:nowrap;transition:border-color .2s}
       .store:hover{border-color:var(--teal)}
       .store svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
       .note{margin:18px 0 0;color:#727272;font-size:13.5px}
-      @media (max-width:640px){.hero{padding:88px 18px 104px}.hero .mark{width:clamp(112px,32vw,150px)}h1{margin-top:28px;font-size:clamp(38px,11vw,56px)}.lede{margin-top:34px}.getcard{margin-top:28px}.platforms{width:100%;margin-inline:0;gap:0}.platforms button{flex:1;padding:7px 4px;font-size:12px}.get-row{flex-direction:column;align-items:stretch;padding:12px}.get-row code{text-align:center}.download{justify-content:center}}
+      @media (max-width:640px){.hero{padding:88px 18px 104px}.hero .mark{width:clamp(112px,32vw,150px)}h1{margin-top:28px;font-size:clamp(38px,11vw,56px)}.lede{margin-top:34px}.getcard{margin-top:28px}.platforms{width:100%;margin-inline:0;gap:0}.platforms button{flex:1;padding:7px 4px;font-size:12px}.get-row{flex-direction:column;align-items:stretch;padding:12px}.cmd{justify-content:center}.cmd code{flex:0 1 auto;white-space:normal;overflow-wrap:anywhere;text-align:center}.or{text-align:center}.download{justify-content:center}}
     </style>
     <script type="module" src="./landing/main.ts"></script>
   </head>
@@ -96,7 +102,8 @@
               <button type="button" role="tab" aria-selected="false" data-platform="android">Android</button>
             </div>
             <div class="get-row">
-              <code data-file>eko for Windows</code>
+              <button type="button" class="cmd" data-copy disabled aria-label="Copy install command"><code data-file>eko for Windows</code><svg class="copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" /></svg><svg class="done" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-10" /></svg></button>
+              <span class="or" data-or hidden>or</span>
               <a class="download" data-download href="https://github.com/Noelithub77/eko/releases/latest"><span data-download-label>Download</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12M6 11l6 6 6-6M5 20h14" /></svg></a>
             </div>
           </div>
@@ -280,7 +287,8 @@
               <button type="button" role="tab" aria-selected="false" data-platform="android">Android</button>
             </div>
             <div class="get-row">
-              <code data-file>eko for Windows</code>
+              <button type="button" class="cmd" data-copy disabled aria-label="Copy install command"><code data-file>eko for Windows</code><svg class="copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" /></svg><svg class="done" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-10" /></svg></button>
+              <span class="or" data-or hidden>or</span>
               <a class="download" data-download href="https://github.com/Noelithub77/eko/releases/latest"><span data-download-label>Download</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12M6 11l6 6 6-6M5 20h14" /></svg></a>
             </div>
           </div>
