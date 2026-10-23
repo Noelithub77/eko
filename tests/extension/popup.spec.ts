@@ -31,12 +31,12 @@ test("shares a tab, requires approval and keeps secondary controls closed", asyn
   await expect(page.getByRole("heading", { name: "Share this tab" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Light theme", exact: true })).toHaveCount(0);
   await page.screenshot({ path: ".test-results/extension/idle.png" });
-  await page.getByRole("button", { name: "Choose what to share" }).click();
+  await page.getByRole("button", { name: "Share this tab" }).click();
   await expect(page.getByRole("menuitemradio", { name: "This tab" })).toHaveAttribute("aria-checked", "true");
   await page.screenshot({ path: ".test-results/extension/sources.png" });
   await page.getByRole("menuitemradio", { name: "System audio" }).click();
   await expect(page.getByRole("heading", { name: "Share system audio" })).toBeVisible();
-  await page.getByRole("button", { name: "Choose what to share" }).click();
+  await page.getByRole("button", { name: "Share system audio" }).click();
   await page.getByRole("menuitemradio", { name: "This tab" }).click();
   await page.getByRole("button", { name: "Start sharing" }).click();
   await expect(page.locator("body")).toHaveAttribute("data-start-source", "tab");

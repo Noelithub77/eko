@@ -5,7 +5,6 @@ import { DesktopLayout } from "../../frontend/desktop/layouts/DesktopLayout";
 import { QrPairingCard } from "../../frontend/desktop/features/pairing/QrPairingCard";
 import { DeviceList } from "../../frontend/desktop/features/devices/DeviceList";
 import { Button } from "@shared/components/ui/button";
-import { ButtonGroup } from "@shared/components/ui/button-group";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@shared/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
 import { Spinner } from "@shared/components/ui/spinner";
@@ -66,19 +65,14 @@ export default function App() {
           <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{state.tabTitle}</span>
           <Button variant="secondary" size="sm" disabled={pending} onClick={() => void run({ type: "stop" })}><Square className="size-3 fill-current" />Stop</Button>
         </div>
-      </> : <div className="flex flex-1 flex-col justify-center gap-7 pb-10">
+      </> : <div className="flex flex-1 flex-col items-center justify-center gap-7 pb-10 text-center">
         <div className="flex size-14 items-center justify-center rounded-2xl bg-coral/10 text-coral"><Icon className="size-7" /></div>
-        <div><h1 className="text-3xl font-bold tracking-tight">{heading}</h1>
-          <p className="mt-2 truncate text-sm text-muted-foreground">{source === "tab" ? tabTitle : "Chrome asks what to share"}</p></div>
-        <ButtonGroup>
-          <Button size="lg" disabled={pending} onClick={() => void run({ type: "start", source })}>
-            {pending ? <Spinner /> : <AudioLines />}Start sharing
-          </Button>
+        <div className="w-full">
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="lg" className="border-s border-primary-foreground/20 px-3" disabled={pending} aria-label="Choose what to share"><ChevronDown /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-48">
+            <h1><DropdownMenuTrigger disabled={pending} className="inline-flex items-center gap-1.5 rounded-lg px-2 text-3xl font-bold tracking-tight outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
+              {heading}<ChevronDown className="size-5 text-muted-foreground" />
+            </DropdownMenuTrigger></h1>
+            <DropdownMenuContent align="center" className="w-48">
               <DropdownMenuRadioGroup value={source} onValueChange={(value) => {
                 const parsed = sourceSchema.safeParse(value);
                 if (parsed.success) setSource(parsed.data);
@@ -90,7 +84,11 @@ export default function App() {
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
-        </ButtonGroup>
+          <p className="mt-2 truncate text-sm text-muted-foreground">{source === "tab" ? tabTitle : "Chrome asks what to share"}</p>
+        </div>
+        <Button size="lg" disabled={pending} onClick={() => void run({ type: "start", source })}>
+          {pending ? <Spinner /> : <AudioLines />}Start sharing
+        </Button>
       </div>}
     </div>
     <Toaster />
