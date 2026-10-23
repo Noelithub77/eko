@@ -6,6 +6,12 @@ test("real browser peers enforce approval, ignore duplicate ready and cancel rev
   await expect(page.locator("body")).toHaveAttribute("data-peer-test", "passed");
 });
 
+test("system capture rejects tabs and silent screens and releases their tracks", async ({ page }) => {
+  await page.goto("/popup.html");
+  await page.addScriptTag({ type: "module", url: `/@fs${new URL("system-capture-fixture.ts", import.meta.url).pathname}` });
+  await expect(page.locator("body")).toHaveAttribute("data-system-capture-test", "passed");
+});
+
 test("shares a tab, requires approval and keeps secondary controls closed", async ({ page }) => {
   const failures: string[] = [];
   page.on("pageerror", (error) => failures.push(error.message));
@@ -34,10 +40,8 @@ test("shares a tab, requires approval and keeps secondary controls closed", asyn
   await page.getByRole("button", { name: "Share this tab" }).click();
   await expect(page.getByRole("menuitemradio", { name: "This tab" })).toHaveAttribute("aria-checked", "true");
   await page.screenshot({ path: ".test-results/extension/sources.png" });
-  await expect(page.getByRole("menuitemradio")).toHaveText(["This tab", "Another tab"]);
-  await page.getByRole("menuitemradio", { name: "Another tab" }).click();
-  await expect(page.getByRole("heading", { name: "Share a tab" })).toBeVisible();
-  await page.getByRole("button", { name: "Share a tab" }).click();
+  await expect(page.getByRole("menuitemradio")).toHaveText(["This tab", "Entire systemUse the desktop app on Linux"]);
+  await expect(page.getByRole("menuitemradio", { name: /Entire system/u })).toBeDisabled();
   await page.getByRole("menuitemradio", { name: "This tab" }).click();
   await page.getByRole("button", { name: "Start sharing" }).click();
   await expect(page.locator("body")).toHaveAttribute("data-start-source", "tab");
@@ -59,4 +63,24 @@ test("shares a tab, requires approval and keeps secondary controls closed", asyn
   await page.getByRole("button", { name: "Stop", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Share this tab" })).toBeVisible();
   expect(failures).toEqual([]);
+});
+
+test("supported platforms can choose the entire system from the title", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "chrome", { configurable: true, value: {
+      runtime: { getPlatformInfo: async () => ({ os: "win" }), onMessage: { addListener() {}, removeListener() {} },
+        sendMessage: async ({ command }: { command: { type: string; source?: string } }) => {
+          if (command.type === "start") document.body.dataset.startSource = command.source;
+          return { ok: true, state: { status: "idle", tabId: null, tabTitle: "", devices: [], muteLocal: false, error: null, warning: null, pairing: null } };
+        } }, tabs: { query: async () => [] },
+    } });
+  });
+  await page.goto("/popup.html");
+  await expect(page.getByRole("button", { name: "Start sharing" })).toBeEnabled();
+  await page.getByRole("button", { name: "Share this tab" }).click();
+  await expect(page.getByRole("menuitemradio")).toHaveText(["This tab", "Entire system"]);
+  await page.getByRole("menuitemradio", { name: "Entire system", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Share system audio" })).toBeVisible();
+  await page.getByRole("button", { name: "Start sharing" }).click();
+  await expect(page.locator("body")).toHaveAttribute("data-start-source", "screen");
 });

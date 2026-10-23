@@ -1,7 +1,7 @@
 # Chrome extension
 
-The extension shares the audio of the current tab, another tab, a window or the
-whole system, chosen from the split button's menu. It uses the root React 19, Vite 7,
+The extension shares this tab or the entire system, chosen from the title's menu.
+It uses the root React 19, Vite 7,
 Tailwind 4 and shadcn installation, the `@shared` alias and the existing Luma
 component configuration in `components.json`. There is no second package install
 or copied component catalog.
@@ -23,6 +23,15 @@ Load `dist/extension/` with **Load unpacked** at `chrome://extensions`. Chrome 1
 or later is required. Open a normal web tab, invoke the extension and choose
 **Start sharing**. Scan the code on the receiver, then allow it in the popup.
 Settings contains local speaker mute, theme and the receiver entry point.
+
+**This tab** shares the tab where eko was invoked. **Entire system** opens Chrome's
+screen picker: choose an entire screen and enable audio. A tab or window selection
+is rejected. Chrome on Linux does not provide system audio; the menu shows that
+option as unavailable and points to the eko desktop app instead. Other systems
+still depend on Chrome and the operating system providing a system-audio track.
+
+Version 0.5.2 removes the other-tab and window sources. Both remaining paths stay
+in the offscreen host, without an extra capture tab or new permission.
 
 The package operation creates:
 
@@ -46,12 +55,11 @@ to exercise the service worker and offscreen host. Increment the version in
 
 1. For **This tab**, the user action grants access to the active tab. The
    service worker obtains a tab capture stream ID and the offscreen page
-   consumes it through `getUserMedia`. For **Another tab**, **A window** and
-   **System audio**, the offscreen page (created with the `DISPLAY_MEDIA`
-   reason) calls `getDisplayMedia` and Chrome shows its own picker. The picture
+   consumes it through `getUserMedia`. For **Entire system**, the offscreen page
+   (created with the `DISPLAY_MEDIA` reason) calls `getDisplayMedia` and Chrome
+   shows its own picker. The result must be an entire screen with audio. The picture
    track is stopped immediately, and a selection without audio fails with a
-   clear error. Window audio needs Chrome 140+, and both window and system
-   audio depend on the operating system; Chrome omits the audio option where
+   clear error. System audio depends on the operating system; Chrome omits the audio option where
    it cannot capture it. All capture code lives in `extension/runtime/capture.ts`.
 2. A Web Audio graph preserves computer playback and allows muting only that
    local output.
@@ -106,6 +114,11 @@ Opus send-only offer, duplicate readiness and revocation. Popup fixtures cover
 pending approval, light/dark themes and stopping. Another test loads the built
 extension in an isolated Chromium profile and verifies its module worker,
 popup and offscreen messaging.
+
+Source checks cover the two-item title menu, system selection on a simulated
+supported platform, the real Linux runtime guard, and cleanup of wrong-surface
+or silent screen selections with isolated media fixtures. They do not prove
+physical system-audio capture on Windows or macOS.
 
 For a system Chromium, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to its executable
 when running browser checks. Otherwise install Playwright’s Chromium once with

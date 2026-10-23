@@ -6,13 +6,17 @@
 
 Keep capture and host authority in an offscreen document; React only sends commands and renders snapshots. Chrome provides capture, WebRTC codec negotiation and encrypted media transport. The existing Worker provides authenticated signaling and short-lived TURN credentials.
 
+## Share sources
+
+**[chosen]** Offer only This tab and Entire system in the title menu. Keep the existing offscreen host and permissions. Entire system requires a monitor surface with audio; reject and release tab, window or silent selections. On Linux, show the system option as unavailable with a desktop-app hint and enforce the same guard in the background worker. Version 0.5.2 carries this simplification; no package or native change is needed.
+
 ## Approval boundary
 
 The user approved repairing the discovered security and protocol issues as part of the migration. Require explicit host approval, bind payload identity to the authenticated relay envelope, keep credentials in memory and use shared session types. Leave native receiver and Worker behavior unchanged.
 
 ## Verification
 
-Verified TypeScript, lint, the complete production bundle, seven session/publishing tests and three browser checks. Real browser peers enforce approval, duplicate readiness and cancellation; popup screenshots were inspected in light and dark themes. The unpacked extension loads its module worker, popup and offscreen document in an isolated Chromium profile. The existing relay typecheck and seven relay tests also pass.
+For the 0.5.2 source simplification, TypeScript, Biome, the production bundle, seven session/publishing tests and five browser checks pass. Browser fixtures cover system-surface validation and track cleanup; the installed-extension check confirms the Linux guard. The user's Chrome was reloaded with the final build and its two-item menu and original permissions were read back over one persistent CDP connection.
 
 Real tab capture, native Android, Safari, forced TURN playback and physical latency remain unverified. No native app build or Cloudflare deployment was run.
 

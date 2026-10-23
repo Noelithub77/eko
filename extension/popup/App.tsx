@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AppWindow, AudioLines, ChevronDown, Headphones, Layers, MonitorSpeaker, Moon, PanelsTopLeft, Settings, Square, Sun,
+import { AppWindow, AudioLines, ChevronDown, Headphones, MonitorSpeaker, Moon, Settings, Square, Sun,
   Volume2, VolumeX, type LucideIcon } from "lucide-react";
 import { DesktopLayout } from "../../frontend/desktop/layouts/DesktopLayout";
 import { QrPairingCard } from "../../frontend/desktop/features/pairing/QrPairingCard";
@@ -15,22 +15,17 @@ import { useHost } from "./useHost";
 
 const sources: Record<CaptureSource, { label: string; heading: string; Icon: LucideIcon }> = {
   tab: { label: "This tab", heading: "Share this tab", Icon: AppWindow },
-  otherTab: { label: "Another tab", heading: "Share a tab", Icon: Layers },
-  window: { label: "A window", heading: "Share a window", Icon: PanelsTopLeft },
-  screen: { label: "System audio", heading: "Share system audio", Icon: MonitorSpeaker },
+  screen: { label: "Entire system", heading: "Share system audio", Icon: MonitorSpeaker },
 };
-
-// Chrome on Linux only shares audio from browser tabs, so a window or the screen would arrive silent.
-const tabOnly = ["tab", "otherTab"] satisfies CaptureSource[];
 
 export default function App() {
   const { state, pending, error, tabTitle, run } = useHost();
   const [source, setSource] = useState<CaptureSource>("tab");
   const { heading, Icon } = sources[source];
-  const [options, setOptions] = useState<CaptureSource[]>(sourceSchema.options);
+  const [systemUnavailable, setSystemUnavailable] = useState<boolean | null>(null);
   useEffect(() => {
     if (typeof chrome === "undefined") return;
-    void chrome.runtime.getPlatformInfo().then(({ os }) => { if (os === "linux") setOptions(tabOnly); });
+    void chrome.runtime.getPlatformInfo().then(({ os }) => setSystemUnavailable(os === "linux"));
   }, []);
   const [dark, setDark] = useState(document.documentElement.classList.contains("dark"));
   const active = state.status === "streaming" || state.status === "reconnecting";
@@ -85,14 +80,16 @@ export default function App() {
                 const parsed = sourceSchema.safeParse(value);
                 if (parsed.success) setSource(parsed.data);
               }}>
-                {options.map((option) => {
+                {sourceSchema.options.map((option) => {
                   const { label, Icon: OptionIcon } = sources[option];
-                  return <DropdownMenuRadioItem key={option} value={option}><OptionIcon />{label}</DropdownMenuRadioItem>;
+                  return <DropdownMenuRadioItem key={option} value={option} disabled={option === "screen" && systemUnavailable !== false}>
+                    <OptionIcon /><span>{label}{option === "screen" && systemUnavailable === true && <span className="block text-xs font-normal">Use the desktop app on Linux</span>}</span>
+                  </DropdownMenuRadioItem>;
                 })}
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
-          <p className="mt-2 truncate text-sm text-muted-foreground">{source === "tab" ? tabTitle : "Chrome asks what to share"}</p>
+          <p className="mt-2 truncate text-sm text-muted-foreground">{source === "tab" ? tabTitle : "Choose a screen and enable system audio"}</p>
         </div>
         <Button size="lg" disabled={pending} onClick={() => void run({ type: "start", source })}>
           {pending ? <Spinner /> : <AudioLines />}Start sharing

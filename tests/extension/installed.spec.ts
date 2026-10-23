@@ -28,7 +28,10 @@ test("the built extension loads its module worker, popup and offscreen host", as
     await expect(page.getByText("Ready", { exact: true })).toBeVisible();
     if (process.platform === "linux") {
       await page.getByRole("button", { name: "Share this tab" }).click();
-      await expect(page.getByRole("menuitemradio")).toHaveText(["This tab", "Another tab"]);
+      await expect(page.getByRole("menuitemradio")).toHaveText(["This tab", "Entire systemUse the desktop app on Linux"]);
+      await expect(page.getByRole("menuitemradio", { name: /Entire system/u })).toBeDisabled();
+      const blocked: unknown = await page.evaluate(async () => chrome.runtime.sendMessage({ target: "background", command: { type: "start", source: "screen" } }));
+      expect(blocked).toMatchObject({ ok: false, error: "System audio is unavailable in Chrome on Linux. Use the eko desktop app." });
     }
     expect(errors).toEqual([]);
   } finally { await context.close(); await rm(directory, { recursive: true, force: true }); }

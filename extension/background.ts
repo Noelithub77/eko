@@ -8,7 +8,7 @@ async function ensureOffscreen(): Promise<void> {
     const contexts = await chrome.runtime.getContexts({ contextTypes: ["OFFSCREEN_DOCUMENT"] });
     if (contexts.length) return;
     await chrome.offscreen.createDocument({ url: "offscreen.html", reasons: ["USER_MEDIA", "DISPLAY_MEDIA", "AUDIO_PLAYBACK"],
-      justification: "Capture the tab, window or screen audio the user picks and stream it to approved eko listeners." });
+      justification: "Capture this tab or the selected screen's system audio and stream it to approved eko listeners." });
   };
   creating = create();
   try { await creating; } finally { creating = null; }
@@ -21,6 +21,9 @@ chrome.runtime.onMessage.addListener((value, sender, reply) => {
   const handle = async () => {
     await ensureOffscreen();
     const { command } = parsed.data;
+    if (command.type === "start" && command.source === "screen" && (await chrome.runtime.getPlatformInfo()).os === "linux") {
+      throw new Error("System audio is unavailable in Chrome on Linux. Use the eko desktop app.");
+    }
     let capture: { streamId: string; tabId: number; tabTitle: string } | undefined;
     if (command.type === "start" && command.source === "tab") {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
