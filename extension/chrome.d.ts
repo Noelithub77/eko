@@ -6,6 +6,7 @@ declare const chrome: {
   runtime: {
     id: string;
     getURL(path: string): string;
+    getPlatformInfo(): Promise<{ os: string }>;
     getContexts(filter: { contextTypes: string[]; documentUrls?: string[] }): Promise<{ documentUrl: string }[]>;
     sendMessage(message: unknown): Promise<unknown>;
     onMessage: { addListener(listener: ChromeListener): void; removeListener(listener: ChromeListener): void };

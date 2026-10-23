@@ -26,6 +26,10 @@ test("the built extension loads its module worker, popup and offscreen host", as
     expect(offscreen).toHaveLength(1);
     expect(offscreen[0].documentUrl).toContain("/offscreen.html");
     await expect(page.getByText("Ready", { exact: true })).toBeVisible();
+    if (process.platform === "linux") {
+      await page.getByRole("button", { name: "Share this tab" }).click();
+      await expect(page.getByRole("menuitemradio")).toHaveText(["This tab", "Another tab"]);
+    }
     expect(errors).toEqual([]);
   } finally { await context.close(); await rm(directory, { recursive: true, force: true }); }
 });

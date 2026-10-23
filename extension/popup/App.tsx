@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppWindow, AudioLines, ChevronDown, Headphones, Layers, MonitorSpeaker, Moon, PanelsTopLeft, Settings, Square, Sun,
   Volume2, VolumeX, type LucideIcon } from "lucide-react";
 import { DesktopLayout } from "../../frontend/desktop/layouts/DesktopLayout";
@@ -20,10 +20,18 @@ const sources: Record<CaptureSource, { label: string; heading: string; Icon: Luc
   screen: { label: "System audio", heading: "Share system audio", Icon: MonitorSpeaker },
 };
 
+// Chrome on Linux only shares audio from browser tabs, so a window or the screen would arrive silent.
+const tabOnly = ["tab", "otherTab"] satisfies CaptureSource[];
+
 export default function App() {
   const { state, pending, error, tabTitle, run } = useHost();
   const [source, setSource] = useState<CaptureSource>("tab");
   const { heading, Icon } = sources[source];
+  const [options, setOptions] = useState<CaptureSource[]>(sourceSchema.options);
+  useEffect(() => {
+    if (typeof chrome === "undefined") return;
+    void chrome.runtime.getPlatformInfo().then(({ os }) => { if (os === "linux") setOptions(tabOnly); });
+  }, []);
   const [dark, setDark] = useState(document.documentElement.classList.contains("dark"));
   const active = state.status === "streaming" || state.status === "reconnecting";
   const status = state.status === "streaming" ? "Live" : state.status === "reconnecting" ? "Reconnecting" : "Ready";
@@ -77,7 +85,7 @@ export default function App() {
                 const parsed = sourceSchema.safeParse(value);
                 if (parsed.success) setSource(parsed.data);
               }}>
-                {sourceSchema.options.map((option) => {
+                {options.map((option) => {
                   const { label, Icon: OptionIcon } = sources[option];
                   return <DropdownMenuRadioItem key={option} value={option}><OptionIcon />{label}</DropdownMenuRadioItem>;
                 })}

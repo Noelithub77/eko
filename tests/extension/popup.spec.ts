@@ -14,7 +14,7 @@ test("shares a tab, requires approval and keeps secondary controls closed", asyn
       connectedAt: null, webRtcState: "new", iceState: "new", connectionPath: null }];
     const state = { status: "idle", tabId: 1, tabTitle: "A quiet afternoon", devices: [], muteLocal: false, error: null, warning: null, pairing: null };
     Object.defineProperty(window, "chrome", { configurable: true, value: {
-      runtime: { getURL: (path: string) => `/${path}`, onMessage: { addListener() {}, removeListener() {} },
+      runtime: { getURL: (path: string) => `/${path}`, getPlatformInfo: async () => ({ os: "linux" }), onMessage: { addListener() {}, removeListener() {} },
         sendMessage: async ({ command }: { command: { type: string; deviceId?: string; muted?: boolean; source?: string } }) => {
           if (command.type === "start") document.body.dataset.startSource = command.source;
           if (command.type === "start") Object.assign(state, { status: "streaming", devices,
@@ -34,9 +34,10 @@ test("shares a tab, requires approval and keeps secondary controls closed", asyn
   await page.getByRole("button", { name: "Share this tab" }).click();
   await expect(page.getByRole("menuitemradio", { name: "This tab" })).toHaveAttribute("aria-checked", "true");
   await page.screenshot({ path: ".test-results/extension/sources.png" });
-  await page.getByRole("menuitemradio", { name: "System audio" }).click();
-  await expect(page.getByRole("heading", { name: "Share system audio" })).toBeVisible();
-  await page.getByRole("button", { name: "Share system audio" }).click();
+  await expect(page.getByRole("menuitemradio")).toHaveText(["This tab", "Another tab"]);
+  await page.getByRole("menuitemradio", { name: "Another tab" }).click();
+  await expect(page.getByRole("heading", { name: "Share a tab" })).toBeVisible();
+  await page.getByRole("button", { name: "Share a tab" }).click();
   await page.getByRole("menuitemradio", { name: "This tab" }).click();
   await page.getByRole("button", { name: "Start sharing" }).click();
   await expect(page.locator("body")).toHaveAttribute("data-start-source", "tab");
