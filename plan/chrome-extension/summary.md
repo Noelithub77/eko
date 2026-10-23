@@ -18,4 +18,16 @@ Real tab capture, native Android, Safari, forced TURN playback and physical late
 
 ## Publishing
 
-The user requested the Quizialo publishing pattern. Shared publisher and service-account credentials were transferred to upstream Eko secrets using an encrypted temporary Actions artifact; the transfer branch, artifact and private key were removed. Eko has no listing yet, so its own item ID is intentionally absent. The workflow defaults to building and restricts publishing to an explicit dispatch on upstream `main`. First-upload instructions live in `docs/chrome-extension.md`. Commit changes separately to PR #3 and ask before merging.
+The user requested the Quizialo publishing pattern. Shared publisher and service-account credentials were transferred to upstream Eko secrets using an encrypted temporary Actions artifact; the transfer branch, artifact and private key were removed. Noel created item `ahgbjnbhopbkifeopefgmfjckbbafndm`, and upstream `CWS_EXTENSION_ID` now identifies it. The workflow defaults to building and restricts publishing to an explicit dispatch on upstream `main`.
+
+The user approved merging PR #3 after checks pass. GitHub confirms it merged as `25b2ee1f6308dbcef2771f8a01b99a7f2b8ac7e4`. Store submission is a separate action.
+
+## Store preparation
+
+**[chosen]** Render the real popup with isolated sample session data and reuse the existing Turn icon, fonts and colors. Generate store-sized PNG assets locally without new packages. Keep listing copy, permission explanations and an extension-specific privacy policy in `docs/chrome-web-store/`. Prepare the console draft without submitting it for review.
+
+Native Chrome and in-app browser control currently report unavailable in this T3 session. The Chromium extension is installed and enabled and its native-host manifest passes diagnostics. The user requested the native Codex browser route, so do not substitute direct CDP for console changes while that constraint applies.
+
+Prepared and visually inspected three 1280 × 800 popup screenshots, the 440 × 280 small promo, the 1400 × 560 marquee and the existing 128 × 128 icon. The local renderer, extension typecheck, seven extension tests and lint pass. Console upload, saved listing fields and privacy disclosures remain unverified and unchanged by this preparation. Noel requested a prompt to continue that work in the Codex app.
+
+The follow-up store preparation is committed locally. Pushing to the original contributor branch was rejected with `permission denied` after PR #3 merged; these new files are not on upstream `main`. The app can use the local PNGs immediately, but the privacy policy must be made public before its URL is entered in the console.
